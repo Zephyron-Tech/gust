@@ -4,10 +4,10 @@ import type { ComponentProps, ReactNode } from 'react';
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
 
 const btnBase =
-  'inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-[10px] px-4 text-[14px] font-medium transition-[background-color,border-color,color,scale] duration-150 ease-[var(--ease-out)] active:scale-[0.96] disabled:pointer-events-none disabled:opacity-45 [&_svg]:size-[18px]';
+  'inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-[10px] px-4 text-[14px] font-medium transition-[background-color,border-color,color,translate,box-shadow] duration-150 ease-[var(--ease-out)] active:translate-y-px disabled:pointer-events-none disabled:opacity-45 [&_svg]:size-[18px]';
 
 export const btn = {
-  primary: `${btnBase} bg-accent text-accent-ink hover:bg-accent-hover`,
+  primary: `${btnBase} bg-accent text-accent-ink shadow-[inset_0_1px_0_rgb(255_255_255/0.18)] hover:bg-accent-hover active:shadow-none`,
   secondary: `${btnBase} border border-line bg-bg-3 text-fg hover:border-fg-3`,
   ghost: `${btnBase} px-3 text-fg-2 hover:bg-bg-3 hover:text-fg`,
   danger: `${btnBase} bg-err/15 text-err hover:bg-err hover:text-white`,

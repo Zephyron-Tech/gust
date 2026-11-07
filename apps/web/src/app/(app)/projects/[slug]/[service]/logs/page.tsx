@@ -47,7 +47,7 @@ export default function LogsPage({ params }: { params: Promise<{ slug: string; s
         <button
           type="button"
           onClick={() => setPaused((p) => !p)}
-          className="ml-auto rounded-lg px-2 py-1 font-medium text-accent transition-[background-color,scale] duration-150 hover:bg-accent-soft active:scale-95"
+          className="ml-auto rounded-lg px-2 py-1 font-medium text-accent transition-colors duration-150 hover:bg-accent-soft active:bg-accent-soft/70"
         >
           {paused ? 'Resume' : 'Pause'}
         </button>

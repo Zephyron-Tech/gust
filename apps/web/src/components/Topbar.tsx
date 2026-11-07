@@ -45,7 +45,7 @@ export function Topbar() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-line bg-bg/90 px-8 backdrop-blur">
+    <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-line bg-bg px-8">
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -62,20 +62,20 @@ export function Topbar() {
           type="button"
           onClick={toggle}
           aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-          className="grid size-10 place-items-center rounded-[10px] text-fg-2 transition-[background-color,color,scale] duration-150 ease-[var(--ease-out)] hover:bg-bg-3 hover:text-fg active:scale-90"
+          className="grid size-10 place-items-center rounded-[10px] text-fg-2 transition-[background-color,color] duration-150 hover:bg-bg-3 hover:text-fg active:bg-line"
         >
-          <span key={theme} className="icon-swap">
+          <span key={theme} className="icon-swap block">
             {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
           </span>
         </button>
         <Menu.Root>
-          <Menu.Trigger className="ml-1 grid size-9 place-items-center rounded-full bg-accent font-display text-[13px] font-semibold text-accent-ink transition-[scale,box-shadow] duration-150 ease-[var(--ease-out)] hover:ring-4 hover:ring-accent/20 active:scale-95 data-popup-open:ring-4 data-popup-open:ring-accent/25">
+          <Menu.Trigger className="ml-1 grid size-9 place-items-center rounded-full bg-accent font-display text-[13px] font-semibold text-accent-ink transition-[box-shadow] duration-200 ease-[var(--ease-out)] hover:ring-4 hover:ring-accent/20 data-popup-open:ring-4 data-popup-open:ring-accent/25">
             JV
           </Menu.Trigger>
           <Menu.Portal>
-            <Menu.Positioner sideOffset={8} align="end">
-              <Menu.Popup className="min-w-52 origin-[var(--transform-origin)] rounded-xl border border-line bg-bg-3 p-1.5 text-[14.5px] shadow-[0_16px_40px_-12px_rgb(0_0_0/0.5)] transition-[scale,opacity] duration-150 ease-[var(--ease-out)] data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0">
-                <div className="px-2.5 pt-1.5 pb-2">
+            <Menu.Positioner sideOffset={10} align="end">
+              <Menu.Popup className="min-w-56 origin-[var(--transform-origin)] rounded-xl border border-raised-line bg-raised p-1.5 text-[14.5px] shadow-pop transition-[scale,opacity,translate] duration-200 ease-[var(--ease-out)] data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:-translate-y-1 data-starting-style:scale-95 data-starting-style:opacity-0">
+                <div className="mb-1 border-b border-raised-line px-2.5 pt-1.5 pb-2.5">
                   <p className="text-fg">Jan Vandlíček</p>
                   <p className="text-[13px] text-fg-3">admin · Authentik</p>
                 </div>
@@ -83,7 +83,7 @@ export function Topbar() {
                   onClick={() => {
                     window.location.href = '/login';
                   }}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-fg-2 outline-none transition-colors duration-100 data-highlighted:bg-bg-2 data-highlighted:text-fg"
+                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-fg-2 outline-none transition-colors duration-100 data-highlighted:bg-bg-3 data-highlighted:text-fg"
                 >
                   <SignOut size={18} /> Sign out
                 </Menu.Item>
@@ -105,7 +105,7 @@ function CommandPalette({ open, onOpenChange, onTheme }: { open: boolean; onOpen
     fn();
   };
   const item =
-    'flex cursor-pointer items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14.5px] text-fg-2 transition-colors duration-100 data-[selected=true]:bg-bg-2 data-[selected=true]:text-fg';
+    'flex cursor-pointer items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14.5px] text-fg-2 transition-colors duration-100 data-[selected=true]:bg-bg-3 data-[selected=true]:text-fg';
   const group =
     '[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:text-[12.5px] [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-fg-3';
 
@@ -113,10 +113,10 @@ function CommandPalette({ open, onOpenChange, onTheme }: { open: boolean; onOpen
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/40 transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0" />
-        <Dialog.Popup className="fixed top-[18vh] left-1/2 z-50 w-[600px] -translate-x-1/2 overflow-hidden rounded-2xl border border-line bg-bg-3 shadow-[0_24px_60px_-16px_rgb(0_0_0/0.6)] transition-[scale,opacity] duration-200 ease-[var(--ease-out)] data-ending-style:scale-[0.97] data-ending-style:opacity-0 data-starting-style:scale-[0.97] data-starting-style:opacity-0">
+        <Dialog.Popup className="fixed top-[18vh] left-1/2 z-50 w-[600px] -translate-x-1/2 overflow-hidden rounded-2xl border border-raised-line bg-raised shadow-pop transition-[scale,opacity] duration-200 ease-[var(--ease-out)] data-ending-style:scale-[0.97] data-ending-style:opacity-0 data-starting-style:scale-[0.97] data-starting-style:opacity-0">
           <Dialog.Title className="sr-only">Command menu</Dialog.Title>
           <Command loop>
-            <div className="flex items-center gap-2.5 border-b border-line px-4">
+            <div className="flex items-center gap-2.5 border-b border-raised-line px-4">
               <MagnifyingGlass size={19} className="text-fg-3" />
               <Command.Input
                 placeholder="Type a command or search"

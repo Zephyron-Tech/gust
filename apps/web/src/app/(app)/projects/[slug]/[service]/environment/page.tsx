@@ -30,7 +30,7 @@ export default function EnvironmentPage() {
                 {e.secret && (
                   <button
                     type="button"
-                    className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[14px] font-medium text-accent transition-[background-color,scale] duration-150 hover:bg-accent-soft active:scale-95"
+                    className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[14px] font-medium text-accent transition-colors duration-150 hover:bg-accent-soft active:bg-accent-soft/70"
                     onClick={() =>
                       setShown((s) => {
                         const n = new Set(s);

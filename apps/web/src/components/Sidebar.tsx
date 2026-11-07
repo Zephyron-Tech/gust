@@ -59,7 +59,7 @@ export function Sidebar() {
               <I
                 size={20}
                 weight={on ? 'fill' : 'regular'}
-                className="transition-transform duration-200 ease-[var(--ease-out)] group-active:scale-90"
+               
               />
               {label}
               {href === '/server' && diskAlert && (

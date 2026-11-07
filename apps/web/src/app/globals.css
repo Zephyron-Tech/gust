@@ -19,6 +19,9 @@
   --color-err: var(--g-err);
   --color-info: var(--g-info);
   --color-log: var(--g-log-bg);
+  --color-raised: var(--g-raised);
+  --color-raised-line: var(--g-raised-line);
+  --shadow-pop: var(--g-pop-shadow);
 
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
   --font-display: var(--font-sora), var(--font-sans);

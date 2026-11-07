@@ -28,7 +28,7 @@ function Toasts() {
     <Toast.Root
       key={t.id}
       toast={t}
-      className="absolute right-0 bottom-0 w-full origin-bottom rounded-xl border border-line bg-bg-3 shadow-[0_16px_40px_-12px_rgb(0_0_0/0.55)] [transform:translateY(calc(var(--toast-index)*-10px))_scale(calc(1-var(--toast-index)*0.05))] [transition:transform_0.35s_var(--ease-out),opacity_0.25s] data-ending-style:opacity-0 data-starting-style:[transform:translateY(120%)] data-expanded:[transform:translateY(calc(var(--toast-offset-y)*-1-var(--toast-index)*10px))]"
+      className="absolute right-0 bottom-0 w-full origin-bottom rounded-xl border border-raised-line bg-raised shadow-pop [transform:translateY(calc(var(--toast-index)*-10px))_scale(calc(1-var(--toast-index)*0.05))] [transition:transform_0.35s_var(--ease-out),opacity_0.25s] data-ending-style:opacity-0 data-starting-style:[transform:translateY(120%)] data-expanded:[transform:translateY(calc(var(--toast-offset-y)*-1-var(--toast-index)*10px))]"
     >
       <Toast.Content className="flex items-start gap-3 p-4">
         {t.type === 'err' ? (
