@@ -3,11 +3,11 @@
 import { alerts, server } from '@gust/contracts/sample';
 import { CheckCircle, HeartStraight, Warning } from '@phosphor-icons/react/ssr';
 import { useMemo, useState } from 'react';
-
+import { Ago } from '@/components/Ago';
 import { Chart } from '@/components/Chart';
+import { Segmented } from '@/components/Segmented';
 import { btn, Code, cx, PageHead, Panel, Table, Td } from '@/components/ui';
 import { useDemo } from '@/lib/demo';
-import { ago } from '@/lib/format';
 import { series, useLive } from '@/lib/metrics';
 
 type Range = '1h' | '24h' | '7d' | '30d';
@@ -32,28 +32,11 @@ export default function ServerPage() {
       <PageHead
         title={server.name}
         sub={`${server.plan} · ${server.vcpu} vCPU · ${server.ramGb} GB · ${server.os} · up ${server.uptimeDays} days`}
-        actions={
-          <fieldset className="flex gap-1 rounded-xl border border-line bg-bg-2 p-1" aria-label="Time range">
-            {(Object.keys(POINTS) as Range[]).map((r) => (
-              <button
-                key={r}
-                type="button"
-                aria-pressed={range === r}
-                onClick={() => setRange(r)}
-                className={cx(
-                  'rounded-lg px-3.5 py-1.5 text-[14px] transition-colors',
-                  range === r ? 'bg-bg-3 text-fg' : 'text-fg-2 hover:text-fg',
-                )}
-              >
-                {r}
-              </button>
-            ))}
-          </fieldset>
-        }
+        actions={<Segmented options={Object.keys(POINTS) as Range[]} value={range} onChange={setRange} label="Time range" />}
       />
 
       {diskAlert ? (
-        <div className="flex items-center gap-3 rounded-2xl border border-err/35 bg-err/10 px-5 py-3.5 text-[14.5px]">
+        <div className="fade-in flex items-center gap-3 rounded-2xl border border-err/35 bg-err/10 px-5 py-3.5 text-[14.5px]">
           <Warning size={22} weight="fill" className="shrink-0 text-err" />
           <p className="flex-1">
             <b className="font-medium">Disk 91 % full</b> · 91 of 100 GB. At the current rate it fills up in about 9 hours. Sent to iPhone
@@ -71,7 +54,7 @@ export default function ServerPage() {
           </button>
         </div>
       ) : (
-        <div className="flex items-center gap-3 rounded-2xl border border-line bg-bg-2 px-5 py-3.5 text-[14.5px] text-fg-2">
+        <div className="fade-in flex items-center gap-3 rounded-2xl border border-line bg-bg-2 px-5 py-3.5 text-[14.5px] text-fg-2">
           <CheckCircle size={22} weight="fill" className="shrink-0 text-ok" />
           <p className="flex-1">All 9 rules passing.</p>
           <span className="flex items-center gap-1.5 text-[13.5px] text-fg-3">
@@ -118,7 +101,9 @@ export default function ServerPage() {
               <h2 className="font-sans text-[15px] font-medium tracking-normal">{title as string}</h2>
               <span className="text-[13.5px] text-fg-3 tabular-nums">{note as string}</span>
             </div>
-            <Chart data={data as number[]} max={max as number} unit={unit as string} forecast={fc as number | undefined} />
+            <div key={range} className="fade-in">
+              <Chart data={data as number[]} max={max as number} unit={unit as string} forecast={fc as number | undefined} />
+            </div>
           </Panel>
         ))}
       </div>
@@ -141,7 +126,7 @@ export default function ServerPage() {
           <h2 className="border-b border-line px-5 py-3 font-sans text-[13px] font-medium tracking-normal text-fg-3">Alerts</h2>
           <ul>
             {diskAlert && (
-              <li className="space-y-1 px-5 py-3.5">
+              <li className="row-in space-y-1 px-5 py-3.5">
                 <p className="text-[14.5px] font-medium text-err">Disk above 90 %</p>
                 <p className="text-[13.5px] text-fg-3">firing · just now · critical</p>
               </li>
@@ -150,7 +135,7 @@ export default function ServerPage() {
               <li key={a.id} className="space-y-1 border-t border-line px-5 py-3.5 first:border-t-0">
                 <p className="text-[14.5px] font-medium">{a.rule}</p>
                 <p className="text-[13.5px] text-fg-3">
-                  resolved · {ago(a.startedAt)} · {a.detail}
+                  resolved · <Ago iso={a.startedAt} /> · {a.detail}
                 </p>
               </li>
             ))}

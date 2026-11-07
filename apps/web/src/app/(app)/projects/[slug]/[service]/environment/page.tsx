@@ -4,6 +4,7 @@ import { env } from '@gust/contracts/sample';
 import { Eye, EyeSlash } from '@phosphor-icons/react/ssr';
 import { useState } from 'react';
 
+import { Segmented } from '@/components/Segmented';
 import { cx, Table, Td } from '@/components/ui';
 
 export default function EnvironmentPage() {
@@ -13,22 +14,7 @@ export default function EnvironmentPage() {
 
   return (
     <div className="view-in space-y-4">
-      <fieldset className="flex w-max gap-1 rounded-xl border border-line bg-bg-2 p-1" aria-label="Scope">
-        {(['production', 'preview'] as const).map((s) => (
-          <button
-            key={s}
-            type="button"
-            aria-pressed={scope === s}
-            onClick={() => setScope(s)}
-            className={cx(
-              'rounded-lg px-3.5 py-1.5 text-[14px] capitalize transition-colors',
-              scope === s ? 'bg-bg-3 text-fg' : 'text-fg-2 hover:text-fg',
-            )}
-          >
-            {s}
-          </button>
-        ))}
-      </fieldset>
+      <Segmented options={['production', 'preview'] as const} value={scope} onChange={setScope} label="Scope" />
       <Table head={['Key', 'Value', '']}>
         {rows.map((e) => {
           const visible = !e.secret || shown.has(e.key);
@@ -36,13 +22,15 @@ export default function EnvironmentPage() {
             <tr key={e.key + e.scope}>
               <Td className="w-[240px] font-mono text-[13px]">{e.key}</Td>
               <Td className={cx('font-mono text-[13px] text-fg-2', !visible && 'tracking-[0.15em] text-fg-3')}>
-                {visible ? e.value : '••••••••••••'}
+                <span key={String(visible)} className="fade-in">
+                  {visible ? e.value : '••••••••••••'}
+                </span>
               </Td>
               <Td className="w-[110px] text-right">
                 {e.secret && (
                   <button
                     type="button"
-                    className="inline-flex items-center gap-1.5 text-[14px] font-medium text-accent"
+                    className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[14px] font-medium text-accent transition-[background-color,scale] duration-150 hover:bg-accent-soft active:scale-95"
                     onClick={() =>
                       setShown((s) => {
                         const n = new Set(s);

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Sora } from 'next/font/google';
+import Script from 'next/script';
 import type { ReactNode } from 'react';
 
 import './globals.css';
@@ -20,8 +21,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" data-theme="dark" className={sora.variable} suppressHydrationWarning>
       <head>
-        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: static theme bootstrap */}
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <Script id="gust-theme" strategy="beforeInteractive">
+          {themeScript}
+        </Script>
       </head>
       <body>{children}</body>
     </html>

@@ -4,10 +4,9 @@ import { type Deployment, RUNNING_STATES } from '@gust/contracts';
 import { ArrowCounterClockwise, Check, X } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
 import { use, useEffect, useRef } from 'react';
-
+import { Ago } from '@/components/Ago';
 import { btn, Code, cx, Pill } from '@/components/ui';
 import { useDemo } from '@/lib/demo';
-import { ago } from '@/lib/format';
 
 const PHASES = ['Queued', 'Pull image', 'Start', 'Health check', 'Live'];
 
@@ -55,7 +54,7 @@ export default function DeploymentPage({ params }: { params: Promise<{ slug: str
           </div>
           <p className="text-[14px] text-fg-3">
             <Code>{d.id}</Code> · <Code>{d.sha}</Code> · {d.author} · {d.trigger === 'rollback' ? 'rollback' : `push to ${d.branch}`} ·{' '}
-            {ago(d.createdAt)}
+            <Ago iso={d.createdAt} />
             {d.duration ? ` · ${d.duration}` : ''}
           </p>
         </div>
@@ -73,28 +72,32 @@ export default function DeploymentPage({ params }: { params: Promise<{ slug: str
             <li key={n} className={cx('relative grid gap-1 px-5 py-4', i < 4 && 'border-r border-line')}>
               <span
                 className={cx(
-                  'flex items-center gap-2 text-[14.5px] font-medium',
+                  'flex items-center gap-2 text-[14.5px] font-medium transition-colors duration-300',
                   state === 'done' && 'text-ok',
                   state === 'cur' && 'text-warn',
                   state === 'bad' && 'text-err',
                   state === 'wait' && 'text-fg-2',
                 )}
               >
-                {state === 'done' && <Check size={16} weight="bold" />}
-                {state === 'bad' && <X size={16} weight="bold" />}
+                {state === 'done' && <Check size={16} weight="bold" className="pop-in" />}
+                {state === 'bad' && <X size={16} weight="bold" className="pop-in" />}
                 {n}
               </span>
               <span className={cx('text-[13.5px]', state === 'wait' ? 'text-fg-3' : 'text-fg-2')}>
                 {state === 'done' ? 'done' : state === 'cur' ? 'in progress' : state === 'bad' ? 'failed' : 'waiting'}
               </span>
-              {state === 'cur' && <span className="absolute inset-x-0 bottom-0 h-0.5 origin-left animate-pulse bg-warn" />}
+              {state === 'cur' && (
+                <span className="absolute inset-x-0 bottom-0 h-0.5 overflow-hidden bg-warn/15">
+                  <span className="indeterminate block h-full w-1/3 rounded-full bg-warn" />
+                </span>
+              )}
             </li>
           );
         })}
       </ol>
 
       {d.error && (
-        <p className="rounded-2xl border border-err/35 bg-err/10 px-5 py-3.5 text-[14.5px]">
+        <p className="fade-in rounded-2xl border border-err/35 bg-err/10 px-5 py-3.5 text-[14.5px]">
           {d.error}. The previous deployment is still live.
         </p>
       )}
@@ -111,7 +114,7 @@ export default function DeploymentPage({ params }: { params: Promise<{ slug: str
           const bad = l.phase === 'fail' || / 503 |no healthy/.test(l.line);
           const good = l.phase === 'live' || / 200 /.test(l.line);
           return (
-            <div key={i} className="grid grid-cols-[76px_64px_1fr] gap-4">
+            <div key={i} className="log-in grid grid-cols-[76px_64px_1fr] gap-4">
               <span className="text-[#5d5c74]">{l.ts}</span>
               <span className={l.phase === 'fail' ? 'text-[#ff7480]' : l.phase === 'live' ? 'text-[#4fd08f]' : 'text-[#8b80ff]'}>
                 {l.phase}

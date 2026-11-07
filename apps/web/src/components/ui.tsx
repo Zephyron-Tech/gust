@@ -4,7 +4,7 @@ import type { ComponentProps, ReactNode } from 'react';
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
 
 const btnBase =
-  'inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-[10px] px-4 text-[14px] font-medium transition-[background-color,border-color,color,transform] duration-150 ease-[var(--ease-out)] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-45 [&_svg]:size-[18px]';
+  'inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-[10px] px-4 text-[14px] font-medium transition-[background-color,border-color,color,scale] duration-150 ease-[var(--ease-out)] active:scale-[0.96] disabled:pointer-events-none disabled:opacity-45 [&_svg]:size-[18px]';
 
 export const btn = {
   primary: `${btnBase} bg-accent text-accent-ink hover:bg-accent-hover`,
@@ -39,7 +39,7 @@ export function Pill({ state }: { state: DeployState }) {
   return (
     <span
       className={cx(
-        'inline-flex w-max items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[12.5px] leading-none font-medium before:size-1.5 before:rounded-full before:bg-current',
+        'inline-flex w-max items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[12.5px] leading-none font-medium transition-[background-color,color] duration-300 before:size-1.5 before:rounded-full before:bg-current',
         pillTone[state],
       )}
     >
@@ -71,8 +71,11 @@ export function Meter({ value, tone = 'accent' }: { value: number; tone?: 'accen
   return (
     <span className="block h-1.5 overflow-hidden rounded-full bg-bg-3">
       <span
-        className={cx('block h-full rounded-full transition-[width] duration-500', tone === 'err' ? 'bg-err' : 'bg-accent')}
-        style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
+        className={cx(
+          'block h-full w-full origin-left rounded-full transition-[scale,background-color] duration-700 ease-[var(--ease-out)]',
+          tone === 'err' ? 'bg-err' : 'bg-accent',
+        )}
+        style={{ scale: `${Math.min(100, Math.max(0, value)) / 100} 1` }}
       />
     </span>
   );

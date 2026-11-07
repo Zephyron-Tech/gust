@@ -3,10 +3,9 @@
 import { CaretRight } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
 import { use } from 'react';
-
+import { Ago } from '@/components/Ago';
 import { Code, Panel, Pill } from '@/components/ui';
 import { useDemo } from '@/lib/demo';
-import { ago } from '@/lib/format';
 
 export default function DeploymentsPage({ params }: { params: Promise<{ slug: string; service: string }> }) {
   const { slug, service } = use(params);
@@ -20,7 +19,7 @@ export default function DeploymentsPage({ params }: { params: Promise<{ slug: st
           <Link
             key={d.id}
             href={`/projects/${slug}/${service}/deployments/${d.id}`}
-            className={`group grid grid-cols-[120px_1fr_150px_130px_64px_20px] items-center gap-5 px-5 py-4 transition-colors duration-100 hover:bg-bg-3/60 ${i ? 'border-t border-line' : ''}`}
+            className={`group grid grid-cols-[120px_1fr_150px_130px_64px_20px] items-center gap-5 px-5 py-4 transition-colors duration-150 hover:bg-bg-3/60 active:bg-bg-3 ${i ? 'border-t border-line' : ''} ${Date.now() - new Date(d.createdAt).getTime() < 4000 ? 'row-in' : ''}`}
           >
             <Pill state={d.state} />
             <span className="min-w-0">
@@ -30,9 +29,12 @@ export default function DeploymentsPage({ params }: { params: Promise<{ slug: st
               </span>
             </span>
             <Code className="text-fg-2">{d.sha}</Code>
-            <span className="text-[13.5px] text-fg-3">{ago(d.createdAt)}</span>
+            <Ago iso={d.createdAt} className="text-[13.5px] text-fg-3" />
             <span className="text-right text-[13.5px] text-fg-3 tabular-nums">{d.duration ?? ''}</span>
-            <CaretRight size={16} className="text-fg-3 transition-transform duration-150 group-hover:translate-x-0.5" />
+            <CaretRight
+              size={16}
+              className="text-fg-3 transition-[translate,color] duration-200 ease-[var(--ease-out)] group-hover:translate-x-1 group-hover:text-fg-2"
+            />
           </Link>
         ))}
         {list.length === 0 && (

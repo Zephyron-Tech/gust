@@ -97,3 +97,77 @@
 .uplot .u-legend {
   display: none;
 }
+
+/* ── Motion ──────────────────────────────────────────────────────────────
+   Short and quiet: things that happen tens of times a day stay under 250 ms
+   and move a few pixels. Constant motion (progress) is linear. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.rise-in {
+  animation: rise-in 420ms var(--ease-out) both;
+}
+
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+.row-in {
+  animation: row-in 320ms var(--ease-out) both;
+}
+
+@keyframes log-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+}
+.log-in {
+  animation: log-in 180ms var(--ease-out) both;
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+}
+.pop-in {
+  animation: pop-in 240ms var(--ease-out) both;
+}
+
+@keyframes icon-swap {
+  from {
+    opacity: 0;
+    transform: rotate(-40deg) scale(0.7);
+  }
+}
+.icon-swap {
+  animation: icon-swap 260ms var(--ease-out) both;
+}
+
+@keyframes indeterminate {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+.indeterminate {
+  animation: indeterminate 1.3s linear infinite;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+.fade-in {
+  animation: fade-in 200ms ease-out both;
+}

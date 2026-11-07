@@ -44,7 +44,11 @@ export default function LogsPage({ params }: { params: Promise<{ slug: string; s
       <div className="flex items-center gap-3 text-[14px] text-fg-3">
         <span className="rounded-md bg-bg-3 px-2 py-1 text-[13px] font-medium text-fg-2">{service}</span>
         <span>{paused ? 'Paused' : 'Following runtime logs'}</span>
-        <button type="button" onClick={() => setPaused((p) => !p)} className="ml-auto font-medium text-accent">
+        <button
+          type="button"
+          onClick={() => setPaused((p) => !p)}
+          className="ml-auto rounded-lg px-2 py-1 font-medium text-accent transition-[background-color,scale] duration-150 hover:bg-accent-soft active:scale-95"
+        >
           {paused ? 'Resume' : 'Pause'}
         </button>
       </div>
@@ -53,7 +57,7 @@ export default function LogsPage({ params }: { params: Promise<{ slug: string; s
         className="h-[520px] overflow-auto rounded-2xl border border-line bg-log px-6 py-5 font-mono text-[13px] leading-[1.8] text-[#d6d5e4]"
       >
         {lines.map((l, i) => (
-          <div key={i} className="grid grid-cols-[76px_56px_1fr] gap-4">
+          <div key={i} className="log-in grid grid-cols-[76px_56px_1fr] gap-4">
             <span className="text-[#5d5c74]">{l.ts}</span>
             <span className={l.line.startsWith('slow') ? 'text-[#f0bd55]' : 'text-[#8b80ff]'}>
               {l.line.startsWith('slow') ? 'warn' : service}

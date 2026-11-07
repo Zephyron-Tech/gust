@@ -5,9 +5,11 @@ import type { Icon } from '@phosphor-icons/react';
 import { Cube, Eye, Gear, Pulse, SquaresFour } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState } from 'react';
 
 import { useDemo } from '@/lib/demo';
 import { useLive } from '@/lib/metrics';
+import { useIndicator } from '@/lib/useIndicator';
 import { GustMark } from './GustMark';
 import { cx, Dot, Meter } from './ui';
 
@@ -28,7 +30,12 @@ export function Sidebar() {
   const path = usePathname();
   const live = useLive();
   const { diskAlert } = useDemo();
-  const item = 'flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14.5px] transition-colors duration-150';
+  // The highlight moves on click, before the next page has loaded, so it feels instant.
+  const [pending, setPending] = useState<{ href: string; from: string } | null>(null);
+  const current = nav.find((n) => path.startsWith(n.href))?.href ?? null;
+  const active = pending && pending.from === path ? pending.href : current;
+  const { ref: navRef, style } = useIndicator<HTMLElement>(active);
+  const item = 'group flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14.5px] transition-[background-color,color] duration-150';
 
   return (
     <aside className="sticky top-0 flex h-svh w-[260px] shrink-0 flex-col border-r border-line bg-bg-2 px-3.5 pt-5 pb-4">
@@ -36,20 +43,29 @@ export function Sidebar() {
         <GustMark size={30} />
         gust
       </Link>
-      <nav aria-label="Main" className="flex flex-col gap-0.5">
+      <nav ref={navRef} aria-label="Main" className="relative flex flex-col gap-0.5">
+        <span aria-hidden className="absolute top-0 left-0 rounded-[10px] bg-accent-soft" style={style('fill')} />
         {nav.map(({ href, label, icon: I }) => {
-          const on = path.startsWith(href);
+          const on = active === href;
           return (
             <Link
               key={href}
               href={href}
+              data-key={href}
+              onClick={() => setPending({ href, from: path })}
               aria-current={on ? 'page' : undefined}
-              className={cx(item, on ? 'bg-accent-soft text-fg' : 'text-fg-2 hover:bg-bg-3 hover:text-fg')}
+              className={cx('relative', item, on ? 'text-fg' : 'text-fg-2 hover:bg-bg-3/70 hover:text-fg')}
             >
-              <I size={20} weight={on ? 'fill' : 'regular'} />
+              <I
+                size={20}
+                weight={on ? 'fill' : 'regular'}
+                className="transition-transform duration-200 ease-[var(--ease-out)] group-active:scale-90"
+              />
               {label}
               {href === '/server' && diskAlert && (
-                <span className="ml-auto grid size-5 place-items-center rounded-full bg-err text-[11.5px] font-semibold text-white">1</span>
+                <span className="pop-in ml-auto grid size-5 place-items-center rounded-full bg-err text-[11.5px] font-semibold text-white">
+                  1
+                </span>
               )}
             </Link>
           );
@@ -61,7 +77,7 @@ export function Sidebar() {
           <Link
             key={p.slug}
             href={p.href}
-            className={cx(item, path.startsWith(`/projects/${p.slug}`) ? 'bg-bg-3 text-fg' : 'text-fg-2 hover:bg-bg-3 hover:text-fg')}
+            className={cx(item, path.startsWith(`/projects/${p.slug}`) ? 'bg-bg-3 text-fg' : 'text-fg-2 hover:bg-bg-3/70 hover:text-fg')}
           >
             <Dot health="live" />
             {p.slug}

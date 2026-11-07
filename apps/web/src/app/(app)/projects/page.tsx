@@ -1,5 +1,5 @@
 import { observed, projects } from '@gust/contracts/sample';
-import { Plus } from '@phosphor-icons/react/ssr';
+import { ArrowRight, Plus } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
 
 import { btn, Dot, PageHead, Panel, Tag } from '@/components/ui';
@@ -21,7 +21,7 @@ export default function ProjectsPage() {
         }
       />
 
-      <Panel className="grid grid-cols-4 divide-x divide-line">
+      <Panel className="rise-in grid grid-cols-4 divide-x divide-line" style={{ animationDelay: '60ms' }}>
         {[
           ['Deploys today', '7', 'across 4 projects'],
           ['Median deploy', '41 s', 'push to live'],
@@ -37,11 +37,12 @@ export default function ProjectsPage() {
       </Panel>
 
       <div className="grid grid-cols-3 gap-4">
-        {projects.map((p) => (
+        {projects.map((p, i) => (
           <Link
             key={p.slug}
+            style={{ animationDelay: `${120 + i * 45}ms` }}
             href={`/projects/${p.slug}/${p.services.find((s) => s.type === 'app')?.name ?? p.services[0]?.name}/deployments`}
-            className="group flex flex-col gap-4 rounded-2xl border border-line bg-bg-2 p-5 transition-[border-color,transform] duration-200 ease-[var(--ease-out)] hover:-translate-y-0.5 hover:border-fg-3"
+            className="rise-in group flex flex-col gap-4 rounded-2xl border border-line bg-bg-2 p-5 transition-[translate,border-color,background-color,box-shadow] duration-300 ease-[var(--ease-out)] hover:-translate-y-1 hover:border-fg-3/60 hover:bg-bg-3/40 hover:shadow-[0_18px_40px_-24px_rgb(0_0_0/0.6)] active:translate-y-0 active:duration-100"
           >
             <span className="flex items-center justify-between gap-3">
               <span className="font-display text-[18px] font-semibold tracking-tight">{p.slug}</span>
@@ -57,7 +58,13 @@ export default function ProjectsPage() {
             </span>
             <span className="mt-auto flex items-center justify-between gap-3 border-t border-line pt-3.5 text-[13px] text-fg-3">
               <span>{p.health === 'stopped' ? 'Stopped' : `Deployed ${ago(p.lastDeploy)}`}</span>
-              <span className="truncate">{p.repo.split('/')[1]}</span>
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span className="truncate">{p.repo.split('/')[1]}</span>
+                <ArrowRight
+                  size={15}
+                  className="shrink-0 -translate-x-1 text-fg-2 opacity-0 transition-[opacity,translate] duration-200 ease-[var(--ease-out)] group-hover:translate-x-0 group-hover:opacity-100"
+                />
+              </span>
             </span>
           </Link>
         ))}
