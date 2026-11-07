@@ -1,0 +1,11 @@
+{
+  "name": "@gust/brand",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    "./tokens.css": "./tokens.css",
+    "./svg/*": "./svg/*",
+    "./png/*": "./png/*",
+    "./favicon.ico": "./favicon.ico"
+  }
+}

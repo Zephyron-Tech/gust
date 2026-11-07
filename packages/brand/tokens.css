@@ -1,0 +1,43 @@
+/* Gust colour tokens. The app is dark first; the light theme is the same
+   roles with light values. Status colours belong to states only, the accent
+   only to actions and selection. */
+:root,
+[data-theme="dark"] {
+  --g-bg: #0d0e16;
+  --g-bg-2: #14151f;
+  --g-bg-3: #1c1d2b;
+  --g-line: #262839;
+  --g-fg: #ecebf5;
+  --g-fg-2: #a3a2b8;
+  --g-fg-3: #6c6b84;
+  --g-accent: #8b80ff;
+  --g-accent-hover: #a39aff;
+  --g-accent-ink: #120f2b;
+  --g-accent-soft: rgb(139 128 255 / 0.16);
+  --g-ok: #4fd08f;
+  --g-warn: #f0bd55;
+  --g-err: #ff7480;
+  --g-info: #74b0ff;
+  --g-log-bg: #07080d;
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --g-bg: #f6f5fa;
+  --g-bg-2: #ffffff;
+  --g-bg-3: #efeef6;
+  --g-line: #dfdeea;
+  --g-fg: #15142a;
+  --g-fg-2: #53526c;
+  --g-fg-3: #85849e;
+  --g-accent: #4235e5;
+  --g-accent-hover: #583fff;
+  --g-accent-ink: #ffffff;
+  --g-accent-soft: rgb(66 53 229 / 0.1);
+  --g-ok: #13804f;
+  --g-warn: #9a6200;
+  --g-err: #c42f3c;
+  --g-info: #2a6fd1;
+  --g-log-bg: #0b0c12;
+  color-scheme: light;
+}

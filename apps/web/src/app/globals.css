@@ -1,0 +1,98 @@
+@import "tailwindcss";
+@import "../../../../packages/brand/tokens.css";
+
+/* Gust tokens as Tailwind utilities: bg-bg, bg-bg-2, text-fg-2, text-accent … */
+@theme inline {
+  --color-bg: var(--g-bg);
+  --color-bg-2: var(--g-bg-2);
+  --color-bg-3: var(--g-bg-3);
+  --color-line: var(--g-line);
+  --color-fg: var(--g-fg);
+  --color-fg-2: var(--g-fg-2);
+  --color-fg-3: var(--g-fg-3);
+  --color-accent: var(--g-accent);
+  --color-accent-hover: var(--g-accent-hover);
+  --color-accent-ink: var(--g-accent-ink);
+  --color-accent-soft: var(--g-accent-soft);
+  --color-ok: var(--g-ok);
+  --color-warn: var(--g-warn);
+  --color-err: var(--g-err);
+  --color-info: var(--g-info);
+  --color-log: var(--g-log-bg);
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  --font-display: var(--font-sora), var(--font-sans);
+  --font-mono: var(--font-jetbrains), ui-monospace, "SF Mono", Menlo, monospace;
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@layer base {
+  html {
+    background: var(--g-bg);
+    color: var(--g-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+  }
+  :focus-visible {
+    outline: 2px solid var(--g-accent);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--g-accent);
+    color: var(--g-accent-ink);
+  }
+  a,
+  button:not(:disabled),
+  [role="button"] {
+    cursor: pointer;
+  }
+}
+
+/* A page's content arrives with a short rise; tab switches feel quick. */
+@keyframes view-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.view-in {
+  animation: view-in 220ms var(--ease-out);
+}
+
+@keyframes pulse-dot {
+  50% {
+    opacity: 0.3;
+  }
+}
+.pulse-dot::before {
+  animation: pulse-dot 1.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: reduced motion must win over every component */
+    animation-duration: 0.01ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: reduced motion must win over every component */
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* uPlot draws its own legend and axes; the chart cards show values themselves. */
+.uplot .u-legend {
+  display: none;
+}

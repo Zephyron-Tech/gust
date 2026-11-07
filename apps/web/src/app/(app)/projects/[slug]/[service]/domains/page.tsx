@@ -1,0 +1,34 @@
+import { domains, projects, server } from '@gust/contracts/sample';
+
+import { Pill, Table, Td } from '@/components/ui';
+
+export default async function DomainsPage({ params }: { params: Promise<{ slug: string; service: string }> }) {
+  const { slug } = await params;
+  const project = projects.find((p) => p.slug === slug);
+  const list =
+    domains[slug] ??
+    (project ? [{ host: project.domain, service: project.services[0]?.name ?? '', tls: 'http01' as const, renewsInDays: 58 }] : []);
+
+  return (
+    <div className="view-in space-y-3">
+      <Table head={['Domain', 'Service', 'Certificate', 'Status']}>
+        {list.map((d) => (
+          <tr key={d.host}>
+            <Td className="font-mono text-[12.5px]">{d.host}</Td>
+            <Td>{d.service}</Td>
+            <Td className="text-fg-3">
+              {d.tls === 'dns01' ? 'Wildcard · DNS-01 via Cloudflare' : `Let’s Encrypt · renews in ${d.renewsInDays} days`}
+            </Td>
+            <Td>
+              <Pill state="live" />
+            </Td>
+          </tr>
+        ))}
+      </Table>
+      <p className="rounded-xl bg-info/10 px-4 py-3 text-[13px] text-fg-2">
+        Point an A record at <span className="font-mono text-fg">{server.ip}</span>. Gust requests the certificate as soon as the name
+        resolves.
+      </p>
+    </div>
+  );
+}
