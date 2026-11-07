@@ -56,11 +56,7 @@ export function Sidebar() {
               aria-current={on ? 'page' : undefined}
               className={cx('relative', item, on ? 'text-fg' : 'text-fg-2 hover:bg-bg-3/70 hover:text-fg')}
             >
-              <I
-                size={20}
-                weight={on ? 'fill' : 'regular'}
-               
-              />
+              <I size={20} weight={on ? 'fill' : 'regular'} />
               {label}
               {href === '/server' && diskAlert && (
                 <span className="pop-in ml-auto grid size-5 place-items-center rounded-full bg-err text-[11.5px] font-semibold text-white">
