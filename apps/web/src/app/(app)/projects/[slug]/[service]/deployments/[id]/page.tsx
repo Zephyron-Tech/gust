@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { use, useEffect, useRef } from 'react';
 import { Ago } from '@/components/Ago';
 import { btn, Code, cx, Pill } from '@/components/ui';
-import { useDemo } from '@/lib/demo';
+import { useDemo, useDeploymentDetail } from '@/lib/demo';
 
 const PHASES = ['Queued', 'Pull image', 'Start', 'Health check', 'Live'];
 
@@ -20,7 +20,11 @@ function phase(d: Deployment) {
 export default function DeploymentPage({ params }: { params: Promise<{ slug: string; service: string; id: string }> }) {
   const { slug, service, id } = use(params);
   const { deployments, deploy, busy } = useDemo();
-  const d = deployments.find((x) => x.id === id);
+  const real = projects.some((p) => p.slug === slug && p.engine);
+  const detail = useDeploymentDetail(id, real);
+  const listed = deployments.find((x) => x.id === id);
+  // Real deploys: the polled row with its log; the list entry keeps the state fresh afterwards.
+  const d = real ? (detail ? { ...detail, state: listed?.state ?? detail.state } : listed) : listed;
   const logRef = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
   const lines = d?.logs.length ?? 0;
@@ -34,9 +38,7 @@ export default function DeploymentPage({ params }: { params: Promise<{ slug: str
   if (!d) {
     return (
       <p className="text-fg-2">
-        {projects.some((p) => p.slug === slug && p.engine)
-          ? 'Until Gust has its database, the history of real deploys lives in the browser tab that started them.'
-          : 'This deployment is not in the sample data.'}{' '}
+        {real ? 'Loading this deployment…' : 'This deployment is not in the sample data.'}{' '}
         <Link className="text-accent" href={`/projects/${slug}/${service}/deployments`}>
           Back to deployments
         </Link>

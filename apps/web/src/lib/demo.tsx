@@ -1,10 +1,9 @@
 'use client';
 
-// Deployments in the UI. Projects marked `engine` deploy for real: the browser
-// asks /api/engine/deploy, which calls the engine and streams its events back.
-// Everything else is sample data played through the same states. Until the
-// database exists, history of real deploys lives in this tab only; on load the
-// running containers are read back from the engine.
+// Deployments in the UI. Projects marked `engine` deploy for real: the server
+// runs the deploy and keeps it in the database (/api/deployments), and this
+// store polls the rows while the tab is visible. Everything else is sample
+// data played through the same states in the browser.
 import { Toast } from '@base-ui/react/toast';
 import { type Deployment, type DeployState, RUNNING_STATES } from '@gust/contracts';
 import { nextCommits, projects, deployments as seed } from '@gust/contracts/sample';
@@ -12,6 +11,29 @@ import { useRouter } from 'next/navigation';
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { clock } from './format';
+
+/** One deployment with its log, polled while it is still running. */
+export function useDeploymentDetail(id: string, enabled: boolean) {
+  const [d, setD] = useState<UiDeployment | null>(null);
+  useEffect(() => {
+    if (!enabled) return;
+    let off = false;
+    let timer = 0;
+    const load = async () => {
+      const res = await fetch(`/api/deployments/${id}`).catch(() => null);
+      const next = res?.ok ? ((await res.json()) as UiDeployment) : null;
+      if (off) return;
+      setD(next);
+      if (next && RUNNING_STATES.includes(next.state)) timer = window.setTimeout(load, 700);
+    };
+    void load();
+    return () => {
+      off = true;
+      clearTimeout(timer);
+    };
+  }, [id, enabled]);
+  return d;
+}
 
 export type UiDeployment = Deployment & { containerId?: string; engine?: boolean };
 
@@ -39,8 +61,11 @@ export function useDemo() {
 }
 
 export function DemoProvider({ children }: { children: ReactNode }) {
-  const [deployments, setDeployments] = useState<UiDeployment[]>(seed);
+  const [sim, setDeployments] = useState<UiDeployment[]>(seed);
+  const [real, setReal] = useState<UiDeployment[]>([]);
   const [engineUp, setEngineUp] = useState<boolean | null>(null);
+  const deployments = useMemo(() => [...real, ...sim], [real, sim]);
+  const watching = useRef(new Set<string>());
   const [failNext, setFailNext] = useState(false);
   const [diskAlert, setDiskAlert] = useState(false);
   const timers = useRef<number[]>([]);
@@ -50,37 +75,11 @@ export function DemoProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
 
-  // What already runs on the engine becomes the live deployment of its service.
+  // Is the engine there at all? Real projects show a notice when it is not.
   useEffect(() => {
-    let off = false;
     fetch('/api/engine/containers')
-      .then((r) => (r.ok ? r.json() : Promise.reject(r)))
-      .then((list: { id: string; image: string; state: string; project?: string; service?: string; deployment?: string }[]) => {
-        if (off) return;
-        setEngineUp(true);
-        const live: UiDeployment[] = list
-          .filter((c) => c.state === 'running' && c.project && c.service && c.deployment && isEngine(c.project))
-          .map((c) => ({
-            id: c.deployment as string,
-            project: c.project as string,
-            service: c.service as string,
-            sha: c.image.split(':').pop() ?? 'latest',
-            message: `Running ${c.image}`,
-            author: 'gust',
-            branch: 'main',
-            trigger: 'manual',
-            state: 'live',
-            createdAt: new Date().toISOString(),
-            logs: [{ ts: clock(), phase: 'live', line: `Found running on the engine: ${c.image}` }],
-            containerId: c.id,
-            engine: true,
-          }));
-        setDeployments((all) => [...live, ...all.filter((d) => !live.some((l) => l.id === d.id))]);
-      })
-      .catch(() => !off && setEngineUp(false));
-    return () => {
-      off = true;
-    };
+      .then((r) => setEngineUp(r.ok))
+      .catch(() => setEngineUp(false));
   }, []);
 
   const notify = useCallback(
@@ -89,6 +88,37 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     },
     [toasts],
   );
+
+  // Real deployments come from the database; poll while the tab is visible.
+  // Deploys started here get a toast when they finish, even after a reload
+  // they keep running on the server.
+  useEffect(() => {
+    let off = false;
+    const load = async () => {
+      if (document.hidden) return;
+      const list = (await fetch('/api/deployments')
+        .then((r) => (r.ok ? r.json() : []))
+        .catch(() => [])) as UiDeployment[];
+      if (off) return;
+      setReal(list);
+      for (const d of list) {
+        if (!watching.current.has(d.id) || RUNNING_STATES.includes(d.state)) continue;
+        watching.current.delete(d.id);
+        if (d.state === 'live')
+          notify(
+            `${d.project}/${d.service} is live`,
+            `${d.trigger === 'rollback' ? 'Rolled back to' : 'Deployed'} ${d.sha} in ${d.duration ?? '?'}.`,
+          );
+        else notify('Deploy failed', `${d.project}/${d.service}: ${d.error ?? 'see the log'}. The previous version keeps serving.`, 'err');
+      }
+    };
+    void load();
+    const id = window.setInterval(load, 1200);
+    return () => {
+      off = true;
+      clearInterval(id);
+    };
+  }, [notify]);
 
   const busy = useCallback(
     (project: string, service: string) =>
@@ -183,77 +213,18 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   async function realDeploy(project: string, service: string, rollbackOf?: Deployment, tag?: string) {
     const version = rollbackOf?.sha ?? tag;
     if (!version) return;
-    const id = `dpl_${Math.random().toString(36).slice(2, 10)}`;
-    const prev = deployments.find((d) => d.project === project && d.service === service && d.state === 'live');
-    const t0 = Date.now();
-    const patch = (fn: (x: UiDeployment) => Partial<UiDeployment>) =>
-      setDeployments((all) => all.map((x) => (x.id === id ? { ...x, ...fn(x) } : x)));
-    setDeployments((all) => [
-      {
-        id,
-        project,
-        service,
-        sha: version,
-        message: rollbackOf ? `Roll back to ${version}` : `Deploy ${version}`,
-        author: 'jan',
-        branch: 'main',
-        trigger: rollbackOf ? 'rollback' : 'manual',
-        state: 'queued',
-        createdAt: new Date().toISOString(),
-        logs: [],
-        engine: true,
-      },
-      ...all,
-    ]);
-    router.push(`/projects/${project}/${service}/deployments/${id}`);
-
-    const res = await fetch('/api/engine/deploy', {
+    const res = await fetch('/api/deployments', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ deploymentId: id, project, service, tag: version }),
+      body: JSON.stringify({ project, service, tag: version, rollbackOf: rollbackOf?.id }),
     }).catch(() => null);
-    if (!res?.ok || !res.body) {
-      const msg = res ? ((await res.json().catch(() => null)) as { error?: string } | null)?.error : null;
-      patch(() => ({ state: 'failed', error: msg ?? 'The engine did not answer' }));
-      notify('Deploy did not start', msg ?? 'The engine did not answer.', 'err');
+    const body = (await res?.json().catch(() => null)) as { id?: string; error?: string } | null;
+    if (!res?.ok || !body?.id) {
+      notify('Deploy did not start', body?.error ?? 'Gust did not answer.', 'err');
       return;
     }
-
-    const decoder = new TextDecoder();
-    const reader = res.body.getReader();
-    let buf = '';
-    let ok = false;
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      for (let i = buf.indexOf('\n\n'); i >= 0; i = buf.indexOf('\n\n')) {
-        const frame = buf.slice(0, i);
-        buf = buf.slice(i + 2);
-        const event = /^event: (.*)$/m.exec(frame)?.[1];
-        const data = /^data: (.*)$/m.exec(frame)?.[1];
-        if (!data) continue;
-        const e = JSON.parse(data);
-        if (event === 'deploy') {
-          const ts = new Date(e.ts).toLocaleTimeString('en-GB', { hour12: false });
-          patch((x) => ({
-            logs: [...x.logs, { ts, phase: e.phase, line: e.line }],
-            ...(e.state ? { state: e.state } : {}),
-            ...(e.containerId ? { containerId: e.containerId } : {}),
-            ...(e.phase === 'fail' ? { error: e.line } : {}),
-          }));
-        }
-        if (event === 'done') ok = Boolean(e.ok);
-      }
-    }
-    const secs = Math.round((Date.now() - t0) / 1000);
-    patch(() => ({ duration: `${secs} s` }));
-    if (ok) {
-      setDeployments((all) => all.map((x) => (prev && x.id === prev.id ? { ...x, state: 'superseded' } : x)));
-      notify(`${project}/${service} is live`, `${rollbackOf ? 'Rolled back to' : 'Deployed'} ${version} in ${secs} s.`);
-    } else {
-      notify('Deploy failed', `${project}/${service}: the previous version keeps serving.`, 'err');
-    }
+    watching.current.add(body.id);
+    router.push(`/projects/${project}/${service}/deployments/${body.id}`);
   }
 
   const value = useMemo(

@@ -10,8 +10,12 @@ The full spec lives in the Zephyron admin: `zephyron.tech/admin/reports/gust`.
 ## Status
 
 - Desktop web UI (`apps/web`). The `demo` project deploys for real through
-  the engine (pick an image tag, roll back, live container logs); the other
-  projects are sample data.
+  the engine (pick an image tag, roll back, live container logs); the deploy
+  runs on the server and its state and log are kept in Postgres, so it
+  survives a closed tab. The other projects are sample data.
+- Database (`packages/db`): Drizzle schema for projects, services,
+  deployments with logs, env vars and audit events; migrations in
+  `packages/db/drizzle`.
 - Engine (`apps/engine`): real blue/green deploys against local Docker with
   zero dropped requests, see `docs/spikes.md`.
 
@@ -39,6 +43,8 @@ Engine and local infrastructure (Docker Desktop):
 pnpm infra:up            # Traefik :80 (dashboard :8081), socket proxy, Postgres :5434, Zot :5050
 cp apps/engine/.env.example apps/engine/.env
 cp apps/web/.env.example apps/web/.env.local
+cp packages/db/.env.example packages/db/.env
+pnpm db:migrate && pnpm db:seed   # schema and Zephyron's projects
 pnpm dev:engine          # engine API on http://127.0.0.1:4100
 pnpm infra:demo          # build and push the demo app v1 and v2 to Zot
 pnpm spike:bluegreen     # deploy under load and count failed requests

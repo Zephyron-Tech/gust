@@ -16,7 +16,10 @@
     "infra:up": "docker compose -f infra/compose.dev.yml up -d",
     "infra:down": "docker compose -f infra/compose.dev.yml down",
     "infra:demo": "for v in v1 v2; do docker build -q --build-arg VERSION=$v -t localhost:5050/demo/hello:$v infra/demo-app && docker push -q localhost:5050/demo/hello:$v; done",
-    "spike:bluegreen": "pnpm --filter @gust/engine spike:bluegreen"
+    "spike:bluegreen": "pnpm --filter @gust/engine spike:bluegreen",
+    "db:generate": "pnpm --filter @gust/db db:generate",
+    "db:migrate": "pnpm --filter @gust/db db:migrate",
+    "db:seed": "pnpm --filter @gust/db db:seed"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.6",
