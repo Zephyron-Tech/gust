@@ -1,0 +1,104 @@
+# Local stack for Gust development: the same pieces as on the VPS, bound to
+# 127.0.0.1 only. Start with `pnpm infra:up`, stop with `pnpm infra:down`.
+name: gust-dev
+
+services:
+  # The only container with the Docker socket. The engine talks to Docker
+  # through it, and it allows a short list of API sections.
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:v0.5.0
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1
+      IMAGES: 1
+      NETWORKS: 1
+      VOLUMES: 1
+      EVENTS: 1
+      INFO: 1
+      PING: 1
+      VERSION: 1
+      POST: 1
+      ALLOW_START: 1
+      ALLOW_STOP: 1
+      ALLOW_RESTARTS: 1
+      EXEC: 0
+      SWARM: 0
+      SERVICES: 0
+      TASKS: 0
+      SECRETS: 0
+      CONFIGS: 0
+      PLUGINS: 0
+      BUILD: 0
+      COMMIT: 0
+      AUTH: 0
+      SYSTEM: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [gust_internal]
+    ports:
+      # Dev only: the engine runs on the Mac with `pnpm dev`. On the VPS the
+      # engine is a container on gust_internal and this port is not published.
+      - 127.0.0.1:2375:2375
+
+  # Routing comes from the engine (HTTP provider), so Traefik needs no Docker
+  # access at all. In dev the engine runs on the Mac, reached through
+  # host.docker.internal.
+  traefik:
+    image: traefik:v3.6
+    restart: unless-stopped
+    command:
+      - --providers.http.endpoint=http://host.docker.internal:4100/internal/traefik
+      - --providers.http.pollInterval=1s
+      - --providers.http.headers.Authorization=Bearer ${ENGINE_TOKEN:-dev-engine-token-change-me}
+      - --providers.providersThrottleDuration=0s
+      - --entrypoints.web.address=:80
+      - --api.insecure=true
+      - --ping=true
+      - --log.level=INFO
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    networks: [gust_edge]
+    ports:
+      - 127.0.0.1:80:80
+      # Traefik dashboard and API: http://localhost:8081/dashboard/
+      - 127.0.0.1:8081:8080
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: gust
+      POSTGRES_PASSWORD: gust
+      POSTGRES_DB: gust
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    networks: [gust_internal]
+    ports:
+      - 127.0.0.1:5434:5432
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U gust]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # OCI registry. Docker treats localhost registries as trusted, so
+  # `docker push localhost:5050/demo/hello:v1` works without TLS in dev.
+  zot:
+    image: ghcr.io/project-zot/zot:v2.1.23
+    restart: unless-stopped
+    volumes:
+      - ./zot/config.json:/etc/zot/config.json:ro
+      - zot:/var/lib/registry
+    networks: [gust_internal]
+    ports:
+      - 127.0.0.1:5050:5000
+
+networks:
+  gust_edge:
+    name: gust_edge
+  gust_internal:
+    name: gust_internal
+
+volumes:
+  postgres:
+  zot:

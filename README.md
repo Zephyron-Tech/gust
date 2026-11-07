@@ -9,8 +9,9 @@ The full spec lives in the Zephyron admin: `zephyron.tech/admin/reports/gust`.
 
 ## Status
 
-Phase 0: the desktop web UI with sample data. No backend yet; deploys,
-rollbacks and alerts are simulated in the browser.
+- Desktop web UI with sample data (`apps/web`); deploys there are still simulated.
+- Engine (`apps/engine`): real blue/green deploys against local Docker with
+  zero dropped requests, see `docs/spikes.md`.
 
 ## Stack
 
@@ -27,7 +28,18 @@ rollbacks and alerts are simulated in the browser.
 
 ```bash
 pnpm install
-pnpm dev        # http://localhost:3100
+pnpm dev                 # UI on http://localhost:3100
+```
+
+Engine and local infrastructure (Docker Desktop):
+
+```bash
+pnpm infra:up            # Traefik :80 (dashboard :8081), socket proxy, Postgres :5434, Zot :5050
+cp apps/engine/.env.example apps/engine/.env
+pnpm dev:engine          # engine API on http://127.0.0.1:4100
+pnpm infra:demo          # build and push the demo app v1 and v2 to Zot
+pnpm spike:bluegreen     # deploy under load and count failed requests
+pnpm infra:down
 ```
 
 Checks: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`.

@@ -1,0 +1,15 @@
+{
+  "distSpecVersion": "1.1.1",
+  "storage": {
+    "rootDirectory": "/var/lib/registry",
+    "gc": true,
+    "gcDelay": "1h",
+    "gcInterval": "24h",
+    "retention": {
+      "delay": "24h",
+      "policies": [{ "repositories": ["**"], "deleteReferrers": true, "keepTags": [{ "mostRecentlyPushedCount": 20 }] }]
+    }
+  },
+  "http": { "address": "0.0.0.0", "port": "5000" },
+  "log": { "level": "info" }
+}

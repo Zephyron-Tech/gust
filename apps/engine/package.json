@@ -1,0 +1,27 @@
+{
+  "name": "@gust/engine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=.env src/server.ts",
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "spike:bluegreen": "tsx --env-file-if-exists=.env scripts/spike-bluegreen.ts"
+  },
+  "dependencies": {
+    "@gust/contracts": "workspace:*",
+    "@hono/node-server": "2.1.6",
+    "dockerode": "5.0.1",
+    "hono": "4.13.13",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/dockerode": "4.0.2",
+    "@types/node": "24.19.2",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vitest": "5.1.0"
+  }
+}

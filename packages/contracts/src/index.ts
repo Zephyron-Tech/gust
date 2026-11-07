@@ -103,3 +103,40 @@ export const deployRequest = z.object({
   tag: z.string().min(1),
 });
 export type DeployRequest = z.infer<typeof deployRequest>;
+
+/* ── Engine ─────────────────────────────────────────────────────────────
+   The worker sends a deploy spec; the engine answers with a stream of events. */
+
+export const deploySpec = z.object({
+  deploymentId: z.string().regex(/^dpl_[a-z0-9]+$/),
+  project: z.string().regex(/^[a-z0-9-]+$/),
+  service: z.string().regex(/^[a-z0-9-]+$/),
+  image: z.string().min(1),
+  port: z.number().int().min(1).max(65535),
+  healthPath: z.string().startsWith('/').default('/'),
+  domains: z.array(z.string().min(1)).default([]),
+  env: z.record(z.string(), z.string()).default({}),
+  cpu: z.number().positive().default(1),
+  memoryMb: z.number().int().positive().default(512),
+  /** Seconds to wait for the new container to report healthy. */
+  healthTimeout: z.number().int().positive().default(60),
+});
+export type DeploySpec = z.infer<typeof deploySpec>;
+
+export const deployEvent = z.object({
+  ts: z.string(),
+  phase: z.enum(['queue', 'pull', 'start', 'health', 'route', 'drain', 'live', 'fail']),
+  state: deployState.optional(),
+  line: z.string(),
+  containerId: z.string().optional(),
+});
+export type DeployEvent = z.infer<typeof deployEvent>;
+
+/** Labels every container Gust manages carries, so state can be rebuilt from Docker. */
+export const LABEL = {
+  managed: 'gust.managed',
+  project: 'gust.project',
+  service: 'gust.service',
+  deployment: 'gust.deployment',
+  type: 'gust.type',
+} as const;
