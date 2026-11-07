@@ -1,9 +1,11 @@
 'use client';
 
+import { projects } from '@gust/contracts/sample';
 import { CaretRight } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
 import { use } from 'react';
 import { Ago } from '@/components/Ago';
+
 import { Code, Panel, Pill } from '@/components/ui';
 import { useDemo } from '@/lib/demo';
 
@@ -25,7 +27,7 @@ export default function DeploymentsPage({ params }: { params: Promise<{ slug: st
             <span className="min-w-0">
               <span className="block truncate text-[14.5px] text-fg">{d.message}</span>
               <span className="text-[13px] text-fg-3">
-                {d.author} · {d.trigger === 'rollback' ? 'rollback' : `push to ${d.branch}`}
+                {d.author} · {d.trigger === 'rollback' ? 'rollback' : d.trigger === 'manual' ? 'deployed from Gust' : `push to ${d.branch}`}
               </span>
             </span>
             <Code className="text-fg-2">{d.sha}</Code>
@@ -41,15 +43,17 @@ export default function DeploymentsPage({ params }: { params: Promise<{ slug: st
           <p className="px-5 py-10 text-center text-fg-3">No deployments yet. Push to main and GitHub Actions starts the first one.</p>
         )}
       </Panel>
-      <label className="flex w-max items-center gap-2.5 text-[14px] text-fg-3">
-        <input
-          type="checkbox"
-          checked={failNext}
-          onChange={(e) => setFailNext(e.target.checked)}
-          className="size-4 accent-[var(--g-err)]"
-        />
-        Demo: let the next deploy fail its health check
-      </label>
+      {!projects.some((p) => p.slug === slug && p.engine) && (
+        <label className="flex w-max items-center gap-2.5 text-[14px] text-fg-3">
+          <input
+            type="checkbox"
+            checked={failNext}
+            onChange={(e) => setFailNext(e.target.checked)}
+            className="size-4 accent-[var(--g-err)]"
+          />
+          Demo: let the next deploy fail its health check
+        </label>
+      )}
     </div>
   );
 }

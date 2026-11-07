@@ -1,6 +1,7 @@
 'use client';
 
 import { type Deployment, RUNNING_STATES } from '@gust/contracts';
+import { projects } from '@gust/contracts/sample';
 import { ArrowCounterClockwise, Check, X } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
 import { use, useEffect, useRef } from 'react';
@@ -33,7 +34,9 @@ export default function DeploymentPage({ params }: { params: Promise<{ slug: str
   if (!d) {
     return (
       <p className="text-fg-2">
-        This deployment is not in the sample data.{' '}
+        {projects.some((p) => p.slug === slug && p.engine)
+          ? 'Until Gust has its database, the history of real deploys lives in the browser tab that started them.'
+          : 'This deployment is not in the sample data.'}{' '}
         <Link className="text-accent" href={`/projects/${slug}/${service}/deployments`}>
           Back to deployments
         </Link>
@@ -53,7 +56,8 @@ export default function DeploymentPage({ params }: { params: Promise<{ slug: str
             <h2 className="truncate text-[24px] leading-tight">{d.message}</h2>
           </div>
           <p className="text-[14px] text-fg-3">
-            <Code>{d.id}</Code> · <Code>{d.sha}</Code> · {d.author} · {d.trigger === 'rollback' ? 'rollback' : `push to ${d.branch}`} ·{' '}
+            <Code>{d.id}</Code> · <Code>{d.sha}</Code> · {d.author} ·{' '}
+            {d.trigger === 'rollback' ? 'rollback' : d.trigger === 'manual' ? 'deployed from Gust' : `push to ${d.branch}`} ·{' '}
             <Ago iso={d.createdAt} />
             {d.duration ? ` · ${d.duration}` : ''}
           </p>

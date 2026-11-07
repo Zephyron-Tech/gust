@@ -45,7 +45,12 @@ export default function ProjectsPage() {
             className="rise-in group flex flex-col gap-4 rounded-2xl border border-line bg-bg-2 p-5 transition-[translate,border-color,background-color,box-shadow] duration-300 ease-[var(--ease-out)] hover:-translate-y-1 hover:border-fg-3/60 hover:bg-bg-3/40 hover:shadow-[0_18px_40px_-24px_rgb(0_0_0/0.6)] active:translate-y-0 active:duration-100"
           >
             <span className="flex items-center justify-between gap-3">
-              <span className="font-display text-[18px] font-semibold tracking-tight">{p.slug}</span>
+              <span className="flex items-center gap-2">
+                <span className="font-display text-[18px] font-semibold tracking-tight">{p.slug}</span>
+                {p.engine && (
+                  <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[12px] font-medium text-accent">real deploys</span>
+                )}
+              </span>
               <Dot health={p.health} />
             </span>
             <span className="-mt-2 truncate text-[14px] text-fg-2">{p.domain}</span>

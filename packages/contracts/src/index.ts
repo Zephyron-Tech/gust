@@ -20,6 +20,8 @@ export const service = z.object({
   image: z.string(),
   port: z.number().int().optional(),
   healthPath: z.string().optional(),
+  /** Hostnames routed to this service. */
+  domains: z.array(z.string()).optional(),
   cpu: z.number(),
   memoryMb: z.number().int(),
   health,
@@ -33,6 +35,8 @@ export const project = z.object({
   health,
   lastDeploy: z.string(),
   services: z.array(service),
+  /** Deployed for real through the engine; the rest is sample data. */
+  engine: z.boolean().optional(),
 });
 export type Project = z.infer<typeof project>;
 

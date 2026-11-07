@@ -18,6 +18,27 @@ export const server = {
 
 export const projects: Project[] = [
   {
+    slug: 'demo',
+    repo: 'Zephyron-Tech/gust (infra/demo-app)',
+    domain: 'hello.localhost',
+    health: 'live',
+    lastDeploy: ago(5),
+    engine: true,
+    services: [
+      {
+        name: 'hello',
+        type: 'app',
+        image: 'demo/hello',
+        port: 3000,
+        healthPath: '/healthz',
+        domains: ['hello.localhost'],
+        cpu: 0.5,
+        memoryMb: 128,
+        health: 'live',
+      },
+    ],
+  },
+  {
     slug: 'zephyron-web',
     repo: 'Zephyron-Tech/zephyron-website',
     domain: 'zephyron.tech',
@@ -163,9 +184,11 @@ function history(project: string, service: string, startMinutes: number): Deploy
   });
 }
 
-export const deployments: Deployment[] = projects.flatMap((p) =>
-  p.services.filter((s) => s.type === 'app').flatMap((s, i) => history(p.slug, s.name, i * 7 + (p.slug === 'smart-targets' ? 120 : 600))),
-);
+export const deployments: Deployment[] = projects
+  .filter((p) => !p.engine)
+  .flatMap((p) =>
+    p.services.filter((s) => s.type === 'app').flatMap((s, i) => history(p.slug, s.name, i * 7 + (p.slug === 'smart-targets' ? 120 : 600))),
+  );
 
 export const domains: Record<string, Domain[]> = {
   'smart-targets': [

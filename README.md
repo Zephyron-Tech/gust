@@ -9,7 +9,9 @@ The full spec lives in the Zephyron admin: `zephyron.tech/admin/reports/gust`.
 
 ## Status
 
-- Desktop web UI with sample data (`apps/web`); deploys there are still simulated.
+- Desktop web UI (`apps/web`). The `demo` project deploys for real through
+  the engine (pick an image tag, roll back, live container logs); the other
+  projects are sample data.
 - Engine (`apps/engine`): real blue/green deploys against local Docker with
   zero dropped requests, see `docs/spikes.md`.
 
@@ -36,6 +38,7 @@ Engine and local infrastructure (Docker Desktop):
 ```bash
 pnpm infra:up            # Traefik :80 (dashboard :8081), socket proxy, Postgres :5434, Zot :5050
 cp apps/engine/.env.example apps/engine/.env
+cp apps/web/.env.example apps/web/.env.local
 pnpm dev:engine          # engine API on http://127.0.0.1:4100
 pnpm infra:demo          # build and push the demo app v1 and v2 to Zot
 pnpm spike:bluegreen     # deploy under load and count failed requests

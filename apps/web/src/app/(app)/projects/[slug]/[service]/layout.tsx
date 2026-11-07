@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 
 import { cx, Dot } from '@/components/ui';
-import { ProjectActions, ServiceTabs } from './nav';
+import { EngineNotice, ProjectActions, ServiceTabs } from './nav';
 
 export default async function ServiceLayout({
   params,
@@ -34,7 +34,13 @@ export default async function ServiceLayout({
             {project.repo} · production · {project.domain}
           </p>
         </div>
-        <ProjectActions project={project.slug} service={svc.name} stateful={svc.type === 'stateful'} />
+        <ProjectActions
+          project={project.slug}
+          service={svc.name}
+          stateful={svc.type === 'stateful'}
+          engine={project.engine}
+          image={svc.image}
+        />
       </div>
       <div className="flex gap-2.5">
         {project.services.map((s) => (
@@ -52,6 +58,7 @@ export default async function ServiceLayout({
           </Link>
         ))}
       </div>
+      {project.engine && <EngineNotice />}
       <ServiceTabs base={`/projects/${project.slug}/${svc.name}`} stateful={svc.type === 'stateful'} />
       {children}
     </div>

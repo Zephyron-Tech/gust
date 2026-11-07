@@ -1,19 +1,28 @@
 'use client';
 
-// Client-side stand-in for the backend: holds sample deployments and plays a
-// deploy or rollback through its states, with logs, as the worker will.
+// Deployments in the UI. Projects marked `engine` deploy for real: the browser
+// asks /api/engine/deploy, which calls the engine and streams its events back.
+// Everything else is sample data played through the same states. Until the
+// database exists, history of real deploys lives in this tab only; on load the
+// running containers are read back from the engine.
 import { Toast } from '@base-ui/react/toast';
 import { type Deployment, type DeployState, RUNNING_STATES } from '@gust/contracts';
-import { nextCommits, deployments as seed } from '@gust/contracts/sample';
+import { nextCommits, projects, deployments as seed } from '@gust/contracts/sample';
 import { useRouter } from 'next/navigation';
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { clock } from './format';
 
+export type UiDeployment = Deployment & { containerId?: string; engine?: boolean };
+
+const isEngine = (project: string) => projects.some((p) => p.slug === project && p.engine);
+
 interface Demo {
-  deployments: Deployment[];
+  deployments: UiDeployment[];
   busy: (project: string, service: string) => boolean;
-  deploy: (project: string, service: string, rollbackOf?: Deployment) => void;
+  deploy: (project: string, service: string, rollbackOf?: Deployment, tag?: string) => void;
+  /** null while loading, false when the engine does not answer. */
+  engineUp: boolean | null;
   failNext: boolean;
   setFailNext: (v: boolean) => void;
   diskAlert: boolean;
@@ -30,7 +39,8 @@ export function useDemo() {
 }
 
 export function DemoProvider({ children }: { children: ReactNode }) {
-  const [deployments, setDeployments] = useState<Deployment[]>(seed);
+  const [deployments, setDeployments] = useState<UiDeployment[]>(seed);
+  const [engineUp, setEngineUp] = useState<boolean | null>(null);
   const [failNext, setFailNext] = useState(false);
   const [diskAlert, setDiskAlert] = useState(false);
   const timers = useRef<number[]>([]);
@@ -39,6 +49,39 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
+
+  // What already runs on the engine becomes the live deployment of its service.
+  useEffect(() => {
+    let off = false;
+    fetch('/api/engine/containers')
+      .then((r) => (r.ok ? r.json() : Promise.reject(r)))
+      .then((list: { id: string; image: string; state: string; project?: string; service?: string; deployment?: string }[]) => {
+        if (off) return;
+        setEngineUp(true);
+        const live: UiDeployment[] = list
+          .filter((c) => c.state === 'running' && c.project && c.service && c.deployment && isEngine(c.project))
+          .map((c) => ({
+            id: c.deployment as string,
+            project: c.project as string,
+            service: c.service as string,
+            sha: c.image.split(':').pop() ?? 'latest',
+            message: `Running ${c.image}`,
+            author: 'gust',
+            branch: 'main',
+            trigger: 'manual',
+            state: 'live',
+            createdAt: new Date().toISOString(),
+            logs: [{ ts: clock(), phase: 'live', line: `Found running on the engine: ${c.image}` }],
+            containerId: c.id,
+            engine: true,
+          }));
+        setDeployments((all) => [...live, ...all.filter((d) => !live.some((l) => l.id === d.id))]);
+      })
+      .catch(() => !off && setEngineUp(false));
+    return () => {
+      off = true;
+    };
+  }, []);
 
   const notify = useCallback(
     (title: string, description?: string, tone: 'ok' | 'err' = 'ok') => {
@@ -53,9 +96,14 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     [deployments],
   );
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: realDeploy reads the same state as its dependencies below
   const deploy = useCallback(
-    (project: string, service: string, rollbackOf?: Deployment) => {
+    (project: string, service: string, rollbackOf?: Deployment, tag?: string) => {
       if (busy(project, service)) return;
+      if (isEngine(project)) {
+        void realDeploy(project, service, rollbackOf, tag);
+        return;
+      }
       const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       const k = reduce ? 0.4 : 1;
       const [sha, message, author] = nextCommits[seq.current++ % nextCommits.length] ?? ['0000000', 'Deploy', 'jan'];
@@ -132,9 +180,85 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     [busy, deployments, failNext, notify, router],
   );
 
+  async function realDeploy(project: string, service: string, rollbackOf?: Deployment, tag?: string) {
+    const version = rollbackOf?.sha ?? tag;
+    if (!version) return;
+    const id = `dpl_${Math.random().toString(36).slice(2, 10)}`;
+    const prev = deployments.find((d) => d.project === project && d.service === service && d.state === 'live');
+    const t0 = Date.now();
+    const patch = (fn: (x: UiDeployment) => Partial<UiDeployment>) =>
+      setDeployments((all) => all.map((x) => (x.id === id ? { ...x, ...fn(x) } : x)));
+    setDeployments((all) => [
+      {
+        id,
+        project,
+        service,
+        sha: version,
+        message: rollbackOf ? `Roll back to ${version}` : `Deploy ${version}`,
+        author: 'jan',
+        branch: 'main',
+        trigger: rollbackOf ? 'rollback' : 'manual',
+        state: 'queued',
+        createdAt: new Date().toISOString(),
+        logs: [],
+        engine: true,
+      },
+      ...all,
+    ]);
+    router.push(`/projects/${project}/${service}/deployments/${id}`);
+
+    const res = await fetch('/api/engine/deploy', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ deploymentId: id, project, service, tag: version }),
+    }).catch(() => null);
+    if (!res?.ok || !res.body) {
+      const msg = res ? ((await res.json().catch(() => null)) as { error?: string } | null)?.error : null;
+      patch(() => ({ state: 'failed', error: msg ?? 'The engine did not answer' }));
+      notify('Deploy did not start', msg ?? 'The engine did not answer.', 'err');
+      return;
+    }
+
+    const decoder = new TextDecoder();
+    const reader = res.body.getReader();
+    let buf = '';
+    let ok = false;
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      for (let i = buf.indexOf('\n\n'); i >= 0; i = buf.indexOf('\n\n')) {
+        const frame = buf.slice(0, i);
+        buf = buf.slice(i + 2);
+        const event = /^event: (.*)$/m.exec(frame)?.[1];
+        const data = /^data: (.*)$/m.exec(frame)?.[1];
+        if (!data) continue;
+        const e = JSON.parse(data);
+        if (event === 'deploy') {
+          const ts = new Date(e.ts).toLocaleTimeString('en-GB', { hour12: false });
+          patch((x) => ({
+            logs: [...x.logs, { ts, phase: e.phase, line: e.line }],
+            ...(e.state ? { state: e.state } : {}),
+            ...(e.containerId ? { containerId: e.containerId } : {}),
+            ...(e.phase === 'fail' ? { error: e.line } : {}),
+          }));
+        }
+        if (event === 'done') ok = Boolean(e.ok);
+      }
+    }
+    const secs = Math.round((Date.now() - t0) / 1000);
+    patch(() => ({ duration: `${secs} s` }));
+    if (ok) {
+      setDeployments((all) => all.map((x) => (prev && x.id === prev.id ? { ...x, state: 'superseded' } : x)));
+      notify(`${project}/${service} is live`, `${rollbackOf ? 'Rolled back to' : 'Deployed'} ${version} in ${secs} s.`);
+    } else {
+      notify('Deploy failed', `${project}/${service}: the previous version keeps serving.`, 'err');
+    }
+  }
+
   const value = useMemo(
-    () => ({ deployments, busy, deploy, failNext, setFailNext, diskAlert, setDiskAlert, notify }),
-    [deployments, busy, deploy, failNext, diskAlert, notify],
+    () => ({ deployments, busy, deploy, engineUp, failNext, setFailNext, diskAlert, setDiskAlert, notify }),
+    [deployments, busy, deploy, engineUp, failNext, diskAlert, notify],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
