@@ -40,20 +40,20 @@ export default function LogsPage({ params }: { params: Promise<{ slug: string; s
   }, [lines, paused]);
 
   return (
-    <div className="view-in space-y-3">
-      <div className="flex items-center gap-3 text-[13px] text-fg-3">
-        <span className="rounded-md bg-bg-3 px-2 py-1 font-mono text-[12px] text-fg-2">{service}</span>
+    <div className="view-in space-y-4">
+      <div className="flex items-center gap-3 text-[14px] text-fg-3">
+        <span className="rounded-md bg-bg-3 px-2 py-1 text-[13px] font-medium text-fg-2">{service}</span>
         <span>{paused ? 'Paused' : 'Following runtime logs'}</span>
-        <button type="button" onClick={() => setPaused((p) => !p)} className="ml-auto text-accent">
+        <button type="button" onClick={() => setPaused((p) => !p)} className="ml-auto font-medium text-accent">
           {paused ? 'Resume' : 'Pause'}
         </button>
       </div>
       <div
         ref={box}
-        className="h-[480px] overflow-auto rounded-xl border border-line bg-log px-5 py-4 font-mono text-[12.5px] leading-[1.75] text-[#d6d5e4]"
+        className="h-[520px] overflow-auto rounded-2xl border border-line bg-log px-6 py-5 font-mono text-[13px] leading-[1.8] text-[#d6d5e4]"
       >
         {lines.map((l, i) => (
-          <div key={i} className="grid grid-cols-[72px_56px_1fr] gap-3">
+          <div key={i} className="grid grid-cols-[76px_56px_1fr] gap-4">
             <span className="text-[#5d5c74]">{l.ts}</span>
             <span className={l.line.startsWith('slow') ? 'text-[#f0bd55]' : 'text-[#8b80ff]'}>
               {l.line.startsWith('slow') ? 'warn' : service}

@@ -5,7 +5,7 @@ import { ArrowCounterClockwise, Check, X } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
 import { use, useEffect, useRef } from 'react';
 
-import { btn, cx, Pill } from '@/components/ui';
+import { btn, Code, cx, Pill } from '@/components/ui';
 import { useDemo } from '@/lib/demo';
 import { ago } from '@/lib/format';
 
@@ -46,45 +46,45 @@ export default function DeploymentPage({ params }: { params: Promise<{ slug: str
   const running = RUNNING_STATES.includes(d.state);
 
   return (
-    <div className="view-in space-y-5">
+    <div className="view-in space-y-6">
       <div className="flex items-start justify-between gap-6">
-        <div className="min-w-0 space-y-1.5">
+        <div className="min-w-0 space-y-2">
           <div className="flex items-center gap-3">
             <Pill state={d.state} />
-            <h2 className="truncate text-[20px]">{d.message}</h2>
+            <h2 className="truncate text-[24px] leading-tight">{d.message}</h2>
           </div>
-          <p className="text-[13px] text-fg-3">
-            <span className="font-mono">{d.id}</span> · <span className="font-mono">{d.sha}</span> · {d.author} ·{' '}
-            {d.trigger === 'rollback' ? 'rollback' : `push to ${d.branch}`} · {ago(d.createdAt)}
+          <p className="text-[14px] text-fg-3">
+            <Code>{d.id}</Code> · <Code>{d.sha}</Code> · {d.author} · {d.trigger === 'rollback' ? 'rollback' : `push to ${d.branch}`} ·{' '}
+            {ago(d.createdAt)}
             {d.duration ? ` · ${d.duration}` : ''}
           </p>
         </div>
         {d.state === 'superseded' && (
           <button type="button" className={btn.secondary} disabled={busy(slug, service)} onClick={() => deploy(slug, service, d)}>
-            <ArrowCounterClockwise size={15} /> Roll back to this
+            <ArrowCounterClockwise /> Roll back to this
           </button>
         )}
       </div>
 
-      <ol className="grid grid-cols-5 overflow-hidden rounded-xl border border-line bg-bg-2">
+      <ol className="grid grid-cols-5 overflow-hidden rounded-2xl border border-line bg-bg-2">
         {PHASES.map((n, i) => {
           const state = d.state === 'failed' && i === pi ? 'bad' : i < pi ? 'done' : i === pi ? 'cur' : 'wait';
           return (
-            <li key={n} className={cx('relative grid gap-1 px-4 py-3', i < 4 && 'border-r border-line')}>
+            <li key={n} className={cx('relative grid gap-1 px-5 py-4', i < 4 && 'border-r border-line')}>
               <span
                 className={cx(
-                  'flex items-center gap-1.5 font-mono text-[12px]',
+                  'flex items-center gap-2 text-[14.5px] font-medium',
                   state === 'done' && 'text-ok',
                   state === 'cur' && 'text-warn',
                   state === 'bad' && 'text-err',
-                  state === 'wait' && 'text-fg-3',
+                  state === 'wait' && 'text-fg-2',
                 )}
               >
-                {state === 'done' && <Check size={13} weight="bold" />}
-                {state === 'bad' && <X size={13} weight="bold" />}
+                {state === 'done' && <Check size={16} weight="bold" />}
+                {state === 'bad' && <X size={16} weight="bold" />}
                 {n}
               </span>
-              <span className={cx('text-[13px]', state === 'wait' ? 'text-fg-3' : 'text-fg-2')}>
+              <span className={cx('text-[13.5px]', state === 'wait' ? 'text-fg-3' : 'text-fg-2')}>
                 {state === 'done' ? 'done' : state === 'cur' ? 'in progress' : state === 'bad' ? 'failed' : 'waiting'}
               </span>
               {state === 'cur' && <span className="absolute inset-x-0 bottom-0 h-0.5 origin-left animate-pulse bg-warn" />}
@@ -94,7 +94,7 @@ export default function DeploymentPage({ params }: { params: Promise<{ slug: str
       </ol>
 
       {d.error && (
-        <p className="rounded-xl border border-err/35 bg-err/10 px-4 py-3 text-[13.5px]">
+        <p className="rounded-2xl border border-err/35 bg-err/10 px-5 py-3.5 text-[14.5px]">
           {d.error}. The previous deployment is still live.
         </p>
       )}
@@ -105,13 +105,13 @@ export default function DeploymentPage({ params }: { params: Promise<{ slug: str
           const el = e.currentTarget;
           pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
         }}
-        className="h-[420px] overflow-auto rounded-xl border border-line bg-log px-5 py-4 font-mono text-[12.5px] leading-[1.75] text-[#d6d5e4]"
+        className="h-[460px] overflow-auto rounded-2xl border border-line bg-log px-6 py-5 font-mono text-[13px] leading-[1.8] text-[#d6d5e4]"
       >
         {d.logs.map((l, i) => {
           const bad = l.phase === 'fail' || / 503 |no healthy/.test(l.line);
           const good = l.phase === 'live' || / 200 /.test(l.line);
           return (
-            <div key={i} className="grid grid-cols-[72px_64px_1fr] gap-3">
+            <div key={i} className="grid grid-cols-[76px_64px_1fr] gap-4">
               <span className="text-[#5d5c74]">{l.ts}</span>
               <span className={l.phase === 'fail' ? 'text-[#ff7480]' : l.phase === 'live' ? 'text-[#4fd08f]' : 'text-[#8b80ff]'}>
                 {l.phase}

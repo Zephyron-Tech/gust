@@ -12,8 +12,8 @@ export default function EnvironmentPage() {
   const rows = env.filter((e) => e.scope === scope);
 
   return (
-    <div className="view-in space-y-3">
-      <fieldset className="flex w-max gap-0.5 rounded-lg border border-line bg-bg-2 p-0.5" aria-label="Scope">
+    <div className="view-in space-y-4">
+      <fieldset className="flex w-max gap-1 rounded-xl border border-line bg-bg-2 p-1" aria-label="Scope">
         {(['production', 'preview'] as const).map((s) => (
           <button
             key={s}
@@ -21,7 +21,7 @@ export default function EnvironmentPage() {
             aria-pressed={scope === s}
             onClick={() => setScope(s)}
             className={cx(
-              'rounded-md px-3 py-1 text-[12.5px] capitalize transition-colors',
+              'rounded-lg px-3.5 py-1.5 text-[14px] capitalize transition-colors',
               scope === s ? 'bg-bg-3 text-fg' : 'text-fg-2 hover:text-fg',
             )}
           >
@@ -34,15 +34,15 @@ export default function EnvironmentPage() {
           const visible = !e.secret || shown.has(e.key);
           return (
             <tr key={e.key + e.scope}>
-              <Td className="w-[220px] font-mono text-[12.5px]">{e.key}</Td>
-              <Td className={cx('font-mono text-[12.5px]', !visible && 'tracking-[0.15em] text-fg-3')}>
+              <Td className="w-[240px] font-mono text-[13px]">{e.key}</Td>
+              <Td className={cx('font-mono text-[13px] text-fg-2', !visible && 'tracking-[0.15em] text-fg-3')}>
                 {visible ? e.value : '••••••••••••'}
               </Td>
               <Td className="w-[110px] text-right">
                 {e.secret && (
                   <button
                     type="button"
-                    className="inline-flex items-center gap-1.5 text-[12.5px] text-accent"
+                    className="inline-flex items-center gap-1.5 text-[14px] font-medium text-accent"
                     onClick={() =>
                       setShown((s) => {
                         const n = new Set(s);
@@ -52,7 +52,7 @@ export default function EnvironmentPage() {
                       })
                     }
                   >
-                    {visible ? <EyeSlash size={14} /> : <Eye size={14} />}
+                    {visible ? <EyeSlash size={17} /> : <Eye size={17} />}
                     {visible ? 'Hide' : 'Reveal'}
                   </button>
                 )}
@@ -61,7 +61,7 @@ export default function EnvironmentPage() {
           );
         })}
       </Table>
-      <p className="text-[13px] text-fg-3">Secrets are encrypted at rest. Revealing one is written to the audit log.</p>
+      <p className="text-[14px] text-fg-3">Secrets are encrypted at rest. Revealing one is written to the audit log.</p>
     </div>
   );
 }

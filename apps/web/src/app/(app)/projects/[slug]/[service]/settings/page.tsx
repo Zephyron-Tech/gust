@@ -3,6 +3,9 @@ import { notFound } from 'next/navigation';
 
 import { Panel } from '@/components/ui';
 
+// Values that are literal code are set in monospace; the rest reads as prose.
+const codeKeys = new Set(['Image', 'Health path', 'Networks', 'Volume', 'Repository']);
+
 export default async function ServiceSettingsPage({ params }: { params: Promise<{ slug: string; service: string }> }) {
   const { slug, service } = await params;
   const project = projects.find((p) => p.slug === slug);
@@ -27,12 +30,12 @@ export default async function ServiceSettingsPage({ params }: { params: Promise<
   ];
 
   return (
-    <Panel className="view-in max-w-3xl p-6">
-      <dl className="grid grid-cols-[170px_1fr] gap-x-6 gap-y-3 text-[13.5px]">
+    <Panel className="view-in max-w-3xl p-7">
+      <dl className="grid grid-cols-[180px_1fr] gap-x-8 gap-y-4 text-[14.5px]">
         {rows.map(([k, v]) => (
           <div key={k} className="contents">
             <dt className="text-fg-3">{k}</dt>
-            <dd className="font-mono text-[12.5px] text-fg-2">{v}</dd>
+            <dd className={codeKeys.has(k) ? 'font-mono text-[13px] text-fg-2' : 'text-fg-2'}>{v}</dd>
           </div>
         ))}
       </dl>

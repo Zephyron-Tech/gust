@@ -19,8 +19,8 @@ export default async function ServiceLayout({
   if (!project || !svc) notFound();
 
   return (
-    <div className="space-y-5">
-      <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-[13px] text-fg-3">
+    <div className="space-y-6">
+      <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-[14px] text-fg-3">
         <Link href="/projects" className="hover:text-fg">
           Projects
         </Link>
@@ -29,26 +29,26 @@ export default async function ServiceLayout({
       </nav>
       <div className="flex items-start justify-between gap-6">
         <div className="space-y-1">
-          <h1 className="text-[26px] leading-tight">{project.slug}</h1>
-          <p className="text-[13px] text-fg-3">
+          <h1 className="text-[30px] leading-[1.1]">{project.slug}</h1>
+          <p className="text-[14.5px] text-fg-3">
             {project.repo} · production · {project.domain}
           </p>
         </div>
         <ProjectActions project={project.slug} service={svc.name} stateful={svc.type === 'stateful'} />
       </div>
-      <div className="flex gap-2">
+      <div className="flex gap-2.5">
         {project.services.map((s) => (
           <Link
             key={s.name}
             href={`/projects/${project.slug}/${s.name}/${s.type === 'stateful' ? 'settings' : 'deployments'}`}
             className={cx(
-              'flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[13px] transition-colors duration-150',
+              'flex items-center gap-2.5 rounded-[10px] border px-3.5 py-2 text-[14px] font-medium transition-colors duration-150',
               s.name === svc.name ? 'border-accent bg-accent-soft text-fg' : 'border-line text-fg-2 hover:border-fg-3',
             )}
           >
             <Dot health={s.health} />
             {s.name}
-            <span className="text-fg-3">{s.type}</span>
+            <span className="font-normal text-fg-3">{s.type}</span>
           </Link>
         ))}
       </div>

@@ -43,13 +43,13 @@ const sections: { title: string; rows: [string, string][] }[] = [
 
 export default function SettingsPage() {
   return (
-    <div className="view-in space-y-5">
+    <div className="view-in space-y-7">
       <PageHead title="Settings" />
       <div className="grid max-w-4xl gap-4">
         {sections.map((s) => (
-          <Panel key={s.title} className="p-5">
-            <h2 className="mb-3 font-sans text-[14px] font-medium tracking-normal">{s.title}</h2>
-            <dl className="grid grid-cols-[190px_1fr] gap-x-6 gap-y-2.5 text-[13.5px]">
+          <Panel key={s.title} className="p-6">
+            <h2 className="mb-4 font-display text-[17px]">{s.title}</h2>
+            <dl className="grid grid-cols-[200px_1fr] gap-x-8 gap-y-3 text-[14.5px]">
               {s.rows.map(([k, v]) => (
                 <div key={k} className="contents">
                   <dt className="text-fg-3">{k}</dt>

@@ -1,16 +1,10 @@
 import type { Metadata } from 'next';
-import { JetBrains_Mono, Sora } from 'next/font/google';
+import { Sora } from 'next/font/google';
 import type { ReactNode } from 'react';
 
 import './globals.css';
 
 const sora = Sora({ subsets: ['latin', 'latin-ext'], weight: ['600'], variable: '--font-sora', display: 'swap' });
-const jetbrains = JetBrains_Mono({
-  subsets: ['latin', 'latin-ext'],
-  weight: ['400', '500'],
-  variable: '--font-jetbrains',
-  display: 'swap',
-});
 
 export const metadata: Metadata = {
   title: { default: 'Gust', template: '%s · Gust' },
@@ -24,7 +18,7 @@ const themeScript = `try{var t=localStorage.getItem('gust-theme');if(t==='light'
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" data-theme="dark" className={`${sora.variable} ${jetbrains.variable}`} suppressHydrationWarning>
+    <html lang="en" data-theme="dark" className={sora.variable} suppressHydrationWarning>
       <head>
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: static theme bootstrap */}
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />

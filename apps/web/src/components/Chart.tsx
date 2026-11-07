@@ -50,7 +50,7 @@ export function Chart({ data, max, unit, forecast }: { data: number[]; max: numb
             grid: { stroke: grid, width: 1 },
             ticks: { show: false },
             values: (_, v) => v.map((n) => `${n}${unit === '%' ? ' %' : ''}`),
-            font: '11px system-ui',
+            font: '12px -apple-system, system-ui, sans-serif',
           },
         ],
         series: [

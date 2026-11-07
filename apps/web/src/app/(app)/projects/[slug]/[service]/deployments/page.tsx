@@ -1,9 +1,10 @@
 'use client';
 
+import { CaretRight } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
 import { use } from 'react';
 
-import { Panel, Pill } from '@/components/ui';
+import { Code, Panel, Pill } from '@/components/ui';
 import { useDemo } from '@/lib/demo';
 import { ago } from '@/lib/format';
 
@@ -13,35 +14,37 @@ export default function DeploymentsPage({ params }: { params: Promise<{ slug: st
   const list = deployments.filter((d) => d.project === slug && d.service === service);
 
   return (
-    <div className="view-in space-y-3">
+    <div className="view-in space-y-4">
       <Panel className="overflow-hidden">
         {list.map((d, i) => (
           <Link
             key={d.id}
             href={`/projects/${slug}/${service}/deployments/${d.id}`}
-            className={`grid grid-cols-[112px_1fr_160px_110px_70px] items-center gap-4 px-[18px] py-3 transition-colors duration-100 hover:bg-bg-3 ${i ? 'border-t border-line' : ''}`}
+            className={`group grid grid-cols-[120px_1fr_150px_130px_64px_20px] items-center gap-5 px-5 py-4 transition-colors duration-100 hover:bg-bg-3/60 ${i ? 'border-t border-line' : ''}`}
           >
             <Pill state={d.state} />
-            <span className="truncate">
-              {d.message} <span className="text-fg-3">· {d.author}</span>
+            <span className="min-w-0">
+              <span className="block truncate text-[14.5px] text-fg">{d.message}</span>
+              <span className="text-[13px] text-fg-3">
+                {d.author} · {d.trigger === 'rollback' ? 'rollback' : `push to ${d.branch}`}
+              </span>
             </span>
-            <span className="font-mono text-[12.5px] text-fg-3">
-              {d.sha} · {d.trigger === 'rollback' ? 'rollback' : d.branch}
-            </span>
-            <span className="text-[13px] text-fg-3">{ago(d.createdAt)}</span>
-            <span className="text-right font-mono text-[12.5px] text-fg-3">{d.duration ?? ''}</span>
+            <Code className="text-fg-2">{d.sha}</Code>
+            <span className="text-[13.5px] text-fg-3">{ago(d.createdAt)}</span>
+            <span className="text-right text-[13.5px] text-fg-3 tabular-nums">{d.duration ?? ''}</span>
+            <CaretRight size={16} className="text-fg-3 transition-transform duration-150 group-hover:translate-x-0.5" />
           </Link>
         ))}
         {list.length === 0 && (
-          <p className="px-5 py-8 text-center text-fg-3">No deployments yet. Push to main and GitHub Actions will start the first one.</p>
+          <p className="px-5 py-10 text-center text-fg-3">No deployments yet. Push to main and GitHub Actions starts the first one.</p>
         )}
       </Panel>
-      <label className="flex w-max items-center gap-2 text-[13px] text-fg-3">
+      <label className="flex w-max items-center gap-2.5 text-[14px] text-fg-3">
         <input
           type="checkbox"
           checked={failNext}
           onChange={(e) => setFailNext(e.target.checked)}
-          className="size-3.5 accent-[var(--g-err)]"
+          className="size-4 accent-[var(--g-err)]"
         />
         Demo: let the next deploy fail its health check
       </label>

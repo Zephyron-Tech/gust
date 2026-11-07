@@ -23,7 +23,7 @@ export function ServiceTabs({ base, stateful }: { base: string; stateful: boolea
             href={href}
             aria-current={on ? 'page' : undefined}
             className={cx(
-              '-mb-px border-b-2 px-3 py-2.5 text-[14px] capitalize transition-colors duration-150',
+              '-mb-px border-b-2 px-3.5 py-3 text-[15px] capitalize transition-colors duration-150',
               on ? 'border-accent text-fg' : 'border-transparent text-fg-2 hover:text-fg',
             )}
           >
@@ -52,7 +52,7 @@ export function ProjectActions({ project, service, stateful }: { project: string
         </button>
       ) : (
         <button type="button" className={btn.primary} disabled={busy(project, service)} onClick={() => deploy(project, service)}>
-          <Rocket size={15} /> Redeploy
+          <Rocket /> Redeploy
         </button>
       )}
     </div>

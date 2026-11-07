@@ -28,12 +28,12 @@ export function Sidebar() {
   const path = usePathname();
   const live = useLive();
   const { diskAlert } = useDemo();
-  const item = 'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13.5px] transition-colors duration-150';
+  const item = 'flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14.5px] transition-colors duration-150';
 
   return (
-    <aside className="sticky top-0 flex h-svh w-[236px] shrink-0 flex-col border-r border-line bg-bg-2 px-3 pt-4 pb-3">
-      <Link href="/projects" className="mb-5 flex items-center gap-2.5 px-2 font-display text-[19px] font-semibold tracking-[-0.04em]">
-        <GustMark size={26} />
+    <aside className="sticky top-0 flex h-svh w-[260px] shrink-0 flex-col border-r border-line bg-bg-2 px-3.5 pt-5 pb-4">
+      <Link href="/projects" className="mb-7 flex items-center gap-3 px-2.5 font-display text-[22px] font-semibold tracking-[-0.045em]">
+        <GustMark size={30} />
         gust
       </Link>
       <nav aria-label="Main" className="flex flex-col gap-0.5">
@@ -46,16 +46,16 @@ export function Sidebar() {
               aria-current={on ? 'page' : undefined}
               className={cx(item, on ? 'bg-accent-soft text-fg' : 'text-fg-2 hover:bg-bg-3 hover:text-fg')}
             >
-              <I size={17} weight={on ? 'fill' : 'regular'} />
+              <I size={20} weight={on ? 'fill' : 'regular'} />
               {label}
               {href === '/server' && diskAlert && (
-                <span className="ml-auto rounded-full bg-err px-1.5 font-mono text-[10.5px] leading-[18px] text-white">1</span>
+                <span className="ml-auto grid size-5 place-items-center rounded-full bg-err text-[11.5px] font-semibold text-white">1</span>
               )}
             </Link>
           );
         })}
       </nav>
-      <p className="mt-5 mb-1.5 px-2.5 text-[11.5px] text-fg-3">Pinned</p>
+      <p className="mt-7 mb-2 px-3 text-[12.5px] font-medium text-fg-3">Pinned</p>
       <div className="flex flex-col gap-0.5">
         {pinned.map((p) => (
           <Link
@@ -69,20 +69,23 @@ export function Sidebar() {
         ))}
       </div>
 
-      <Link href="/server" className="mt-auto grid gap-2 rounded-lg border-t border-line px-2.5 pt-3 text-[12px] text-fg-3 hover:text-fg-2">
+      <Link
+        href="/server"
+        className="mt-auto grid gap-2.5 rounded-xl bg-bg-3/60 px-3.5 py-3.5 text-[13px] text-fg-3 transition-colors hover:text-fg-2"
+      >
         <span className="flex justify-between">
-          <span>{server.plan.replace('Cloud ', '')}</span>
-          <span className="font-mono">{server.vcpu} vCPU</span>
+          <span className="font-medium text-fg-2">{server.plan.replace('Cloud ', '')}</span>
+          <span>{server.vcpu} vCPU</span>
         </span>
         {[
           ['CPU', live.cpu, `${live.cpu.toFixed(0)} %`],
           ['RAM', (live.ramGb / server.ramGb) * 100, `${live.ramGb.toFixed(1)} / ${server.ramGb} GB`],
           ['Disk', diskAlert ? 91 : 31, diskAlert ? '91 / 100 GB' : '31 / 100 GB'],
         ].map(([k, v, t]) => (
-          <span key={k as string} className="grid grid-cols-[34px_1fr_84px] items-center gap-2">
+          <span key={k as string} className="grid grid-cols-[38px_1fr_92px] items-center gap-2.5">
             <span>{k}</span>
             <Meter value={v as number} tone={k === 'Disk' && diskAlert ? 'err' : 'accent'} />
-            <span className="text-right font-mono tabular-nums">{t}</span>
+            <span className="text-right tabular-nums">{t}</span>
           </span>
         ))}
       </Link>

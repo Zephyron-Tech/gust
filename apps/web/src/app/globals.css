@@ -22,7 +22,8 @@
 
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
   --font-display: var(--font-sora), var(--font-sans);
-  --font-mono: var(--font-jetbrains), ui-monospace, "SF Mono", Menlo, monospace;
+  /* Monospace only for literal code: hashes, ids, paths, env keys, logs. */
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
 
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
@@ -35,8 +36,8 @@
     -webkit-font-smoothing: antialiased;
   }
   body {
-    font-size: 14px;
-    line-height: 1.45;
+    font-size: 15px;
+    line-height: 1.5;
   }
   h1,
   h2,
