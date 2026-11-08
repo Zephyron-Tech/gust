@@ -19,7 +19,8 @@
     "spike:bluegreen": "pnpm --filter @gust/engine spike:bluegreen",
     "db:generate": "pnpm --filter @gust/db db:generate",
     "db:migrate": "pnpm --filter @gust/db db:migrate",
-    "db:seed": "pnpm --filter @gust/db db:seed"
+    "db:seed": "pnpm --filter @gust/db db:seed",
+    "dev:worker": "pnpm --filter @gust/worker dev"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.6",

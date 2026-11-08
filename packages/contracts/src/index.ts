@@ -51,7 +51,7 @@ export const deployment = z.object({
   message: z.string(),
   author: z.string(),
   branch: z.string(),
-  trigger: z.enum(['push', 'rollback', 'manual', 'preview']),
+  trigger: z.enum(['push', 'rollback', 'manual', 'preview', 'reconcile']),
   state: deployState,
   createdAt: z.string(),
   duration: z.string().optional(),

@@ -14,7 +14,7 @@ export const deployState = pgEnum('deploy_state', [
   'superseded',
   'cancelled',
 ]);
-export const deployTrigger = pgEnum('deploy_trigger', ['push', 'rollback', 'manual', 'preview']);
+export const deployTrigger = pgEnum('deploy_trigger', ['push', 'rollback', 'manual', 'preview', 'reconcile']);
 export const envScope = pgEnum('env_scope', ['production', 'preview']);
 
 const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();

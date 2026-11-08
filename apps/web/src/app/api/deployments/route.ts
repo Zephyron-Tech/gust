@@ -1,14 +1,13 @@
 import { z } from 'zod';
 
 import { requireUser } from '@/lib/auth';
-import { DeployError, failInterrupted, startDeploy } from '@/lib/deploy-runner';
+import { DeployError, startDeploy } from '@/lib/deploy-runner';
 import { listDeployments } from '@/lib/deployments-db';
 
 export async function GET(req: Request) {
   const u = await requireUser(req);
   if (u instanceof Response) return u;
   const q = new URL(req.url).searchParams;
-  await failInterrupted();
   return Response.json(await listDeployments(q.get('project') ?? undefined, q.get('service') ?? undefined));
 }
 

@@ -11,8 +11,9 @@ The full spec lives in the Zephyron admin: `zephyron.tech/admin/reports/gust`.
 
 - Desktop web UI (`apps/web`). The `demo` project deploys for real through
   the engine (pick an image tag, roll back, live container logs); the deploy
-  runs on the server and its state and log are kept in Postgres, so it
-  survives a closed tab. The other projects are sample data.
+  is queued (pg-boss) and run by the worker, and its state and log are kept in
+  Postgres, so it survives a closed tab. The worker also redeploys a live
+  service whose container disappeared. The other projects are sample data.
 - Database (`packages/db`): Drizzle schema for projects, services,
   deployments with logs, env vars and audit events; migrations in
   `packages/db/drizzle`.
@@ -48,6 +49,8 @@ pnpm db:migrate && pnpm db:seed   # schema and Zephyron's projects
 # set BETTER_AUTH_SECRET and BREAK_GLASS_* in apps/web/.env.local, then:
 pnpm --filter @gust/web auth:break-glass
 pnpm dev:engine          # engine API on http://127.0.0.1:4100
+cp apps/worker/.env.example apps/worker/.env
+pnpm dev:worker          # runs deploy jobs and restores missing containers
 pnpm infra:demo          # build and push the demo app v1 and v2 to Zot
 pnpm spike:bluegreen     # deploy under load and count failed requests
 pnpm infra:down

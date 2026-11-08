@@ -27,7 +27,14 @@ export default function DeploymentsPage({ params }: { params: Promise<{ slug: st
             <span className="min-w-0">
               <span className="block truncate text-[14.5px] text-fg">{d.message}</span>
               <span className="text-[13px] text-fg-3">
-                {d.author} · {d.trigger === 'rollback' ? 'rollback' : d.trigger === 'manual' ? 'deployed from Gust' : `push to ${d.branch}`}
+                {d.author} ·{' '}
+                {d.trigger === 'rollback'
+                  ? 'rollback'
+                  : d.trigger === 'manual'
+                    ? 'deployed from Gust'
+                    : d.trigger === 'reconcile'
+                      ? 'restored by Gust'
+                      : `push to ${d.branch}`}
               </span>
             </span>
             <Code className="text-fg-2">{d.sha}</Code>

@@ -59,8 +59,14 @@ export default function DeploymentPage({ params }: { params: Promise<{ slug: str
           </div>
           <p className="text-[14px] text-fg-3">
             <Code>{d.id}</Code> · <Code>{d.sha}</Code> · {d.author} ·{' '}
-            {d.trigger === 'rollback' ? 'rollback' : d.trigger === 'manual' ? 'deployed from Gust' : `push to ${d.branch}`} ·{' '}
-            <Ago iso={d.createdAt} />
+            {d.trigger === 'rollback'
+              ? 'rollback'
+              : d.trigger === 'manual'
+                ? 'deployed from Gust'
+                : d.trigger === 'reconcile'
+                  ? 'restored by Gust'
+                  : `push to ${d.branch}`}{' '}
+            · <Ago iso={d.createdAt} />
             {d.duration ? ` · ${d.duration}` : ''}
           </p>
         </div>

@@ -3,7 +3,7 @@ import type { NextConfig } from 'next';
 const config: NextConfig = {
   reactStrictMode: true,
   transpilePackages: ['@gust/contracts', '@gust/db'],
-  serverExternalPackages: ['pg'],
+  serverExternalPackages: ['pg', 'pg-boss'],
 };
 
 export default config;
