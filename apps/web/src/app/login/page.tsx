@@ -1,14 +1,18 @@
-import Link from 'next/link';
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 import { GustMark } from '@/components/GustMark';
-import { btn } from '@/components/ui';
-import { BreakGlass } from './BreakGlass';
+import { authentikEnabled, currentUser } from '@/lib/auth';
+import { SignIn } from './SignIn';
 
 export const metadata = { title: 'Sign in' };
 
-// Sign-in goes through Authentik. The break-glass form is for when Authentik
-// itself is down; both only lead into the sample UI for now.
-export default function LoginPage() {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
+  const { next } = await searchParams;
+  // Only same-site paths, so the redirect after sign-in cannot leave Gust.
+  const target = next?.startsWith('/') && !next.startsWith('//') ? next : '/projects';
+  if (await currentUser(await headers())) redirect(target);
+
   return (
     <main className="grid min-h-svh place-items-center px-6">
       <div className="w-full max-w-[380px] space-y-8">
@@ -23,34 +27,7 @@ export default function LoginPage() {
             </p>
           </div>
         </div>
-        <Link href="/projects" className={`${btn.primary} h-11 w-full text-[15px]`}>
-          Continue with Authentik
-        </Link>
-        <details className="group rounded-2xl border border-line bg-bg-2 px-5 py-4 text-[14px]">
-          <summary className="cursor-pointer list-none text-fg-2 marker:hidden">Authentik is down? Use the break-glass account</summary>
-          <BreakGlass>
-            <label className="block space-y-1">
-              <span className="text-fg-3">Username</span>
-              <input
-                name="user"
-                autoComplete="username"
-                className="h-10 w-full rounded-[10px] border border-line bg-bg px-3 text-[15px] outline-none focus:border-accent"
-              />
-            </label>
-            <label className="block space-y-1">
-              <span className="text-fg-3">Password</span>
-              <input
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                className="h-10 w-full rounded-[10px] border border-line bg-bg px-3 text-[15px] outline-none focus:border-accent"
-              />
-            </label>
-            <button type="submit" className={`${btn.secondary} w-full`}>
-              Sign in
-            </button>
-          </BreakGlass>
-        </details>
+        <SignIn authentik={authentikEnabled} next={target} />
       </div>
     </main>
   );

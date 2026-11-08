@@ -6,7 +6,7 @@ import 'server-only';
 // In production this moves to apps/worker on a pg-boss queue; the rows and
 // states stay the same.
 import { RUNNING_STATES } from '@gust/contracts';
-import { db, deploymentLogs, deployments, projects, services } from '@gust/db';
+import { auditEvents, db, deploymentLogs, deployments, projects, services } from '@gust/db';
 import { and, eq, inArray, lt, ne } from 'drizzle-orm';
 
 import { engineFetch, registryHost } from './engine-server';
@@ -33,7 +33,14 @@ export async function failInterrupted() {
     .where(and(inArray(deployments.state, running), lt(deployments.createdAt, new Date(Date.now() - 5 * 60_000))));
 }
 
-export async function startDeploy(input: { project: string; service: string; tag: string; rollbackOf?: string; author: string }) {
+export async function startDeploy(input: {
+  project: string;
+  service: string;
+  tag: string;
+  rollbackOf?: string;
+  author: string;
+  actor: string;
+}) {
   const row = await findService(input.project, input.service);
   if (!row?.project.engine) throw new DeployError('This service is not deployed through the engine');
   const svc = row.service;
@@ -56,6 +63,13 @@ export async function startDeploy(input: { project: string; service: string; tag
     message: input.rollbackOf ? `Roll back to ${input.tag}` : `Deploy ${input.tag}`,
     author: input.author,
     rollbackOf: input.rollbackOf ?? null,
+  });
+
+  await db.insert(auditEvents).values({
+    actor: input.actor,
+    action: input.rollbackOf ? 'deploy.rollback' : 'deploy.start',
+    target: `${input.project}/${input.service}`,
+    detail: { deploymentId: id, tag: input.tag, rollbackOf: input.rollbackOf ?? null },
   });
 
   // Not awaited: the request returns at once and the deploy carries on.

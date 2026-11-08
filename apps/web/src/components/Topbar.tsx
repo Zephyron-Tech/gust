@@ -8,6 +8,7 @@ import { Command } from 'cmdk';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import { authClient } from '@/lib/auth-client';
 import { useDemo } from '@/lib/demo';
 import { Kbd } from './ui';
 
@@ -31,6 +32,15 @@ function useTheme() {
 
 export function Topbar() {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
+  const { data } = authClient.useSession();
+  const me = data?.user as { name: string; email: string; role?: string } | undefined;
+  const initials = (me?.name ?? '?')
+    .split(/\s+/)
+    .map((w) => w[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
   const { theme, toggle } = useTheme();
 
   useEffect(() => {
@@ -70,18 +80,22 @@ export function Topbar() {
         </button>
         <Menu.Root>
           <Menu.Trigger className="ml-1 grid size-9 place-items-center rounded-full bg-accent font-display text-[13px] font-semibold text-accent-ink transition-[box-shadow] duration-200 ease-[var(--ease-out)] hover:ring-4 hover:ring-accent/20 data-popup-open:ring-4 data-popup-open:ring-accent/25">
-            JV
+            {initials}
           </Menu.Trigger>
           <Menu.Portal>
             <Menu.Positioner sideOffset={10} align="end">
               <Menu.Popup className="min-w-56 origin-[var(--transform-origin)] rounded-xl border border-raised-line bg-raised p-1.5 text-[14.5px] shadow-pop transition-[scale,opacity,translate] duration-200 ease-[var(--ease-out)] data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:-translate-y-1 data-starting-style:scale-95 data-starting-style:opacity-0">
                 <div className="mb-1 border-b border-raised-line px-2.5 pt-1.5 pb-2.5">
-                  <p className="text-fg">Jan Vandlíček</p>
-                  <p className="text-[13px] text-fg-3">admin · Authentik</p>
+                  <p className="text-fg">{me?.name ?? 'Signed in'}</p>
+                  <p className="text-[13px] text-fg-3">
+                    {me?.email} · {me?.role ?? 'member'}
+                  </p>
                 </div>
                 <Menu.Item
-                  onClick={() => {
-                    window.location.href = '/login';
+                  onClick={async () => {
+                    await authClient.signOut();
+                    router.replace('/login');
+                    router.refresh();
                   }}
                   className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-fg-2 outline-none transition-colors duration-100 data-highlighted:bg-bg-3 data-highlighted:text-fg"
                 >

@@ -1,10 +1,15 @@
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 
 import { Providers } from '@/components/Providers';
 import { Sidebar } from '@/components/Sidebar';
 import { Topbar } from '@/components/Topbar';
+import { currentUser } from '@/lib/auth';
 
-export default function AppLayout({ children }: { children: ReactNode }) {
+export default async function AppLayout({ children }: { children: ReactNode }) {
+  // The proxy only checks that a session cookie exists; this checks the session.
+  if (!(await currentUser(await headers()))) redirect('/login');
   return (
     <Providers>
       <div className="flex min-h-svh">

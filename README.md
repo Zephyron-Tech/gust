@@ -45,6 +45,8 @@ cp apps/engine/.env.example apps/engine/.env
 cp apps/web/.env.example apps/web/.env.local
 cp packages/db/.env.example packages/db/.env
 pnpm db:migrate && pnpm db:seed   # schema and Zephyron's projects
+# set BETTER_AUTH_SECRET and BREAK_GLASS_* in apps/web/.env.local, then:
+pnpm --filter @gust/web auth:break-glass
 pnpm dev:engine          # engine API on http://127.0.0.1:4100
 pnpm infra:demo          # build and push the demo app v1 and v2 to Zot
 pnpm spike:bluegreen     # deploy under load and count failed requests

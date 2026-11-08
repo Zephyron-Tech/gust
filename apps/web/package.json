@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start --port 3100",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "auth:break-glass": "tsx --env-file-if-exists=.env.local scripts/break-glass.ts"
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",
@@ -16,6 +17,7 @@
     "@gust/contracts": "workspace:*",
     "@gust/db": "workspace:*",
     "@phosphor-icons/react": "2.1.10",
+    "better-auth": "1.7.14",
     "cmdk": "1.1.1",
     "drizzle-orm": "0.45.4",
     "next": "16.4.5",
@@ -32,6 +34,7 @@
     "@types/react-dom": "19.3.0",
     "tailwindcss": "4.3.5",
     "typescript": "7.0.2",
-    "vitest": "5.1.0"
+    "vitest": "5.1.0",
+    "tsx": "4.23.15"
   }
 }

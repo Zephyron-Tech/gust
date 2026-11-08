@@ -6,7 +6,7 @@ Internal deploy and monitoring platform for one VPS. Spec: zephyron.tech/admin/r
 - Routing: Traefik gets its config from the engine (`GET /internal/traefik`, HTTP provider), not from Docker labels. Deploys take old containers out of that config before stopping them. See `docs/spikes.md`.
 - Only the engine talks to Docker, and only through the socket proxy.
 - Database: `packages/db` (Drizzle, Postgres 17). Change `src/schema.ts`, then `pnpm db:generate` and `pnpm db:migrate`. Real deploys are started by `POST /api/deployments` and run on the server (`apps/web/src/lib/deploy-runner.ts`); this moves to `apps/worker` later.
-- The API routes have no sign-in yet; never expose the dev UI beyond localhost.
+- Sign-in: Better Auth (`apps/web/src/lib/auth.ts`). Pages check the session in `(app)/layout.tsx`; route handlers call `requireUser(req)` and get a 401/403 otherwise. Authentik group `gust-admins` maps to role admin. Write an `audit_events` row for every change.
 - UI language is English; specs and conversation are Czech.
 - Styling: Tailwind with Gust tokens (`bg-bg`, `bg-bg-2`, `text-fg-2`, `text-accent` …) from `packages/brand/tokens.css`. Dark theme first, light theme via `data-theme="light"`.
 - Components: Base UI primitives styled by us. No shadcn. Icons: Phosphor from `@phosphor-icons/react/ssr`.
