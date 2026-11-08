@@ -86,15 +86,21 @@ link to the deployment) when `GITHUB_APP_ID` and `GITHUB_APP_PRIVATE_KEY` are
 set in `apps/worker/.env`. Without them it skips this quietly; the workflow's
 own check still shows the result.
 
-Register the app once (organisation settings → Developer settings → GitHub
-Apps → New):
+The app is registered as **Zephyron Gust** (App ID `5670843`, installable
+only on Zephyron-Tech) with:
 
-- Name `Gust`, homepage `https://gust.zephyron.tech`.
 - Webhook: off for now (M4 turns it on for pull-request previews).
 - Repository permissions: **Commit statuses: Read and write**, Metadata: Read.
-- Install it on the repositories Gust deploys.
-- Generate a private key and put it in `GITHUB_APP_PRIVATE_KEY` with newlines
-  written as `\n`, and the App ID in `GITHUB_APP_ID`.
+  Nothing else.
+- Installed on selected repositories; add each repository when it moves to
+  Gust (organisation settings → GitHub Apps → Zephyron Gust → Configure).
+
+The private key lives in the shared password manager. Put it in
+`GITHUB_APP_PRIVATE_KEY` with newlines written as `\n`:
+
+```bash
+printf 'GITHUB_APP_PRIVATE_KEY="%s"\n' "$(awk '{printf "%s\\n", $0}' path/to/key.pem)" >> apps/worker/.env
+```
 
 ## Registry access
 

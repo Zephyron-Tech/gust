@@ -2,7 +2,7 @@ import 'server-only';
 
 // Sign-in for Gust. Two ways in:
 // - Authentik (OIDC), the normal one. Users in the Authentik group named by
-//   GUST_ADMIN_GROUP (default gust-admins) become admins, everyone else members.
+//   GUST_ADMIN_GROUP (default gust-admin) become admins, everyone else members.
 // - The break-glass account (email and password), for when Authentik itself
 //   is down. Self sign-up is off; the account is created with
 //   `pnpm --filter @gust/web auth:break-glass`.
@@ -13,7 +13,7 @@ import { nextCookies } from 'better-auth/next-js';
 import { genericOAuth } from 'better-auth/plugins/generic-oauth';
 
 const authentik = process.env.AUTHENTIK_ISSUER && process.env.AUTHENTIK_CLIENT_ID;
-const adminGroup = process.env.GUST_ADMIN_GROUP ?? 'gust-admins';
+const adminGroup = process.env.GUST_ADMIN_GROUP ?? 'gust-admin';
 
 export const authentikEnabled = Boolean(authentik);
 

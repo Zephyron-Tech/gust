@@ -7,7 +7,7 @@ Internal deploy and monitoring platform for one VPS. Spec: zephyron.tech/admin/r
 - Only the engine talks to Docker, and only through the socket proxy.
 - Database: `packages/db` (Drizzle, Postgres 17). Change `src/schema.ts`, then `pnpm db:generate` and `pnpm db:migrate`. Real deploys: `POST /api/deployments` writes the row and enqueues a pg-boss job (`packages/db/src/queue.ts`); `apps/worker` runs it and is the only place that changes a deployment's state. The worker's reconcile loop redeploys live services whose container is gone.
 - GitHub deploys: `POST /api/deploy` is authenticated by the workflow's GitHub OIDC token, not a session (`apps/web/src/lib/github-oidc.ts`); the project's `github_repo` and `production_branch` decide what a token may deploy. Shared action in `.github/actions/deploy`. See `docs/github.md`.
-- Sign-in: Better Auth (`apps/web/src/lib/auth.ts`). Pages check the session in `(app)/layout.tsx`; route handlers call `requireUser(req)` and get a 401/403 otherwise. Authentik group `gust-admins` maps to role admin. Write an `audit_events` row for every change.
+- Sign-in: Better Auth (`apps/web/src/lib/auth.ts`). Pages check the session in `(app)/layout.tsx`; route handlers call `requireUser(req)` and get a 401/403 otherwise. Authentik group `gust-admin` maps to role admin. Write an `audit_events` row for every change.
 - UI language is English; specs and conversation are Czech.
 - Styling: Tailwind with Gust tokens (`bg-bg`, `bg-bg-2`, `text-fg-2`, `text-accent` …) from `packages/brand/tokens.css`. Dark theme first, light theme via `data-theme="light"`.
 - Components: Base UI primitives styled by us. No shadcn. Icons: Phosphor from `@phosphor-icons/react/ssr`.
