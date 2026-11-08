@@ -19,9 +19,13 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export const routeName = (project: string, service: string) => `${project}-${service}`;
 
+// On the VPS every route is HTTPS with a Let's Encrypt certificate from this
+// Traefik resolver; locally it is unset and routes stay on plain HTTP.
+const tlsResolver = () => process.env.GUST_TLS_RESOLVER || undefined;
+
 interface TraefikConfig {
   http: {
-    routers: Record<string, { rule: string; entryPoints: string[]; service: string }>;
+    routers: Record<string, { rule: string; entryPoints: string[]; service: string; tls?: { certResolver: string } }>;
     services: Record<string, { loadBalancer: { servers: { url: string }[]; passHostHeader: boolean } }>;
   };
 }
@@ -40,10 +44,12 @@ export async function traefikConfig(): Promise<TraefikConfig | Record<string, ne
     const ip = c.NetworkSettings?.Networks?.[EDGE_NETWORK]?.IPAddress;
     if (!project || !service || !domains.length || !port || !ip) continue;
     const name = routeName(project, service);
+    const resolver = tlsResolver();
     cfg.http.routers[name] = {
       rule: domains.map((d) => `Host(\`${d}\`)`).join(' || '),
-      entryPoints: [process.env.GUST_ENTRYPOINT ?? 'web'],
+      entryPoints: [process.env.GUST_ENTRYPOINT ?? (resolver ? 'websecure' : 'web')],
       service: name,
+      ...(resolver && { tls: { certResolver: resolver } }),
     };
     cfg.http.services[name] ??= { loadBalancer: { servers: [], passHostHeader: true } };
     const svc = cfg.http.services[name];

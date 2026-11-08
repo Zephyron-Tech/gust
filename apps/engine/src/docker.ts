@@ -11,9 +11,20 @@ export const docker = client();
 
 export const EDGE_NETWORK = process.env.GUST_EDGE_NETWORK ?? 'gust_edge';
 
+// Images from Gust's own registry are pulled with its read-only account
+// (REGISTRY_USERNAME / REGISTRY_PASSWORD). Locally the registry is open and
+// both are unset.
+function registryAuth(image: string) {
+  const host = process.env.REGISTRY_HOST;
+  const username = process.env.REGISTRY_USERNAME;
+  const password = process.env.REGISTRY_PASSWORD;
+  if (!host || !username || !password || !image.startsWith(`${host}/`)) return {};
+  return { authconfig: { username, password, serveraddress: host } };
+}
+
 /** Pulls an image and resolves when every layer is in place. */
 export async function pull(image: string, onProgress?: (line: string) => void): Promise<void> {
-  const stream = await docker.pull(image);
+  const stream = await docker.pull(image, registryAuth(image));
   await new Promise<void>((resolve, reject) => {
     docker.modem.followProgress(
       stream,

@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+# Day-to-day commands for Gust on the server. Installed as /usr/local/bin/gust.
+#
+#   gust status                 containers and their state
+#   gust logs [service]         follow logs (web, engine, worker, traefik, zot, postgres)
+#   gust update                 pull the latest Gust image and restart
+#   gust restart [service]      restart everything or one service
+#   gust project <args>         add and change projects (gust project help)
+#   gust break-glass            create or reset the break-glass admin from .env
+#   gust registry               credentials GitHub Actions push with
+#   gust backup                 dump the database to $GUST_DIR/backups (keeps 14 days)
+#   gust restore <file>         restore a dump (asks first)
+set -euo pipefail
+
+GUST_DIR="${GUST_DIR:-/opt/gust}"
+cd "$GUST_DIR"
+
+# Reads one value from .env without sourcing it.
+envval() { sed -n "s/^$1=//p" .env | head -n1 | sed -e 's/^"//' -e 's/"$//'; }
+
+dc() { docker compose --project-directory "$GUST_DIR" "$@"; }
+
+image() { envval GUST_IMAGE || true; }
+
+# compose.yml, the Traefik and Zot config and this script come from the
+# image, so an update brings them along.
+sync_files() {
+  local img cid
+  img="$(image)"
+  img="${img:-ghcr.io/zephyron-tech/gust:latest}"
+  cid="$(docker create "$img")"
+  mkdir -p traefik zot
+  docker cp "$cid:/gust/infra/prod/compose.yml" compose.yml
+  docker cp "$cid:/gust/infra/prod/traefik/dynamic.yml" traefik/dynamic.yml
+  docker cp "$cid:/gust/infra/prod/zot/config.json" zot/config.json
+  docker cp "$cid:/gust/infra/prod/gust" gust.new
+  docker rm "$cid" >/dev/null
+  chmod +x gust.new && mv gust.new gust
+}
+
+cmd="${1:-help}"
+[ $# -gt 0 ] && shift
+
+case "$cmd" in
+  status)
+    dc ps
+    ;;
+  logs)
+    dc logs -f --tail 200 "$@"
+    ;;
+  update)
+    img="$(image)"
+    docker pull "${img:-ghcr.io/zephyron-tech/gust:latest}"
+    sync_files
+    dc up -d --remove-orphans
+    echo "Gust updated."
+    ;;
+  restart)
+    dc restart "$@"
+    ;;
+  up)
+    dc up -d --remove-orphans
+    ;;
+  project)
+    dc run --rm -T migrate project "$@"
+    ;;
+  break-glass)
+    dc run --rm -T -e BREAK_GLASS_EMAIL="$(envval BREAK_GLASS_EMAIL)" -e BREAK_GLASS_PASSWORD="$(envval BREAK_GLASS_PASSWORD)" migrate break-glass
+    ;;
+  registry)
+    echo "Registry:  $(envval REGISTRY_DOMAIN)"
+    echo "Username:  ci"
+    echo "Password:  $(envval REGISTRY_CI_PASSWORD)"
+    echo
+    echo "Put them into GitHub as organisation secrets GUST_REGISTRY_USERNAME and GUST_REGISTRY_PASSWORD."
+    ;;
+  backup)
+    mkdir -p backups
+    file="backups/gust-$(date +%Y-%m-%d-%H%M).sql.gz"
+    dc exec -T postgres pg_dump -U gust --no-owner gust | gzip > "$file.tmp"
+    mv "$file.tmp" "$file"
+    find backups -name 'gust-*.sql.gz' -mtime +14 -delete
+    echo "$GUST_DIR/$file"
+    ;;
+  restore)
+    file="${1:?usage: gust restore <file.sql.gz>}"
+    [ -f "$file" ] || { echo "No such file: $file" >&2; exit 1; }
+    read -r -p "Replace the Gust database with $file? Type yes: " answer
+    [ "$answer" = yes ] || { echo "Cancelled."; exit 1; }
+    gunzip -t "$file" || { echo "$file is not a readable backup" >&2; exit 1; }
+    # Web and worker come back up whatever happens below.
+    trap 'dc start web worker >/dev/null' EXIT
+    dc stop web worker
+    # A fresh database, then the dump: pg-boss uses partitioned tables that a
+    # dump's own DROP statements cannot remove.
+    dc exec -T postgres psql -q -U gust -d postgres -v ON_ERROR_STOP=1 \
+      -c 'DROP DATABASE IF EXISTS gust WITH (FORCE)' -c 'CREATE DATABASE gust OWNER gust'
+    gunzip -c "$file" | dc exec -T postgres psql -q -U gust -d gust -v ON_ERROR_STOP=1 >/dev/null
+    echo "Restored."
+    ;;
+  sync-files)
+    sync_files
+    ;;
+  help | -h | --help)
+    sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'
+    ;;
+  *)
+    echo "Unknown command: $cmd (gust help)" >&2
+    exit 64
+    ;;
+esac

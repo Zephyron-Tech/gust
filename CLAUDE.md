@@ -15,4 +15,5 @@ Internal deploy and monitoring platform for one VPS. Spec: zephyron.tech/admin/r
 - Before a commit: `pnpm lint && pnpm typecheck && pnpm build`.
 - Never add Claude or AI attribution (Co-Authored-By or similar) to commits or PRs.
 - Env vars: `packages/db/src/secrets.ts` encrypts secrets with `GUST_MASTER_KEY` (same key in web and worker). Secret values never go to the browser except through the admin-only reveal endpoint, and never into logs or audit details.
+- Production: one image (`Dockerfile`, roles in `infra/prod/entrypoint.sh`), stack in `infra/prod/compose.yml`, installed by `infra/prod/install.sh` into `/opt/gust` and run with the `gust` command. Projects are added with `gust project` (`packages/db/src/project-cli.ts`). See `docs/install.md`.
 - Pages read projects and services from the database (`apps/web/src/lib/data.ts`); `@gust/contracts/sample` is only for seeding and for projects that are not on the engine yet.

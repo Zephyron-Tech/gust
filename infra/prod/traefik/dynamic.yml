@@ -1,0 +1,21 @@
+# Routes for Gust itself. Apps deployed through Gust get theirs from the
+# engine (HTTP provider). Domains come from GUST_DOMAIN and REGISTRY_DOMAIN.
+http:
+  routers:
+    gust:
+      rule: Host(`{{ env "GUST_DOMAIN" }}`)
+      entryPoints: [websecure]
+      service: gust
+      tls: { certResolver: le }
+    registry:
+      rule: Host(`{{ env "REGISTRY_DOMAIN" }}`)
+      entryPoints: [websecure]
+      service: registry
+      tls: { certResolver: le }
+  services:
+    gust:
+      loadBalancer:
+        servers: [{ url: http://web:3100 }]
+    registry:
+      loadBalancer:
+        servers: [{ url: http://zot:5000 }]

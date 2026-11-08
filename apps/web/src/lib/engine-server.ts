@@ -18,7 +18,10 @@ export function engineFetch(path: string, init: RequestInit = {}) {
 export const registryHost = () => process.env.REGISTRY_HOST ?? 'localhost:5050';
 
 export async function registryTags(repo: string): Promise<string[]> {
-  const res = await fetch(`${process.env.REGISTRY_URL ?? 'http://127.0.0.1:5050'}/v2/${repo}/tags/list`, { cache: 'no-store' });
+  // Production registry needs the read-only account; locally it is open.
+  const { REGISTRY_USERNAME: user, REGISTRY_PASSWORD: pass } = process.env;
+  const headers: HeadersInit = user && pass ? { authorization: `Basic ${Buffer.from(`${user}:${pass}`).toString('base64')}` } : {};
+  const res = await fetch(`${process.env.REGISTRY_URL ?? 'http://127.0.0.1:5050'}/v2/${repo}/tags/list`, { cache: 'no-store', headers });
   if (!res.ok) return [];
   const body = (await res.json()) as { tags?: string[] | null };
   return (body.tags ?? []).sort().reverse();

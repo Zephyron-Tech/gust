@@ -61,3 +61,9 @@ pnpm infra:down
 ```
 
 Checks: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`.
+
+## Install on a server
+
+One script on a fresh Debian or Ubuntu VPS, then the `gust` command:
+see `docs/install.md`. CI publishes the image `ghcr.io/zephyron-tech/gust`
+on every push to `main`.
