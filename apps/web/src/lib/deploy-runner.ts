@@ -31,6 +31,8 @@ export async function startDeploy(input: {
   rollbackOf?: string;
   author: string;
   actor: string;
+  /** Set for deploys from GitHub Actions. */
+  push?: { sha: string; message?: string; repository: string; runId: string };
 }) {
   const row = await findService(input.project, input.service);
   if (!row?.project.engine) throw new DeployError('This service is not deployed through the engine');
@@ -48,19 +50,25 @@ export async function startDeploy(input: {
   await db.insert(deployments).values({
     id,
     serviceId: svc.id,
-    trigger: input.rollbackOf ? 'rollback' : 'manual',
+    trigger: input.push ? 'push' : input.rollbackOf ? 'rollback' : 'manual',
     tag: input.tag,
     imageRef,
-    message: input.rollbackOf ? `Roll back to ${input.tag}` : `Deploy ${input.tag}`,
+    message: input.push?.message || (input.rollbackOf ? `Roll back to ${input.tag}` : `Deploy ${input.tag}`),
     author: input.author,
+    commitSha: input.push?.sha ?? null,
     rollbackOf: input.rollbackOf ?? null,
   });
 
   await db.insert(auditEvents).values({
     actor: input.actor,
-    action: input.rollbackOf ? 'deploy.rollback' : 'deploy.start',
+    action: input.push ? 'deploy.push' : input.rollbackOf ? 'deploy.rollback' : 'deploy.start',
     target: `${input.project}/${input.service}`,
-    detail: { deploymentId: id, tag: input.tag, rollbackOf: input.rollbackOf ?? null },
+    detail: {
+      deploymentId: id,
+      tag: input.tag,
+      rollbackOf: input.rollbackOf ?? null,
+      ...(input.push && { sha: input.push.sha, repository: input.push.repository, runId: input.push.runId }),
+    },
   });
 
   await enqueueDeploy(id);

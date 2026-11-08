@@ -14,7 +14,7 @@ function toApi({ d, p, s }: Row, logs: { ts: Date; phase: string; line: string }
     id: d.id,
     project: p,
     service: s,
-    sha: d.tag,
+    sha: d.commitSha ? d.commitSha.slice(0, 7) : d.tag,
     message: d.message,
     author: d.author,
     branch: 'main',

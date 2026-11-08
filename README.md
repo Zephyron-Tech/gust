@@ -14,6 +14,10 @@ The full spec lives in the Zephyron admin: `zephyron.tech/admin/reports/gust`.
   is queued (pg-boss) and run by the worker, and its state and log are kept in
   Postgres, so it survives a closed tab. The worker also redeploys a live
   service whose container disappeared. The other projects are sample data.
+- Deploys from GitHub: `POST /api/deploy` checks the workflow's GitHub OIDC
+  token (repository, branch, one-time use), a shared action builds, pushes and
+  waits for the result, and the worker writes commit statuses through a GitHub
+  App. See `docs/github.md`.
 - Database (`packages/db`): Drizzle schema for projects, services,
   deployments with logs, env vars and audit events; migrations in
   `packages/db/drizzle`.

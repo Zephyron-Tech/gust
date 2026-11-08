@@ -9,7 +9,15 @@ for (const p of sample) {
   const projectId = `prj_${p.slug}`;
   await db
     .insert(projects)
-    .values({ id: projectId, slug: p.slug, repo: p.repo, domain: p.domain, engine: Boolean(p.engine) })
+    .values({
+      id: projectId,
+      slug: p.slug,
+      repo: p.repo,
+      domain: p.domain,
+      engine: Boolean(p.engine),
+      // The demo app lives in this repository, so its workflow may deploy it.
+      githubRepo: p.engine ? 'Zephyron-Tech/gust' : null,
+    })
     .onConflictDoNothing();
   for (const s of p.services) {
     await db

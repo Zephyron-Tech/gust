@@ -1,8 +1,8 @@
 import { getSessionCookie } from 'better-auth/cookies';
 import { type NextRequest, NextResponse } from 'next/server';
 
-// Everything except the sign-in page, the auth API and static files needs a
-// session. This only checks that the cookie is there; route handlers and
+// Everything except the sign-in page, the auth API, the GitHub deploy API
+// (it checks a GitHub OIDC token instead) and static files needs a session. This only checks that the cookie is there; route handlers and
 // pages verify the session itself.
 export function proxy(req: NextRequest) {
   if (getSessionCookie(req, { cookiePrefix: 'gust' })) return NextResponse.next();
@@ -13,5 +13,7 @@ export function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!login|api/auth|_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png|manifest.webmanifest|gust-icon).*)'],
+  matcher: [
+    '/((?!login|api/auth|api/deploy(?:/|$)|_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png|manifest.webmanifest|gust-icon).*)',
+  ],
 };

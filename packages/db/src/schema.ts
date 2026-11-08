@@ -26,7 +26,18 @@ export const projects = pgTable('projects', {
   domain: text('domain').notNull(),
   /** Deployed through the engine. Others are sample data until they move over. */
   engine: boolean('engine').notNull().default(false),
+  /** owner/name on GitHub. A GitHub Actions token from this repository may deploy the project. */
+  githubRepo: text('github_repo'),
+  /** Pushes to this branch deploy to production. */
+  productionBranch: text('production_branch').notNull().default('main'),
   createdAt: createdAt(),
+});
+
+/** GitHub OIDC tokens already used for a deploy, so a captured token cannot start a second one. */
+export const githubTokenUses = pgTable('github_token_uses', {
+  jti: text('jti').primaryKey(),
+  repository: text('repository').notNull(),
+  usedAt: timestamp('used_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const services = pgTable(

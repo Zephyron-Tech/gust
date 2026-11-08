@@ -1,0 +1,96 @@
+name: Deploy to Gust
+description: Build a Docker image, push it to Gust's registry and deploy it. Authenticates with the workflow's GitHub OIDC token.
+
+inputs:
+  gust-url:
+    description: Gust's address, e.g. https://gust.zephyron.tech
+    required: true
+  service:
+    description: Service name in the Gust project linked to this repository
+    required: true
+  image:
+    description: Repository in the registry, e.g. smart-targets/api
+    required: true
+  registry:
+    description: Registry host
+    default: registry.gust.zephyron.tech
+  registry-username:
+    description: Robot account for pushing to the registry
+    required: true
+  registry-password:
+    description: Password of the robot account
+    required: true
+  context:
+    description: Docker build context
+    default: .
+  dockerfile:
+    description: Path to the Dockerfile; defaults to <context>/Dockerfile
+    default: ""
+  build-args:
+    description: Build arguments, one KEY=value per line
+    default: ""
+  audience:
+    description: Audience of the OIDC token; must match GITHUB_OIDC_AUDIENCE in Gust
+    default: gust.zephyron.tech
+  wait:
+    description: Wait until the deploy is live and fail the job if it fails
+    default: "true"
+  timeout:
+    description: Seconds to wait for the deploy
+    default: "600"
+
+outputs:
+  deployment-id:
+    description: Id of the deployment in Gust
+    value: ${{ steps.deploy.outputs.deployment-id }}
+  url:
+    description: Link to the deployment in Gust
+    value: ${{ steps.deploy.outputs.url }}
+  tag:
+    description: Image tag that was pushed and deployed
+    value: ${{ steps.build.outputs.tag }}
+
+runs:
+  using: composite
+  steps:
+    - name: Log in to the registry
+      shell: bash
+      env:
+        REGISTRY: ${{ inputs.registry }}
+        REGISTRY_USERNAME: ${{ inputs.registry-username }}
+        REGISTRY_PASSWORD: ${{ inputs.registry-password }}
+      run: printf '%s' "$REGISTRY_PASSWORD" | docker login "$REGISTRY" -u "$REGISTRY_USERNAME" --password-stdin
+
+    - name: Build and push
+      id: build
+      shell: bash
+      env:
+        REGISTRY: ${{ inputs.registry }}
+        IMAGE: ${{ inputs.image }}
+        CONTEXT: ${{ inputs.context }}
+        DOCKERFILE: ${{ inputs.dockerfile }}
+        BUILD_ARGS: ${{ inputs.build-args }}
+      run: |
+        tag="${GITHUB_SHA::12}"
+        ref="$REGISTRY/$IMAGE:$tag"
+        args=()
+        while IFS= read -r line; do [[ -n "$line" ]] && args+=(--build-arg "$line"); done <<<"$BUILD_ARGS"
+        docker buildx build "$CONTEXT" ${DOCKERFILE:+--file "$DOCKERFILE"} "${args[@]}" \
+          --platform linux/amd64 --tag "$ref" \
+          --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+          --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+          --push
+        echo "tag=$tag" >>"$GITHUB_OUTPUT"
+
+    - name: Deploy
+      id: deploy
+      shell: bash
+      env:
+        GUST_URL: ${{ inputs.gust-url }}
+        GUST_SERVICE: ${{ inputs.service }}
+        GUST_TAG: ${{ steps.build.outputs.tag }}
+        GUST_MESSAGE: ${{ github.event.head_commit.message }}
+        GUST_AUDIENCE: ${{ inputs.audience }}
+        GUST_WAIT: ${{ inputs.wait }}
+        GUST_TIMEOUT: ${{ inputs.timeout }}
+      run: bash "$GITHUB_ACTION_PATH/deploy.sh"
