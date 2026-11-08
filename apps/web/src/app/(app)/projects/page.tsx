@@ -1,13 +1,17 @@
-import { observed, projects } from '@gust/contracts/sample';
+import { observed } from '@gust/contracts/sample';
 import { ArrowRight, Plus } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
 
 import { btn, Dot, PageHead, Panel, Tag } from '@/components/ui';
+import { getProjects } from '@/lib/data';
 import { ago } from '@/lib/format';
 
 export const metadata = { title: 'Projects' };
 
-export default function ProjectsPage() {
+export const dynamic = 'force-dynamic';
+
+export default async function ProjectsPage() {
+  const projects = await getProjects();
   const services = projects.reduce((n, p) => n + p.services.length, 0);
   return (
     <div className="view-in space-y-8">
@@ -64,7 +68,7 @@ export default function ProjectsPage() {
             <span className="mt-auto flex items-center justify-between gap-3 border-t border-line pt-3.5 text-[13px] text-fg-3">
               <span>{p.health === 'stopped' ? 'Stopped' : `Deployed ${ago(p.lastDeploy)}`}</span>
               <span className="flex min-w-0 items-center gap-1.5">
-                <span className="truncate">{p.repo.split('/')[1]}</span>
+                <span className="truncate">{p.repo.split('/').slice(1).join('/')}</span>
                 <ArrowRight
                   size={15}
                   className="shrink-0 -translate-x-1 text-fg-2 opacity-0 transition-[opacity,translate] duration-200 ease-[var(--ease-out)] group-hover:translate-x-0 group-hover:opacity-100"

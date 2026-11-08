@@ -13,3 +13,5 @@ Internal deploy and monitoring platform for one VPS. Spec: zephyron.tech/admin/r
 - Status colours only for states, the accent only for actions and selection. Monospace only for literal code, hashes, paths and logs.
 - Before a commit: `pnpm lint && pnpm typecheck && pnpm build`.
 - Never add Claude or AI attribution (Co-Authored-By or similar) to commits or PRs.
+- Env vars: `packages/db/src/secrets.ts` encrypts secrets with `GUST_MASTER_KEY` (same key in web and worker). Secret values never go to the browser except through the admin-only reveal endpoint, and never into logs or audit details.
+- Pages read projects and services from the database (`apps/web/src/lib/data.ts`); `@gust/contracts/sample` is only for seeding and for projects that are not on the engine yet.

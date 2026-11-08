@@ -1,14 +1,14 @@
-import { projects } from '@gust/contracts/sample';
 import { notFound } from 'next/navigation';
 
 import { Panel } from '@/components/ui';
+import { getProject } from '@/lib/data';
 
 // Values that are literal code are set in monospace; the rest reads as prose.
 const codeKeys = new Set(['Image', 'Health path', 'Networks', 'Volume', 'Repository']);
 
 export default async function ServiceSettingsPage({ params }: { params: Promise<{ slug: string; service: string }> }) {
   const { slug, service } = await params;
-  const project = projects.find((p) => p.slug === slug);
+  const project = await getProject(slug);
   const s = project?.services.find((x) => x.name === service);
   if (!project || !s) notFound();
 

@@ -1,8 +1,9 @@
 // Fills an empty database with Zephyron's projects and services from the
 // sample data. Safe to run again: existing rows are left as they are.
-import { projects as sample } from '@gust/contracts/sample';
+import { projects as sample, env as sampleEnv } from '@gust/contracts/sample';
 
-import { db, pool, projects, services } from './index';
+import { db, envVars, pool, projects, services } from './index';
+import { encryptSecret } from './secrets';
 
 for (const p of sample) {
   const projectId = `prj_${p.slug}`;
@@ -29,5 +30,25 @@ for (const p of sample) {
   }
 }
 
-console.log(`seeded ${sample.length} projects`);
+// Env vars: the sample set for smart-targets/api, and what the demo app reads.
+const envSeed: { serviceId: string; key: string; value: string; secret: boolean; scope: 'production' | 'preview' }[] = [
+  ...sampleEnv.map((e) => ({ serviceId: 'svc_smart-targets_api', key: e.key, value: e.value, secret: e.secret, scope: e.scope })),
+  { serviceId: 'svc_demo_hello', key: 'STARTUP_DELAY_MS', value: '1500', secret: false, scope: 'production' },
+  { serviceId: 'svc_demo_hello', key: 'DEMO_API_TOKEN', value: 'demo-secret-change-me', secret: true, scope: 'production' },
+];
+for (const e of envSeed) {
+  await db
+    .insert(envVars)
+    .values({
+      id: `env_${crypto.randomUUID().replace(/-/g, '').slice(0, 10)}`,
+      serviceId: e.serviceId,
+      key: e.key,
+      scope: e.scope,
+      isSecret: e.secret,
+      value: e.secret ? encryptSecret(e.value) : e.value,
+    })
+    .onConflictDoNothing();
+}
+
+console.log(`seeded ${sample.length} projects and ${envSeed.length} env vars`);
 await pool.end();

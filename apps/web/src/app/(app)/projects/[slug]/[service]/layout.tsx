@@ -1,9 +1,9 @@
-import { projects } from '@gust/contracts/sample';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 
 import { cx, Dot } from '@/components/ui';
+import { getProject } from '@/lib/data';
 import { EngineNotice, ProjectActions, ServiceTabs } from './nav';
 
 export default async function ServiceLayout({
@@ -14,7 +14,7 @@ export default async function ServiceLayout({
   children: ReactNode;
 }) {
   const { slug, service } = await params;
-  const project = projects.find((p) => p.slug === slug);
+  const project = await getProject(slug);
   const svc = project?.services.find((s) => s.name === service);
   if (!project || !svc) notFound();
 

@@ -1,47 +1,137 @@
 'use client';
 
-import { env } from '@gust/contracts/sample';
-import { Eye, EyeSlash } from '@phosphor-icons/react/ssr';
-import { useState } from 'react';
+import { Eye, EyeSlash, LockSimple, Plus, Trash } from '@phosphor-icons/react/ssr';
+import { use, useCallback, useEffect, useState } from 'react';
 
 import { Segmented } from '@/components/Segmented';
-import { cx, Table, Td } from '@/components/ui';
+import { btn, cx, Table, Td } from '@/components/ui';
+import { authClient } from '@/lib/auth-client';
+import { useDemo } from '@/lib/demo';
 
-export default function EnvironmentPage() {
-  const [scope, setScope] = useState<'production' | 'preview'>('production');
-  const [shown, setShown] = useState<Set<string>>(new Set());
-  const rows = env.filter((e) => e.scope === scope);
+type Row = { id: string; key: string; scope: 'production' | 'preview'; isSecret: boolean; value: string | null };
+type Scope = Row['scope'];
+
+const field =
+  'h-9 w-full rounded-[10px] border border-line bg-bg px-3 font-mono text-[13px] outline-none transition-colors focus:border-accent';
+
+export default function EnvironmentPage({ params }: { params: Promise<{ slug: string; service: string }> }) {
+  const { slug, service } = use(params);
+  const base = `/api/projects/${slug}/${service}/env`;
+  const { notify } = useDemo();
+  const { data: session } = authClient.useSession();
+  const admin = (session?.user as { role?: string } | undefined)?.role === 'admin';
+
+  const [scope, setScope] = useState<Scope>('production');
+  const [rows, setRows] = useState<Row[] | null>(null);
+  const [shown, setShown] = useState<Record<string, string>>({});
+  const [confirm, setConfirm] = useState<string | null>(null);
+  const [draft, setDraft] = useState({ key: '', value: '', isSecret: true });
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    const res = await fetch(base).catch(() => null);
+    setRows(res?.ok ? await res.json() : []);
+  }, [base]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const hide = (id: string) =>
+    setShown((s) => {
+      const { [id]: _, ...rest } = s;
+      return rest;
+    });
+
+  async function reveal(r: Row) {
+    if (shown[r.id] !== undefined) return hide(r.id);
+    const res = await fetch(`${base}/${r.id}/reveal`, { method: 'POST' });
+    if (!res.ok) return notify('Could not reveal', 'Only admins can reveal secrets.', 'err');
+    const { value } = (await res.json()) as { value: string };
+    setShown((s) => ({ ...s, [r.id]: value }));
+    // Hide it again on its own after half a minute.
+    window.setTimeout(() => hide(r.id), 30_000);
+  }
+
+  async function remove(r: Row) {
+    if (confirm !== r.id) {
+      setConfirm(r.id);
+      window.setTimeout(() => setConfirm((c) => (c === r.id ? null : c)), 4000);
+      return;
+    }
+    const res = await fetch(`${base}/${r.id}`, { method: 'DELETE' });
+    setConfirm(null);
+    if (!res.ok) return notify('Could not delete', 'Only admins can delete variables.', 'err');
+    notify(`${r.key} deleted`, 'It is gone from the next deploy.');
+    void load();
+  }
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    const key = draft.key.trim().toUpperCase();
+    setSaving(true);
+    const res = await fetch(base, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ...draft, key, scope }),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      const { error } = (await res.json().catch(() => ({}))) as { error?: string };
+      return notify('Not saved', error ?? 'Check the key and try again.', 'err');
+    }
+    notify(`${key} saved`, draft.isSecret ? 'Encrypted. Applies on the next deploy.' : 'Applies on the next deploy.');
+    setDraft({ key: '', value: '', isSecret: true });
+    void load();
+  }
+
+  const list = (rows ?? []).filter((r) => r.scope === scope);
 
   return (
     <div className="view-in space-y-4">
-      <Segmented options={['production', 'preview'] as const} value={scope} onChange={setScope} label="Scope" />
+      <div className="flex items-center justify-between gap-4">
+        <Segmented options={['production', 'preview'] as const} value={scope} onChange={setScope} label="Scope" />
+        <p className="text-[14px] text-fg-3">Changes apply on the next deploy.</p>
+      </div>
+
       <Table head={['Key', 'Value', '']}>
-        {rows.map((e) => {
-          const visible = !e.secret || shown.has(e.key);
+        {list.map((r) => {
+          const value = r.isSecret ? shown[r.id] : (r.value ?? undefined);
           return (
-            <tr key={e.key + e.scope}>
-              <Td className="w-[240px] font-mono text-[13px]">{e.key}</Td>
-              <Td className={cx('font-mono text-[13px] text-fg-2', !visible && 'tracking-[0.15em] text-fg-3')}>
-                <span key={String(visible)} className="fade-in">
-                  {visible ? e.value : '••••••••••••'}
+            <tr key={r.id}>
+              <Td className="w-[260px]">
+                <span className="flex items-center gap-2 font-mono text-[13px]">
+                  {r.isSecret && <LockSimple size={14} className="shrink-0 text-fg-3" aria-label="secret" />}
+                  {r.key}
                 </span>
               </Td>
-              <Td className="w-[110px] text-right">
-                {e.secret && (
+              <Td className={cx('font-mono text-[13px] break-all text-fg-2', value === undefined && 'tracking-[0.15em] text-fg-3')}>
+                <span key={String(value !== undefined)} className="fade-in">
+                  {value ?? '••••••••••••'}
+                </span>
+              </Td>
+              <Td className="w-[200px] text-right whitespace-nowrap">
+                {admin && r.isSecret && (
                   <button
                     type="button"
-                    className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[14px] font-medium text-accent transition-colors duration-150 hover:bg-accent-soft active:bg-accent-soft/70"
-                    onClick={() =>
-                      setShown((s) => {
-                        const n = new Set(s);
-                        if (n.has(e.key)) n.delete(e.key);
-                        else n.add(e.key);
-                        return n;
-                      })
-                    }
+                    onClick={() => reveal(r)}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[14px] font-medium text-accent transition-colors duration-150 hover:bg-accent-soft"
                   >
-                    {visible ? <EyeSlash size={17} /> : <Eye size={17} />}
-                    {visible ? 'Hide' : 'Reveal'}
+                    {shown[r.id] !== undefined ? <EyeSlash size={17} /> : <Eye size={17} />}
+                    {shown[r.id] !== undefined ? 'Hide' : 'Reveal'}
+                  </button>
+                )}
+                {admin && (
+                  <button
+                    type="button"
+                    onClick={() => remove(r)}
+                    aria-label={confirm === r.id ? `Confirm deleting ${r.key}` : `Delete ${r.key}`}
+                    className={cx(
+                      'ml-1 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[14px] font-medium transition-colors duration-150',
+                      confirm === r.id ? 'bg-err text-white' : 'text-fg-3 hover:bg-err/10 hover:text-err',
+                    )}
+                  >
+                    <Trash size={16} />
+                    {confirm === r.id && 'Delete?'}
                   </button>
                 )}
               </Td>
@@ -49,7 +139,54 @@ export default function EnvironmentPage() {
           );
         })}
       </Table>
-      <p className="text-[14px] text-fg-3">Secrets are encrypted at rest. Revealing one is written to the audit log.</p>
+      {rows !== null && list.length === 0 && <p className="text-[14px] text-fg-3">No {scope} variables yet.</p>}
+
+      {admin ? (
+        <form onSubmit={save} className="grid grid-cols-[260px_1fr_auto_auto] items-end gap-3 rounded-2xl border border-line bg-bg-2 p-4">
+          <label className="space-y-1">
+            <span className="text-[13px] text-fg-3">Key</span>
+            <input
+              required
+              value={draft.key}
+              onChange={(e) => setDraft((d) => ({ ...d, key: e.target.value }))}
+              placeholder="DATABASE_URL"
+              autoComplete="off"
+              spellCheck={false}
+              className={field}
+            />
+          </label>
+          <label className="space-y-1">
+            <span className="text-[13px] text-fg-3">Value</span>
+            <input
+              required
+              value={draft.value}
+              onChange={(e) => setDraft((d) => ({ ...d, value: e.target.value }))}
+              type={draft.isSecret ? 'password' : 'text'}
+              autoComplete="new-password"
+              spellCheck={false}
+              className={field}
+            />
+          </label>
+          <label className="flex h-9 items-center gap-2 text-[14px] text-fg-2">
+            <input
+              type="checkbox"
+              checked={draft.isSecret}
+              onChange={(e) => setDraft((d) => ({ ...d, isSecret: e.target.checked }))}
+              className="size-4 accent-[var(--g-accent)]"
+            />
+            Secret
+          </label>
+          <button type="submit" disabled={saving} className={btn.primary}>
+            <Plus weight="bold" /> {saving ? 'Saving…' : 'Save'}
+          </button>
+        </form>
+      ) : (
+        <p className="text-[14px] text-fg-3">Only admins can change variables and reveal secrets.</p>
+      )}
+      <p className="text-[13.5px] text-fg-3">
+        Secrets are encrypted at rest with the server's master key. Saving, deleting and revealing are written to the audit log; values
+        never are.
+      </p>
     </div>
   );
 }

@@ -20,7 +20,8 @@ const server = createServer((req, res) => {
     return;
   }
   res.writeHead(200, { 'content-type': 'application/json', connection: draining ? 'close' : 'keep-alive' });
-  res.end(JSON.stringify({ version, host: hostname() }));
+  // Shows that Gust passed the secret in, without showing it.
+  res.end(JSON.stringify({ version, host: hostname(), tokenSet: Boolean(process.env.DEMO_API_TOKEN) }));
 });
 
 server.listen(port, () => console.log(`hello ${version} listening on ${port}`));

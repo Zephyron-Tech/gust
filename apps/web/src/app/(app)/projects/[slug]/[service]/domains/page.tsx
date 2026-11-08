@@ -1,13 +1,20 @@
-import { domains, projects, server } from '@gust/contracts/sample';
+import { server } from '@gust/contracts/sample';
 
 import { Pill, Table, Td } from '@/components/ui';
+import { getProject } from '@/lib/data';
 
 export default async function DomainsPage({ params }: { params: Promise<{ slug: string; service: string }> }) {
   const { slug } = await params;
-  const project = projects.find((p) => p.slug === slug);
-  const list =
-    domains[slug] ??
-    (project ? [{ host: project.domain, service: project.services[0]?.name ?? '', tls: 'http01' as const, renewsInDays: 58 }] : []);
+  const project = await getProject(slug);
+  // Hostnames come from the services' settings; certificates are issued by Traefik.
+  const list = (project?.services ?? []).flatMap((s) =>
+    (s.domains ?? []).map((host) => ({
+      host,
+      service: s.name,
+      tls: host.startsWith('*.') ? ('dns01' as const) : ('http01' as const),
+      renewsInDays: 61,
+    })),
+  );
 
   return (
     <div className="view-in space-y-4">
