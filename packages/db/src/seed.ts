@@ -34,6 +34,7 @@ for (const p of sample) {
 const envSeed: { serviceId: string; key: string; value: string; secret: boolean; scope: 'production' | 'preview' }[] = [
   ...sampleEnv.map((e) => ({ serviceId: 'svc_smart-targets_api', key: e.key, value: e.value, secret: e.secret, scope: e.scope })),
   { serviceId: 'svc_demo_hello', key: 'STARTUP_DELAY_MS', value: '1500', secret: false, scope: 'production' },
+  { serviceId: 'svc_demo_hello', key: 'GREETING', value: 'Hello from Gust', secret: false, scope: 'production' },
   { serviceId: 'svc_demo_hello', key: 'DEMO_API_TOKEN', value: 'demo-secret-change-me', secret: true, scope: 'production' },
 ];
 for (const e of envSeed) {

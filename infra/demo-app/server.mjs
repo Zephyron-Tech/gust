@@ -19,9 +19,29 @@ const server = createServer((req, res) => {
     res.end(ok ? 'ok' : 'not ready');
     return;
   }
-  res.writeHead(200, { 'content-type': 'application/json', connection: draining ? 'close' : 'keep-alive' });
-  // Shows that Gust passed the secret in, without showing it.
-  res.end(JSON.stringify({ version, host: hostname(), tokenSet: Boolean(process.env.DEMO_API_TOKEN) }));
+  // What the app received from Gust: GREETING as plain text, the secret only
+  // as "set" or "missing".
+  const info = {
+    version,
+    host: hostname(),
+    greeting: process.env.GREETING ?? null,
+    tokenSet: Boolean(process.env.DEMO_API_TOKEN),
+  };
+  const headers = { connection: draining ? 'close' : 'keep-alive' };
+  if (req.headers.accept?.includes('text/html')) {
+    const esc = (v) => String(v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+    res.writeHead(200, { ...headers, 'content-type': 'text/html; charset=utf-8' });
+    res.end(`<!doctype html><meta charset="utf-8"><title>hello ${esc(version)}</title>
+<body style="font:16px/1.5 system-ui;background:#0d0e16;color:#ecebf5;display:grid;place-items:center;min-height:100vh;margin:0">
+<main style="text-align:center">
+<p style="color:#8b80ff;margin:0">demo/hello · ${esc(version)}</p>
+<h1 style="font-size:48px;margin:8px 0">${esc(info.greeting ?? 'No GREETING set')}</h1>
+<p style="color:#6c6b84">DEMO_API_TOKEN ${info.tokenSet ? 'received' : 'missing'} · container ${esc(info.host)}</p>
+</main>`);
+    return;
+  }
+  res.writeHead(200, { ...headers, 'content-type': 'application/json' });
+  res.end(JSON.stringify(info));
 });
 
 server.listen(port, () => console.log(`hello ${version} listening on ${port}`));

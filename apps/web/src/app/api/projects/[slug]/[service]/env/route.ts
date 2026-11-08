@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { requireUser } from '@/lib/auth';
 import { getServiceRow } from '@/lib/data';
-import { listEnv, setEnv } from '@/lib/env-db';
+import { envStaleness, listEnv, setEnv } from '@/lib/env-db';
 
 type Ctx = { params: Promise<{ slug: string; service: string }> };
 
@@ -12,7 +12,8 @@ export async function GET(req: Request, { params }: Ctx) {
   const { slug, service } = await params;
   const row = await getServiceRow(slug, service);
   if (!row) return Response.json({ error: 'Not found' }, { status: 404 });
-  return Response.json(await listEnv(row.s.id));
+  const [rows, status] = await Promise.all([listEnv(row.s.id), envStaleness(row.s.id, `${slug}/${service}`)]);
+  return Response.json({ rows, ...status });
 }
 
 const body = z.object({

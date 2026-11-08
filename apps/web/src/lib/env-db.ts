@@ -1,8 +1,8 @@
 import 'server-only';
 
-import { auditEvents, db, envVars } from '@gust/db';
+import { auditEvents, db, deployments, envVars } from '@gust/db';
 import { decryptSecret, encryptSecret } from '@gust/db/secrets';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 
 export type EnvRow = {
   id: string;
@@ -68,4 +68,25 @@ export async function revealEnv(serviceId: string, id: string, target: string, a
   if (!row) return null;
   await db.insert(auditEvents).values({ actor, action: 'env.reveal', target, detail: { key: row.key, scope: row.scope } });
   return row.isSecret ? decryptSecret(row.value) : row.value;
+}
+
+/**
+ * Whether the env changed after the live deployment started, so the running
+ * app does not have it yet. Read from the audit log, which also sees deletes.
+ */
+export async function envStaleness(serviceId: string, target: string) {
+  const [live] = await db
+    .select({ tag: deployments.tag, createdAt: deployments.createdAt })
+    .from(deployments)
+    .where(and(eq(deployments.serviceId, serviceId), eq(deployments.state, 'live')))
+    .orderBy(desc(deployments.createdAt))
+    .limit(1);
+  const [change] = await db
+    .select({ at: auditEvents.at })
+    .from(auditEvents)
+    .where(and(eq(auditEvents.target, target), inArray(auditEvents.action, ['env.set', 'env.delete'])))
+    .orderBy(desc(auditEvents.at))
+    .limit(1);
+  const stale = Boolean(live && change && change.at > live.createdAt);
+  return { stale, liveTag: live?.tag ?? null, changedAt: stale ? change?.at.toISOString() : null };
 }
