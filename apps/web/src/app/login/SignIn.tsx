@@ -8,10 +8,34 @@ import { authClient } from '@/lib/auth-client';
 
 const field = 'h-10 w-full rounded-[10px] border border-line bg-bg px-3 text-[15px] outline-none transition-colors focus:border-accent';
 
-export function SignIn({ authentik, next }: { authentik: boolean; next: string }) {
+// Better Auth sends a failed Authentik sign-in back to /login?error=<code>.
+const authentikErrors: Record<string, string> = {
+  account_not_linked: 'This email already belongs to another Gust account.',
+  state_mismatch: 'The sign-in took too long or was opened in another window. Try again.',
+  please_restart_the_process: 'The sign-in took too long or was opened in another window. Try again.',
+};
+
+function authentikMessage(code: string) {
+  return authentikErrors[code] ?? `Authentik sign-in failed (${code}). Try again.`;
+}
+
+export function SignIn({ authentik, next, callbackError }: { authentik: boolean; next: string; callbackError?: string }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [authentikError, setAuthentikError] = useState<string | null>(callbackError ? authentikMessage(callbackError) : null);
   const [pending, setPending] = useState(false);
+
+  async function viaAuthentik() {
+    setPending(true);
+    setAuthentikError(null);
+    const { error } = await authClient.signIn.social({ provider: 'authentik', callbackURL: next, errorCallbackURL: '/login' });
+    // On success the browser is already on its way to Authentik.
+    if (!error) return;
+    setPending(false);
+    setAuthentikError(
+      error.status === 429 ? 'Too many attempts. Wait a few seconds and try again.' : 'Could not reach Authentik. Try again.',
+    );
+  }
 
   async function breakGlass(form: HTMLFormElement) {
     const data = new FormData(form);
@@ -32,14 +56,16 @@ export function SignIn({ authentik, next }: { authentik: boolean; next: string }
       <button
         type="button"
         disabled={!authentik || pending}
-        onClick={() => {
-          setPending(true);
-          void authClient.signIn.social({ provider: 'authentik', callbackURL: next, errorCallbackURL: '/login' });
-        }}
+        onClick={() => void viaAuthentik()}
         className={`${btn.primary} h-11 w-full text-[15px]`}
       >
         Continue with Authentik
       </button>
+      {authentikError && (
+        <p role="alert" className="fade-in text-center text-[13.5px] text-err">
+          {authentikError}
+        </p>
+      )}
       {!authentik && (
         <p className="text-center text-[13.5px] text-fg-3">
           Authentik is not configured here. Set AUTHENTIK_ISSUER and AUTHENTIK_CLIENT_ID.

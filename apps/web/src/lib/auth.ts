@@ -17,6 +17,20 @@ const adminGroup = process.env.GUST_ADMIN_GROUP ?? 'gust-admins';
 
 export const authentikEnabled = Boolean(authentik);
 
+// Better Auth drops `role` from mapProfileToUser because the field is not
+// user input (input: false keeps people from setting their own role). So the
+// role from the Authentik groups is noted here by email and written by the
+// user create/update hooks that run right after, in the same callback.
+const authentikRoles = new Map<string, Role>();
+
+function withAuthentikRole(data: Record<string, unknown>) {
+  const email = typeof data.email === 'string' ? data.email.toLowerCase() : null;
+  const role = email ? authentikRoles.get(email) : undefined;
+  if (!email || !role) return;
+  authentikRoles.delete(email);
+  return { data: { ...data, role } };
+}
+
 export const auth = betterAuth({
   appName: 'Gust',
   baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:3100',
@@ -32,6 +46,12 @@ export const auth = betterAuth({
     expiresIn: 60 * 60 * 24 * 7,
     updateAge: 60 * 60 * 24,
     cookieCache: { enabled: true, maxAge: 60 * 5 },
+  },
+  databaseHooks: {
+    user: {
+      create: { before: async (data) => withAuthentikRole(data) },
+      update: { before: async (data) => withAuthentikRole(data) },
+    },
   },
   advanced: { cookiePrefix: 'gust' },
   rateLimit: { enabled: true, window: 60, max: 30 },
@@ -49,9 +69,13 @@ export const auth = betterAuth({
                 scopes: ['openid', 'profile', 'email'],
                 pkce: true,
                 overrideUserInfo: true,
-                mapProfileToUser: (profile) => ({
-                  role: Array.isArray(profile.groups) && profile.groups.includes(adminGroup) ? 'admin' : 'member',
-                }),
+                mapProfileToUser: (profile) => {
+                  if (typeof profile.email === 'string') {
+                    const admin = Array.isArray(profile.groups) && profile.groups.includes(adminGroup);
+                    authentikRoles.set(profile.email.toLowerCase(), admin ? 'admin' : 'member');
+                  }
+                  return {};
+                },
               },
             ],
           }),

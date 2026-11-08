@@ -7,8 +7,8 @@ import { SignIn } from './SignIn';
 
 export const metadata = { title: 'Sign in' };
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
-  const { next } = await searchParams;
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; error?: string }> }) {
+  const { next, error } = await searchParams;
   // Only same-site paths, so the redirect after sign-in cannot leave Gust.
   const target = next?.startsWith('/') && !next.startsWith('//') ? next : '/projects';
   if (await currentUser(await headers())) redirect(target);
@@ -27,7 +27,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             </p>
           </div>
         </div>
-        <SignIn authentik={authentikEnabled} next={target} />
+        <SignIn authentik={authentikEnabled} next={target} callbackError={error?.slice(0, 64)} />
       </div>
     </main>
   );
