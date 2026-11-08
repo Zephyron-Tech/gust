@@ -24,7 +24,7 @@ export default async function DomainsPage({ params }: { params: Promise<{ slug: 
             <Td className="font-medium">{d.host}</Td>
             <Td>{d.service}</Td>
             <Td className="text-fg-3">
-              {d.tls === 'dns01' ? 'Wildcard · DNS-01 via Cloudflare' : `Let’s Encrypt · renews in ${d.renewsInDays} days`}
+              {d.tls === 'dns01' ? 'Wildcard · DNS-01 via WEDOS' : `Let’s Encrypt · renews in ${d.renewsInDays} days`}
             </Td>
             <Td>
               <Pill state="live" />

@@ -25,7 +25,7 @@ const sections: { title: string; rows: [string, string][] }[] = [
     title: 'Integrations',
     rows: [
       ['GitHub App', 'gust-zephyron · Zephyron-Tech, vandlj, clearway-dev'],
-      ['Wildcard DNS', 'Cloudflare token · *.preview.zephyron.tech'],
+      ['Wildcard DNS', 'WEDOS WAPI · *.preview.zephyron.tech'],
       ['Registry', 'Zot · robot account per project'],
     ],
   },

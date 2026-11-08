@@ -11,8 +11,9 @@ registry, and the Gust image in four roles (migrate, engine, web, worker).
   `linux/amd64`), 4 GB RAM or more, a fresh install with SSH access as root
   or a sudo user.
 - **DNS:** A records for `gust.zephyron.tech` and `registry.gust.zephyron.tech`
-  pointing at the server. In Cloudflare set them to **DNS only** (grey cloud),
-  so Let's Encrypt and large registry uploads reach the server directly.
+  pointing at the server, set at the domain's DNS provider (WEDOS for
+  zephyron.tech). Certificates use the HTTP-01 challenge, so no DNS API
+  token is needed; the names only have to resolve to the server.
 - **Image access:** a GitHub personal access token (classic) with only
   `read:packages`, from someone in Zephyron-Tech. The image is
   `ghcr.io/zephyron-tech/gust:latest`, published by `.github/workflows/image.yml`
