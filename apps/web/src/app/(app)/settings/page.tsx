@@ -3,8 +3,18 @@ import type { ReactNode } from 'react';
 import { LocalTime } from '@/components/LocalTime';
 import { UpdatePanel } from '@/components/UpdatePanel';
 import { PageHead, Panel } from '@/components/ui';
-import { readLastBackup } from '@/lib/backup-status';
-import { authentikValue, backupSizeKb, breakGlassValue, githubAppValue, NOT_SET, registryValue, rolesValue } from '@/lib/integrations';
+import { readLastBackup, readServerFacts } from '@/lib/host-files';
+import {
+  authentikValue,
+  backupSizeKb,
+  breakGlassValue,
+  githubAppValue,
+  heartbeatValue,
+  NOT_SET,
+  registryValue,
+  rolesValue,
+  serverFactsValue,
+} from '@/lib/integrations';
 import { serverIp } from '@/lib/public-url';
 
 export const metadata = { title: 'Settings' };
@@ -17,9 +27,10 @@ export const dynamic = 'force-dynamic';
 export default async function SettingsPage() {
   const env = process.env;
   const lastBackup = await readLastBackup();
+  const facts = await readServerFacts();
 
   const gustRows: [string, string][] = [
-    ['Server', NOT_SET],
+    ['Server', serverFactsValue(facts)],
     ['Address', `${env.GUST_DOMAIN ?? NOT_SET} · ${serverIp() ?? NOT_SET}`],
   ];
 
@@ -53,7 +64,7 @@ export default async function SettingsPage() {
       rows: [
         ['Push', NOT_SET],
         ['Discord', NOT_SET],
-        ['Heartbeat', NOT_SET],
+        ['Heartbeat', heartbeatValue(env.HEARTBEAT_SET === 'yes')],
         ['Backups', backupRow],
         ['Image cleanup', NOT_SET],
       ],

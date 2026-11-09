@@ -76,6 +76,20 @@ refresh_status() {
   write_status "${st:-idle}" "${act:-none}" "$(digest_local)" "$(digest_remote)"
 }
 
+# What the Settings page shows about this machine, read from the host itself.
+server_status() {
+  mkdir -p "$REQ"
+  local os vcpu ram disk uptime
+  os="$(. /etc/os-release 2>/dev/null; echo "${PRETTY_NAME:-unknown}" | tr -d '"\\')"
+  vcpu="$(nproc)"
+  ram="$(awk '/MemTotal/ {printf "%d", $2 / 1048576 + 0.5}' /proc/meminfo)"
+  disk="$(df -B1 --output=size / | tail -n1 | awk '{printf "%d", $1 / 1073741824 + 0.5}')"
+  uptime="$(awk '{printf "%d", $1}' /proc/uptime)"
+  printf '{"os":"%s","vcpu":%s,"ramGb":%s,"diskGb":%s,"uptimeSec":%s,"at":"%s"}\n' \
+    "$os" "$vcpu" "$ram" "$disk" "$uptime" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$REQ/server.json.tmp"
+  mv "$REQ/server.json.tmp" "$REQ/server.json"
+}
+
 requests_run() {
   mkdir -p "$REQ"
   if [ -f "$REQ/install" ]; then
@@ -146,6 +160,10 @@ case "$cmd" in
     printf '{"at":"%s","file":"%s","bytes":%s}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(basename "$file")" "$(stat -c %s "$file")" \
       > "$REQ/backup.json.tmp"
     mv "$REQ/backup.json.tmp" "$REQ/backup.json"
+    # Heartbeat: a healthchecks.io URL in .env gets a ping after each good backup.
+    # No ping means the check goes late, which is the alert.
+    hb="$(envval HEARTBEAT_URL)"
+    if [ -n "$hb" ]; then curl -fsS -m 10 --retry 2 "$hb" >/dev/null || echo "Heartbeat ping failed" >&2; fi
     echo "$GUST_DIR/$file"
     ;;
   restore)
@@ -169,6 +187,7 @@ case "$cmd" in
     ;;
   version-check)
     refresh_status
+    server_status
     ;;
   requests-run)
     requests_run

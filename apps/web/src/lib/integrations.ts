@@ -38,6 +38,33 @@ export function backupSizeKb(bytes: number): number {
   return Math.max(1, Math.round(bytes / 1024));
 }
 
+export type ServerFacts = { os: string; vcpu: number; ramGb: number; diskGb: number; uptimeSec: number; at: string };
+
+/** Parses server.json as `gust version-check` writes it; anything odd counts as unknown. */
+export function parseServerFacts(raw: string | null): ServerFacts | null {
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw) as Record<string, unknown>;
+    const num = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) ? x : null);
+    const vcpu = num(v.vcpu);
+    const ramGb = num(v.ramGb);
+    const diskGb = num(v.diskGb);
+    const uptimeSec = num(v.uptimeSec);
+    if (typeof v.os !== 'string' || vcpu === null || ramGb === null || diskGb === null || uptimeSec === null) return null;
+    return { os: v.os, vcpu, ramGb, diskGb, uptimeSec, at: typeof v.at === 'string' ? v.at : '' };
+  } catch {
+    return null;
+  }
+}
+
+export function serverFactsValue(f: ServerFacts | null): string {
+  return f ? `${f.os} · ${f.vcpu} vCPU · ${f.ramGb} GB RAM · ${f.diskGb} GB disk` : NOT_SET;
+}
+
+export function heartbeatValue(configured: boolean): string {
+  return configured ? 'healthchecks.io · pinged after each backup' : NOT_SET;
+}
+
 /** Parses backup.json as `gust backup` writes it; anything odd counts as no backup. */
 export function parseLastBackup(raw: string | null): LastBackup {
   if (!raw) return null;

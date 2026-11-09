@@ -5,10 +5,13 @@ import {
   backupSizeKb,
   breakGlassValue,
   githubAppValue,
+  heartbeatValue,
   NOT_SET,
   parseLastBackup,
+  parseServerFacts,
   registryValue,
   rolesValue,
+  serverFactsValue,
 } from './integrations';
 
 describe('settings values come from configuration only', () => {
@@ -42,6 +45,19 @@ describe('settings values come from configuration only', () => {
   it('shows backup size in KB, at least 1', () => {
     expect(backupSizeKb(2048)).toBe(2);
     expect(backupSizeKb(10)).toBe(1);
+  });
+
+  it('reads the machine facts the host wrote', () => {
+    const raw = '{"os":"Ubuntu 24.04 LTS","vcpu":2,"ramGb":4,"diskGb":40,"uptimeSec":3600,"at":"2026-11-09T12:00:00Z"}';
+    const f = parseServerFacts(raw);
+    expect(serverFactsValue(f)).toBe('Ubuntu 24.04 LTS · 2 vCPU · 4 GB RAM · 40 GB disk');
+    expect(serverFactsValue(null)).toBe(NOT_SET);
+    expect(parseServerFacts('{"os":"x"}')).toBeNull();
+  });
+
+  it('shows the heartbeat only when a URL is configured', () => {
+    expect(heartbeatValue(false)).toBe(NOT_SET);
+    expect(heartbeatValue(true)).toContain('healthchecks.io');
   });
 
   it('treats a broken backup record as no backup', () => {

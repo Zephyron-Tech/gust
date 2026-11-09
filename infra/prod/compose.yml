@@ -163,6 +163,8 @@ services:
       GUST_SERVER_IP: ${GUST_SERVER_IP:-}
       GUST_DOMAIN: ${GUST_DOMAIN}
       REGISTRY_DOMAIN: ${REGISTRY_DOMAIN}
+      # Only whether a heartbeat URL is set; the URL itself stays on the host.
+      HEARTBEAT_SET: ${HEARTBEAT_URL:+yes}
       GITHUB_APP_ID: ${GITHUB_APP_ID:-}
       # Only whether a key is set; the key itself never reaches the web container.
       GITHUB_APP_KEY_SET: ${GITHUB_APP_PRIVATE_KEY:+yes}
