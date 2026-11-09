@@ -61,6 +61,10 @@ export function serverFactsValue(f: ServerFacts | null): string {
   return f ? `${f.os} · ${f.vcpu} vCPU · ${f.ramGb} GB RAM · ${f.diskGb} GB disk` : NOT_SET;
 }
 
+export function discordValue(configured: boolean): string {
+  return configured ? 'webhook set · deploy, backup and update alerts' : NOT_SET;
+}
+
 export function heartbeatValue(configured: boolean): string {
   return configured ? 'healthchecks.io · pinged after each backup' : NOT_SET;
 }

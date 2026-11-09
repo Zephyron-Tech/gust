@@ -4,6 +4,7 @@ import {
   authentikValue,
   backupSizeKb,
   breakGlassValue,
+  discordValue,
   githubAppValue,
   heartbeatValue,
   NOT_SET,
@@ -58,6 +59,11 @@ describe('settings values come from configuration only', () => {
   it('shows the heartbeat only when a URL is configured', () => {
     expect(heartbeatValue(false)).toBe(NOT_SET);
     expect(heartbeatValue(true)).toContain('healthchecks.io');
+  });
+
+  it('shows Discord only when a webhook is configured', () => {
+    expect(discordValue(false)).toBe(NOT_SET);
+    expect(discordValue(true)).toContain('webhook set');
   });
 
   it('treats a broken backup record as no backup', () => {

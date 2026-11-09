@@ -7,6 +7,7 @@ import { and, eq, ne } from 'drizzle-orm';
 
 import { engineFetch } from './engine';
 import { type CommitState, setCommitStatus } from './github';
+import { deployFailedText, notifyDiscord } from './notify';
 
 const publicUrl = () => (process.env.GUST_PUBLIC_URL ?? 'http://localhost:3100').replace(/\/$/, '');
 
@@ -43,6 +44,7 @@ export async function runDeploy(id: string) {
     await log('fail', error);
     await db.update(deployments).set({ state: 'failed', error, finishedAt: new Date() }).where(eq(deployments.id, id));
     await report('failure', error);
+    await notifyDiscord(deployFailedText(p.slug, svc.name, d.tag, error));
   };
 
   // Production env of the service; secrets are decrypted only here, on their
@@ -107,6 +109,7 @@ export async function runDeploy(id: string) {
     await db.update(deployments).set({ state: 'failed', finishedAt: now }).where(eq(deployments.id, id));
     const [last] = await db.select({ error: deployments.error }).from(deployments).where(eq(deployments.id, id));
     await report('failure', last?.error);
+    await notifyDiscord(deployFailedText(p.slug, svc.name, d.tag, last?.error));
     return;
   }
   await db.transaction(async (tx) => {

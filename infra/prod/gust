@@ -66,14 +66,30 @@ write_status() {
   mv "$STATUS.tmp" "$STATUS"
 }
 
+# Sends a line to the Discord webhook in .env. Silent when none is set.
+notify() {
+  local url body
+  url="$(envval DISCORD_WEBHOOK_URL)"
+  [ -n "$url" ] || return 0
+  body="$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g')"
+  curl -fsS -m 10 -H 'content-type: application/json' -d "{\"content\":\"$body\"}" "$url" >/dev/null \
+    || echo "Discord alert failed" >&2
+}
+
 # Reads one string field of status.json, empty when there is no file yet.
 prev_field() { sed -n "s/.*\"$1\":\"\([^\"]*\)\".*/\1/p" "$STATUS" 2>/dev/null | head -n1 || true; }
 
 # Refreshes the version fields and keeps the last install result (timer and check).
 refresh_status() {
-  local st act
+  local st act was current latest
   st="$(prev_field state)"; act="$(prev_field action)"
-  write_status "${st:-idle}" "${act:-none}" "$(digest_local)" "$(digest_remote)"
+  was="$(grep -c '"available":true' "$STATUS" 2>/dev/null || true)"
+  current="$(digest_local)"; latest="$(digest_remote)"
+  write_status "${st:-idle}" "${act:-none}" "$current" "$latest"
+  # Alert once, when a newer image first shows up, not on every check.
+  if [ -n "$current" ] && [ -n "$latest" ] && [ "$current" != "$latest" ] && [ "${was:-0}" = 0 ]; then
+    notify "New Gust version available on the registry. Install it from Settings."
+  fi
 }
 
 # What the Settings page shows about this machine, read from the host itself.
@@ -99,6 +115,7 @@ requests_run() {
     # A backup first, so a bad update can be restored with gust restore.
     if { "$GUST_DIR/gust" backup && "$GUST_DIR/gust" update; } >"$REQ/update.log" 2>&1; then state=ok; fi
     write_status "$state" install "$(digest_local)" "$(digest_remote)"
+    if [ "$state" = failed ]; then notify "Gust update failed on $(hostname). Log: $REQ/update.log"; fi
   elif [ -f "$REQ/check" ]; then
     rm -f "$REQ/check"
     # Shows "checking" in the UI right away, then the result or the error.
@@ -109,6 +126,7 @@ requests_run() {
       write_status idle check "$(digest_local)" "$latest"
     else
       write_status failed check "$(digest_local)" "" "Could not read the image from the registry. Run: journalctl -u gust-requests.service -n 50"
+      notify "Gust could not read the registry on $(hostname). Run: journalctl -u gust-requests.service -n 50"
     fi
   fi
 }
@@ -152,7 +170,11 @@ case "$cmd" in
   backup)
     mkdir -p backups
     file="backups/gust-$(date +%Y-%m-%d-%H%M).sql.gz"
-    dc exec -T postgres pg_dump -U gust --no-owner gust | gzip > "$file.tmp"
+    if ! dc exec -T postgres pg_dump -U gust --no-owner gust | gzip > "$file.tmp"; then
+      rm -f "$file.tmp"
+      notify "Gust backup failed on $(hostname). Run: sudo gust backup"
+      exit 1
+    fi
     mv "$file.tmp" "$file"
     find backups -name 'gust-*.sql.gz' -mtime +14 -delete
     # The Settings page reads this to show when the last backup was taken.

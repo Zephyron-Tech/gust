@@ -163,6 +163,8 @@ services:
       GUST_SERVER_IP: ${GUST_SERVER_IP:-}
       GUST_DOMAIN: ${GUST_DOMAIN}
       REGISTRY_DOMAIN: ${REGISTRY_DOMAIN}
+      # Only whether a Discord webhook is set; the URL itself stays on the host.
+      DISCORD_SET: ${DISCORD_WEBHOOK_URL:+yes}
       # Only whether a heartbeat URL is set; the URL itself stays on the host.
       HEARTBEAT_SET: ${HEARTBEAT_URL:+yes}
       GITHUB_APP_ID: ${GITHUB_APP_ID:-}
@@ -188,6 +190,7 @@ services:
       GITHUB_APP_ID: ${GITHUB_APP_ID:-}
       GITHUB_APP_PRIVATE_KEY: ${GITHUB_APP_PRIVATE_KEY:-}
       GUST_PUBLIC_URL: ${GUST_URL:-https://${GUST_DOMAIN}}
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
     depends_on:
       migrate: { condition: service_completed_successfully }
     networks: [gust_internal]

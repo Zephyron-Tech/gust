@@ -8,6 +8,7 @@ import {
   authentikValue,
   backupSizeKb,
   breakGlassValue,
+  discordValue,
   githubAppValue,
   heartbeatValue,
   NOT_SET,
@@ -63,7 +64,7 @@ export default async function SettingsPage() {
       title: 'Alerts and backups',
       rows: [
         ['Push', NOT_SET],
-        ['Discord', NOT_SET],
+        ['Discord', discordValue(env.DISCORD_SET === 'yes')],
         ['Heartbeat', heartbeatValue(env.HEARTBEAT_SET === 'yes')],
         ['Backups', backupRow],
         ['Image cleanup', NOT_SET],
