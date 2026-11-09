@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   authentikValue,
-  backupValue,
+  backupSizeKb,
   breakGlassValue,
   githubAppValue,
   NOT_SET,
@@ -39,9 +39,9 @@ describe('settings values come from configuration only', () => {
     expect(registryValue(undefined)).toBe(NOT_SET);
   });
 
-  it('describes a backup, or says there is none yet', () => {
-    expect(backupValue(null)).toBe('No backup yet · on this server only');
-    expect(backupValue({ at: '2026-11-09T03:15:00Z', bytes: 2048 })).toContain('2 KB · on this server only');
+  it('shows backup size in KB, at least 1', () => {
+    expect(backupSizeKb(2048)).toBe(2);
+    expect(backupSizeKb(10)).toBe(1);
   });
 
   it('treats a broken backup record as no backup', () => {

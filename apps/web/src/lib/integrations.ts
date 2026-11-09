@@ -33,11 +33,9 @@ export function registryValue(domain: string | undefined): string {
   return domain ? `${domain} · one push account for all projects` : NOT_SET;
 }
 
-export function backupValue(last: LastBackup): string {
-  if (!last) return 'No backup yet · on this server only';
-  const kb = Math.max(1, Math.round(last.bytes / 1024));
-  const when = new Date(last.at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
-  return `Last ${when} · ${kb} KB · on this server only`;
+/** Backup size in KB, at least 1, for display. */
+export function backupSizeKb(bytes: number): number {
+  return Math.max(1, Math.round(bytes / 1024));
 }
 
 /** Parses backup.json as `gust backup` writes it; anything odd counts as no backup. */
