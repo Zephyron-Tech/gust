@@ -1,6 +1,12 @@
 @import "tailwindcss";
 @import "../../../../packages/brand/tokens.css";
 
+/* Keep the scrollbar's space even when the page is short, so content does not
+   shift sideways when a panel makes the page longer. */
+html {
+  scrollbar-gutter: stable;
+}
+
 /* Gust tokens as Tailwind utilities: bg-bg, bg-bg-2, text-fg-2, text-accent … */
 @theme inline {
   --color-bg: var(--g-bg);
