@@ -200,7 +200,7 @@ export const domains: Record<string, Domain[]> = {
 
 export const env: EnvVar[] = [
   { key: 'DATABASE_URL', value: 'postgres://app:k2Lq9x@gust-smart-targets-db:5432/app', secret: true, scope: 'production' },
-  { key: 'JWT_SECRET', value: 'k8Zr0vQm3nPs7wXc', secret: true, scope: 'production' },
+  { key: 'JWT_SECRET', value: 'replace-me', secret: true, scope: 'production' },
   { key: 'SENTRY_DSN', value: 'https://4f1c@o88.ingest.sentry.io/88', secret: true, scope: 'production' },
   { key: 'NODE_ENV', value: 'production', secret: false, scope: 'production' },
   { key: 'PUBLIC_URL', value: 'https://api.targets.zephyron.tech', secret: false, scope: 'production' },

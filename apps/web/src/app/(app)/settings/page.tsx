@@ -1,12 +1,14 @@
-import { server } from '@gust/contracts/sample';
 import { UpdatePanel } from '@/components/UpdatePanel';
 import { PageHead, Panel } from '@/components/ui';
+import { serverIp } from '@/lib/public-url';
 
 export const metadata = { title: 'Settings' };
 
+// `-` marks a value that is not implemented yet. Each one is a to-do, not a
+// status: nothing listed as `-` is running.
 const gustRows: [string, string][] = [
-  ['Server', `${server.plan} · ${server.vcpu} vCPU · ${server.ramGb} GB · ${server.os}`],
-  ['Address', `gust.zephyron.tech · ${server.ip}`],
+  ['Server', '-'],
+  ['Address', `gust.zephyron.tech · ${serverIp() ?? '-'}`],
 ];
 
 const sections: { title: string; rows: [string, string][] }[] = [
@@ -21,19 +23,19 @@ const sections: { title: string; rows: [string, string][] }[] = [
   {
     title: 'Integrations',
     rows: [
-      ['GitHub App', 'gust-zephyron · Zephyron-Tech, vandlj, clearway-dev'],
-      ['Wildcard DNS', 'WEDOS WAPI · *.preview.zephyron.tech'],
-      ['Registry', 'Zot · robot account per project'],
+      ['GitHub App', '-'],
+      ['Wildcard DNS', '-'],
+      ['Registry', '-'],
     ],
   },
   {
     title: 'Alerts and backups',
     rows: [
-      ['Push', 'iPhones of admins (Gust on the home screen)'],
-      ['Discord', '#ops webhook'],
-      ['Heartbeat', 'healthchecks.io every minute'],
-      ['Backups', 'restic → Storage Box · nightly 03:00 · last OK 6 hours ago'],
-      ['Image cleanup', 'keep 5 per service · nightly'],
+      ['Push', '-'],
+      ['Discord', '-'],
+      ['Heartbeat', '-'],
+      ['Backups', '-'],
+      ['Image cleanup', '-'],
     ],
   },
 ];

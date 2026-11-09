@@ -19,9 +19,9 @@ export default async function ProjectsPage() {
         title="Projects"
         sub={`${projects.length} projects · ${services} services · ${observed.length} observed stacks`}
         actions={
-          <button type="button" className={btn.primary}>
+          <Link href="/projects/new" className={btn.primary}>
             <Plus weight="bold" /> New project
-          </button>
+          </Link>
         }
       />
 

@@ -15,10 +15,7 @@ import { parseArgs } from 'node:util';
 import { and, asc, eq } from 'drizzle-orm';
 
 import { auditEvents, db, pool, projects, services } from './index';
-
-const SLUG = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
-const REPO = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
-const DOMAIN = /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
+import { DOMAIN, REPO, SLUG } from './project-rules';
 
 class UsageError extends Error {}
 

@@ -160,6 +160,7 @@ services:
       GITHUB_ALLOWED_OWNERS: ${GITHUB_ALLOWED_OWNERS:-Zephyron-Tech}
       BREAK_GLASS_EMAIL: ${BREAK_GLASS_EMAIL}
       BREAK_GLASS_PASSWORD: ${BREAK_GLASS_PASSWORD}
+      GUST_SERVER_IP: ${GUST_SERVER_IP:-}
       # Only this folder is shared with the host: update requests in, status.json out.
       GUST_REQUESTS_DIR: /gust-requests
     volumes:
