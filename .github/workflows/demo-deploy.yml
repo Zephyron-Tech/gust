@@ -1,0 +1,34 @@
+name: Deploy demo app
+
+# Test deploy of infra/demo-app to the production Gust. Runs on pushes to main
+# that touch the demo app or the deploy action.
+on:
+  push:
+    branches: [main]
+    paths:
+      - infra/demo-app/**
+      - .github/actions/deploy/**
+      - .github/workflows/demo-deploy.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # the OIDC token for Gust
+
+concurrency:
+  group: gust-demo
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/deploy
+        with:
+          gust-url: https://gust.zephyron.tech
+          service: hello
+          image: demo/hello
+          context: infra/demo-app
+          registry-username: ${{ secrets.GUST_REGISTRY_USERNAME }}
+          registry-password: ${{ secrets.GUST_REGISTRY_PASSWORD }}
