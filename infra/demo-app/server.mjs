@@ -33,7 +33,7 @@ const server = createServer((req, res) => {
     res.writeHead(200, { ...headers, 'content-type': 'text/html; charset=utf-8' });
     res.end(`<!doctype html><meta charset="utf-8"><title>hello ${esc(version)}</title>
 <body style="font:16px/1.5 system-ui;background:#1f3d2b;color:#e8fff1;display:grid;place-items:center;min-height:100vh;margin:0">
-<div style="position:fixed;top:0;left:0;right:0;background:#3ddc84;color:#06160d;text-align:center;padding:14px;font-weight:700;letter-spacing:.06em">PREVIEW · dev branch · not production</div>
+<div style="position:fixed;top:0;left:0;right:0;background:#3ddc84;color:#06160d;text-align:center;padding:14px;font-weight:700;letter-spacing:.06em">PREVIEW · dev branch · second deploy</div>
 <main style="text-align:center">
 <p style="color:#3ddc84;margin:0">demo/hello · preview · ${esc(version)}</p>
 <h1 style="font-size:48px;margin:8px 0">${esc(info.greeting ?? 'No GREETING set')}</h1>
