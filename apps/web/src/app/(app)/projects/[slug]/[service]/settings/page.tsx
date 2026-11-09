@@ -1,5 +1,7 @@
+import { previewHost } from '@gust/contracts';
 import { notFound } from 'next/navigation';
 
+import { BranchesPanel } from '@/components/BranchesPanel';
 import { Panel } from '@/components/ui';
 import { getProject } from '@/lib/data';
 
@@ -29,16 +31,31 @@ export default async function ServiceSettingsPage({ params }: { params: Promise<
       : []),
   ];
 
+  // Branches belong to the project, so the panel is shown on every engine service of it.
+  const domain = process.env.GUST_DOMAIN;
+  const previewBranches = project.previewBranches ?? [];
+  const previewUrls = Object.fromEntries(previewBranches.flatMap((b) => (domain ? [[b, `https://${previewHost(b, slug, domain)}`]] : [])));
+
   return (
-    <Panel className="view-in max-w-3xl p-7">
-      <dl className="grid grid-cols-[180px_1fr] gap-x-8 gap-y-4 text-[14.5px]">
-        {rows.map(([k, v]) => (
-          <div key={k} className="contents">
-            <dt className="text-fg-3">{k}</dt>
-            <dd className={codeKeys.has(k) ? 'font-mono text-[13px] text-fg-2' : 'text-fg-2'}>{v}</dd>
-          </div>
-        ))}
-      </dl>
-    </Panel>
+    <div className="space-y-6">
+      {project.engine && (
+        <BranchesPanel
+          slug={slug}
+          productionBranch={project.productionBranch ?? 'main'}
+          previewBranches={previewBranches}
+          previewUrls={previewUrls}
+        />
+      )}
+      <Panel className="view-in max-w-3xl p-7">
+        <dl className="grid grid-cols-[180px_1fr] gap-x-8 gap-y-4 text-[14.5px]">
+          {rows.map(([k, v]) => (
+            <div key={k} className="contents">
+              <dt className="text-fg-3">{k}</dt>
+              <dd className={codeKeys.has(k) ? 'font-mono text-[13px] text-fg-2' : 'text-fg-2'}>{v}</dd>
+            </div>
+          ))}
+        </dl>
+      </Panel>
+    </div>
   );
 }

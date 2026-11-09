@@ -3,19 +3,32 @@
 import { projects } from '@gust/contracts/sample';
 import { CaretRight } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
-import { use } from 'react';
+import { use, useState } from 'react';
 import { Ago } from '@/components/Ago';
+import { Segmented } from '@/components/Segmented';
 
 import { Code, Panel, Pill } from '@/components/ui';
 import { useDemo } from '@/lib/demo';
 
+type Filter = 'all' | 'production' | 'previews';
+
 export default function DeploymentsPage({ params }: { params: Promise<{ slug: string; service: string }> }) {
   const { slug, service } = use(params);
   const { deployments, failNext, setFailNext } = useDemo();
-  const list = deployments.filter((d) => d.project === slug && d.service === service);
+  const all = deployments.filter((d) => d.project === slug && d.service === service);
+  const hasPreviews = all.some((d) => d.trigger === 'preview');
+  const [filter, setFilter] = useState<Filter>('all');
+  const list = all.filter((d) => {
+    if (filter === 'production') return d.trigger !== 'preview';
+    if (filter === 'previews') return d.trigger === 'preview';
+    return true;
+  });
 
   return (
     <div className="view-in space-y-4">
+      {hasPreviews && (
+        <Segmented options={['all', 'production', 'previews'] as const} value={filter} onChange={setFilter} label="Filter deployments" />
+      )}
       <Panel className="overflow-hidden">
         {list.map((d, i) => (
           <Link
@@ -28,13 +41,15 @@ export default function DeploymentsPage({ params }: { params: Promise<{ slug: st
               <span className="block truncate text-[14.5px] text-fg">{d.message}</span>
               <span className="text-[13px] text-fg-3">
                 {d.author} ·{' '}
-                {d.trigger === 'rollback'
-                  ? 'rollback'
-                  : d.trigger === 'manual'
-                    ? 'deployed from Gust'
-                    : d.trigger === 'reconcile'
-                      ? 'restored by Gust'
-                      : `push to ${d.branch}`}
+                {d.trigger === 'preview'
+                  ? `preview · ${d.branch}`
+                  : d.trigger === 'rollback'
+                    ? 'rollback'
+                    : d.trigger === 'manual'
+                      ? 'deployed from Gust'
+                      : d.trigger === 'reconcile'
+                        ? 'restored by Gust'
+                        : `push to ${d.branch}`}
               </span>
             </span>
             <Code className="text-fg-2">{d.sha}</Code>

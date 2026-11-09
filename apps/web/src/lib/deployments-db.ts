@@ -1,15 +1,18 @@
 import 'server-only';
 
-import type { Deployment } from '@gust/contracts';
+import { type Deployment, previewHost } from '@gust/contracts';
 import { db, deploymentLogs, deployments, projects, services } from '@gust/db';
 import { and, asc, desc, eq } from 'drizzle-orm';
 
 export type ApiDeployment = Deployment & { containerId?: string; engine: true };
 
-type Row = { d: typeof deployments.$inferSelect; p: string; s: string };
+type Row = { d: typeof deployments.$inferSelect; p: string; s: string; pb: string };
 
-function toApi({ d, p, s }: Row, logs: { ts: Date; phase: string; line: string }[] = []): ApiDeployment {
+function toApi({ d, p, s, pb }: Row, logs: { ts: Date; phase: string; line: string }[] = []): ApiDeployment {
   const end = d.finishedAt ?? null;
+  const domain = process.env.GUST_DOMAIN;
+  // A preview is served on its own host; production has no preview URL.
+  const previewUrl = d.branch && domain ? `https://${previewHost(d.branch, p, domain)}` : undefined;
   return {
     id: d.id,
     project: p,
@@ -17,7 +20,8 @@ function toApi({ d, p, s }: Row, logs: { ts: Date; phase: string; line: string }
     sha: d.commitSha ? d.commitSha.slice(0, 7) : d.tag,
     message: d.message,
     author: d.author,
-    branch: 'main',
+    branch: d.branch ?? pb,
+    previewUrl,
     trigger: d.trigger,
     state: d.state,
     createdAt: d.createdAt.toISOString(),
@@ -31,7 +35,7 @@ function toApi({ d, p, s }: Row, logs: { ts: Date; phase: string; line: string }
 
 const base = () =>
   db
-    .select({ d: deployments, p: projects.slug, s: services.name })
+    .select({ d: deployments, p: projects.slug, s: services.name, pb: projects.productionBranch })
     .from(deployments)
     .innerJoin(services, eq(deployments.serviceId, services.id))
     .innerJoin(projects, eq(services.projectId, projects.id));

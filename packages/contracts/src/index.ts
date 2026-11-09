@@ -37,6 +37,8 @@ export const project = z.object({
   services: z.array(service),
   /** Deployed for real through the engine; the rest is sample data. */
   engine: z.boolean().optional(),
+  productionBranch: z.string().optional(),
+  previewBranches: z.array(z.string()).optional(),
 });
 export type Project = z.infer<typeof project>;
 
@@ -54,6 +56,8 @@ export const deployment = z.object({
   trigger: z.enum(['push', 'rollback', 'manual', 'preview', 'reconcile']),
   state: deployState,
   createdAt: z.string(),
+  /** Where a preview is served; absent for production. */
+  previewUrl: z.string().optional(),
   duration: z.string().optional(),
   error: z.string().optional(),
   logs: z.array(logLine),

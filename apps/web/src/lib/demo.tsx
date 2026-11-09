@@ -118,8 +118,11 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   }, [notify]);
 
   const busy = useCallback(
+    // Production only: a running preview does not block a production deploy.
     (project: string, service: string) =>
-      deployments.some((d) => d.project === project && d.service === service && RUNNING_STATES.includes(d.state)),
+      deployments.some(
+        (d) => d.project === project && d.service === service && d.trigger !== 'preview' && RUNNING_STATES.includes(d.state),
+      ),
     [deployments],
   );
 

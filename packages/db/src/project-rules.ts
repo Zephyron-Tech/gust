@@ -4,7 +4,7 @@
 export const SLUG = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 export const REPO = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 export const DOMAIN = /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
-const BRANCH = /^[A-Za-z0-9._/-]{1,100}$/;
+export const BRANCH = /^[A-Za-z0-9._/-]{1,100}$/;
 
 export type NewProject = {
   slug: string;
@@ -58,4 +58,21 @@ export function validateNewProject(raw: Record<string, unknown>): ValidationResu
     ok: true,
     value: { slug, repo, branch, domain, service, port, healthPath: health || null, memoryMb: memory, cpu },
   };
+}
+
+export const MAX_PREVIEW_BRANCHES = 10;
+
+/**
+ * Preview branches of a project: each must be a valid branch name, unique, not the
+ * production branch, and at most MAX_PREVIEW_BRANCHES. Returns the cleaned list or the first problem.
+ */
+export function validatePreviewBranches(raw: string[], production: string): { ok: true; value: string[] } | { ok: false; error: string } {
+  const list = raw.map((b) => b.trim()).filter(Boolean);
+  if (list.length > MAX_PREVIEW_BRANCHES) return { ok: false, error: `At most ${MAX_PREVIEW_BRANCHES} preview branches` };
+  for (const b of list) {
+    if (!BRANCH.test(b)) return { ok: false, error: `"${b}" is not a valid branch name` };
+    if (b === production) return { ok: false, error: `"${b}" is the production branch` };
+  }
+  if (new Set(list).size !== list.length) return { ok: false, error: 'A branch is listed twice' };
+  return { ok: true, value: list };
 }

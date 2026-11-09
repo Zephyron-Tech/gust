@@ -95,8 +95,8 @@ only on Zephyron-Tech) with:
 
 ## Branch previews
 
-A project lists its preview branches with `gust project set <slug> --preview dev`
-(comma-separated, empty clears them). A push to one deploys a separate copy of
+A project lists its preview branches in the service's **Settings → Branches** (admins),
+or with `gust project set <slug> --preview dev` (comma-separated, empty clears them). A push to one deploys a separate copy of
 the service on `<branch>-<project>.<GUST_DOMAIN>` (branch name cut to one DNS
 label). The wildcard DNS record covers it; Traefik asks Let's Encrypt for a
 certificate for that host (HTTP-01). Preview and production never share a

@@ -38,6 +38,8 @@ export async function getProjects(): Promise<UiProject[]> {
       repo: p.repo,
       domain: p.domain,
       engine: p.engine,
+      productionBranch: p.productionBranch,
+      previewBranches: p.previewBranches,
       // Sample projects have no real deploys yet; they read as live.
       health: p.engine
         ? health(deps.slice(0, 3).map((d) => d.state))

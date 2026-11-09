@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { validateNewProject } from './project-rules';
+import { validateNewProject, validatePreviewBranches } from './project-rules';
 
 const valid = {
   slug: 'smart-targets',
@@ -53,5 +53,26 @@ describe('validateNewProject', () => {
   it('rejects memory and cpu outside the limits', () => {
     const r = validateNewProject({ ...valid, memoryMb: '10', cpu: '0' });
     expect(!r.ok && Object.keys(r.errors).sort()).toEqual(['cpu', 'memoryMb']);
+  });
+});
+
+describe('validatePreviewBranches', () => {
+  it('accepts a list of distinct branches', () => {
+    expect(validatePreviewBranches([' dev ', 'staging'], 'main')).toEqual({ ok: true, value: ['dev', 'staging'] });
+  });
+
+  it('accepts an empty list', () => {
+    expect(validatePreviewBranches([], 'main')).toEqual({ ok: true, value: [] });
+  });
+
+  it('rejects the production branch, duplicates and bad names', () => {
+    expect(validatePreviewBranches(['main'], 'main').ok).toBe(false);
+    expect(validatePreviewBranches(['dev', 'dev'], 'main').ok).toBe(false);
+    expect(validatePreviewBranches(['bad name'], 'main').ok).toBe(false);
+  });
+
+  it('caps the number of preview branches', () => {
+    const many = Array.from({ length: 11 }, (_, i) => `b${i}`);
+    expect(validatePreviewBranches(many, 'main').ok).toBe(false);
   });
 });

@@ -31,7 +31,8 @@ export default async function ServiceLayout({
         <div className="space-y-1">
           <h1 className="text-[30px] leading-[1.1]">{project.slug}</h1>
           <p className="text-[14.5px] text-fg-3">
-            {project.repo} · production · {project.domain}
+            {project.repo} · production {project.productionBranch ?? 'main'} · {project.domain}
+            {project.previewBranches?.length ? ` · previews ${project.previewBranches.join(', ')}` : ''}
           </p>
         </div>
         <ProjectActions

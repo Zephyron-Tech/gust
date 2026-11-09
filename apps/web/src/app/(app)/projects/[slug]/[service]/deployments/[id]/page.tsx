@@ -59,22 +59,32 @@ export default function DeploymentPage({ params }: { params: Promise<{ slug: str
           </div>
           <p className="text-[14px] text-fg-3">
             <Code>{d.id}</Code> · <Code>{d.sha}</Code> · {d.author} ·{' '}
-            {d.trigger === 'rollback'
-              ? 'rollback'
-              : d.trigger === 'manual'
-                ? 'deployed from Gust'
-                : d.trigger === 'reconcile'
-                  ? 'restored by Gust'
-                  : `push to ${d.branch}`}{' '}
+            {d.trigger === 'preview'
+              ? `preview · ${d.branch}`
+              : d.trigger === 'rollback'
+                ? 'rollback'
+                : d.trigger === 'manual'
+                  ? 'deployed from Gust'
+                  : d.trigger === 'reconcile'
+                    ? 'restored by Gust'
+                    : `push to ${d.branch}`}{' '}
             · <Ago iso={d.createdAt} />
             {d.duration ? ` · ${d.duration}` : ''}
           </p>
         </div>
-        {d.state === 'superseded' && (
-          <button type="button" className={btn.secondary} disabled={busy(slug, service)} onClick={() => deploy(slug, service, d)}>
-            <ArrowCounterClockwise /> Roll back to this
-          </button>
-        )}
+        <div className="flex shrink-0 items-center gap-2">
+          {d.previewUrl && (
+            <a href={d.previewUrl} target="_blank" rel="noreferrer" className={btn.secondary}>
+              Open preview
+            </a>
+          )}
+          {/* Rollbacks stay on production; a preview is replaced by the next push to its branch. */}
+          {d.state === 'superseded' && d.trigger !== 'preview' && (
+            <button type="button" className={btn.secondary} disabled={busy(slug, service)} onClick={() => deploy(slug, service, d)}>
+              <ArrowCounterClockwise /> Roll back to this
+            </button>
+          )}
+        </div>
       </div>
 
       <ol className="grid grid-cols-5 overflow-hidden rounded-2xl border border-line bg-bg-2">
