@@ -1,23 +1,25 @@
-import { observed } from '@gust/contracts/sample';
 import { ArrowRight, Plus } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
 
 import { btn, Dot, PageHead, Panel, Tag } from '@/components/ui';
 import { getProjects } from '@/lib/data';
 import { ago } from '@/lib/format';
+import { NOT_SET } from '@/lib/integrations';
+import { projectStats } from '@/lib/projects-stats';
 
 export const metadata = { title: 'Projects' };
 
 export const dynamic = 'force-dynamic';
 
 export default async function ProjectsPage() {
-  const projects = await getProjects();
+  const [projects, stats] = await Promise.all([getProjects(), projectStats()]);
   const services = projects.reduce((n, p) => n + p.services.length, 0);
+  const median = stats.medianDeploySec === null ? NOT_SET : `${Math.round(stats.medianDeploySec)} s`;
   return (
     <div className="view-in space-y-8">
       <PageHead
         title="Projects"
-        sub={`${projects.length} projects · ${services} services · ${observed.length} observed stacks`}
+        sub={`${projects.length} projects · ${services} services`}
         actions={
           <Link href="/projects/new" className={btn.primary}>
             <Plus weight="bold" /> New project
@@ -27,10 +29,10 @@ export default async function ProjectsPage() {
 
       <Panel className="rise-in grid grid-cols-4 divide-x divide-line" style={{ animationDelay: '60ms' }}>
         {[
-          ['Deploys today', '7', 'across 4 projects'],
-          ['Median deploy', '41 s', 'push to live'],
-          ['Failed this week', '1', 'moodtracker/api'],
-          ['Images kept', '4.8 GB', 'of 100 GB disk'],
+          ['Deploys, 24 h', String(stats.deploys24h), `across ${projects.length} projects`],
+          ['Median deploy', median, 'push to live, last 7 days'],
+          ['Failed, 7 days', String(stats.failed7d), stats.lastFailed ?? 'none'],
+          ['Live services', `${stats.liveServices} of ${stats.services}`, 'newest deploy is live'],
         ].map(([k, v, note]) => (
           <div key={k} className="space-y-1 px-6 py-5">
             <p className="text-[13.5px] text-fg-3">{k}</p>
