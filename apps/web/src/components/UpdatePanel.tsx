@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-import { btn, Panel } from '@/components/ui';
+import { btn, cx, Panel } from '@/components/ui';
 import { useUpdateStatus } from '@/lib/useUpdateStatus';
 
 type Kind = 'check' | 'install';
@@ -46,6 +46,21 @@ export function UpdatePanel({ rows }: { rows: [string, string][] }) {
   const elapsed = job ? now - job.sentAt : 0;
   const timedOut = job !== null && !finished && elapsed > TIMEOUT_MS[job.kind];
   const inFlight = job !== null && !finished && !timedOut;
+
+  // A finished check clears itself after a few seconds; errors stay until dismissed.
+  const checkDone = job?.kind === 'check' && finished && status?.state !== 'failed';
+  useEffect(() => {
+    if (!checkDone) return;
+    const id = window.setTimeout(() => setJob(null), 6000);
+    return () => window.clearTimeout(id);
+  }, [checkDone]);
+
+  // A finished install means the new version is running: reload so the page
+  // picks up the new build, as a manual F5 would.
+  const installDone = job?.kind === 'install' && finished && status?.state === 'ok';
+  useEffect(() => {
+    if (installDone) window.location.reload();
+  }, [installDone]);
 
   const available = status?.available === true;
   const canManage = status?.canManage === true;
@@ -146,10 +161,10 @@ export function UpdatePanel({ rows }: { rows: [string, string][] }) {
 
       {canManage ? (
         <div className="mt-5 flex flex-wrap gap-2">
-          <button type="button" className={btn.secondary} disabled={busy} onClick={() => void send('check')}>
+          <button type="button" className={cx(btn.secondary, 'w-48')} disabled={busy} onClick={() => void send('check')}>
             {sending === 'check' ? 'Sending…' : 'Check for update'}
           </button>
-          <button type="button" className={btn.primary} disabled={!available || busy} onClick={() => setConfirming(true)}>
+          <button type="button" className={cx(btn.primary, 'w-48')} disabled={!available || busy} onClick={() => setConfirming(true)}>
             Install update
           </button>
         </div>
