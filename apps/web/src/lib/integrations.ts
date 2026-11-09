@@ -61,6 +61,18 @@ export function serverFactsValue(f: ServerFacts | null): string {
   return f ? `${f.os} · ${f.vcpu} vCPU · ${f.ramGb} GB RAM · ${f.diskGb} GB disk` : NOT_SET;
 }
 
+/**
+ * Wildcard DNS row. `resolved` is what a lookup of a random name under the domain
+ * returned (null when it did not resolve). `serverIp` is GUST_SERVER_IP.
+ */
+export function wildcardDnsValue(domain: string | undefined, serverIp: string | null, resolved: string[] | null): string {
+  if (!domain || !serverIp) return NOT_SET;
+  const name = `*.${domain}`;
+  if (!resolved || resolved.length === 0) return `${name} · not set up`;
+  if (resolved.includes(serverIp)) return `${name} → ${serverIp} · this server`;
+  return `${name} → ${resolved[0]} · not this server`;
+}
+
 export function discordValue(configured: boolean): string {
   return configured ? 'webhook set · deploy, backup and update alerts' : NOT_SET;
 }

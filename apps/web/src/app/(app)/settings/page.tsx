@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { LocalTime } from '@/components/LocalTime';
 import { UpdatePanel } from '@/components/UpdatePanel';
 import { PageHead, Panel } from '@/components/ui';
+import { wildcardAddresses } from '@/lib/dns-check';
 import { readLastBackup, readServerFacts } from '@/lib/host-files';
 import {
   authentikValue,
@@ -15,6 +16,7 @@ import {
   registryValue,
   rolesValue,
   serverFactsValue,
+  wildcardDnsValue,
 } from '@/lib/integrations';
 import { serverIp } from '@/lib/public-url';
 
@@ -29,6 +31,7 @@ export default async function SettingsPage() {
   const env = process.env;
   const lastBackup = await readLastBackup();
   const facts = await readServerFacts();
+  const wildcard = env.GUST_DOMAIN ? await wildcardAddresses(env.GUST_DOMAIN) : null;
 
   const gustRows: [string, string][] = [
     ['Server', serverFactsValue(facts)],
@@ -56,7 +59,7 @@ export default async function SettingsPage() {
       title: 'Integrations',
       rows: [
         ['GitHub App', githubAppValue(env.GITHUB_APP_ID, env.GITHUB_APP_KEY_SET === 'yes', env.GITHUB_ALLOWED_OWNERS)],
-        ['Wildcard DNS', NOT_SET],
+        ['Wildcard DNS', wildcardDnsValue(env.GUST_DOMAIN, serverIp(), wildcard)],
         ['Registry', registryValue(env.REGISTRY_DOMAIN)],
       ],
     },

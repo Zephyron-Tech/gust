@@ -13,6 +13,7 @@ import {
   registryValue,
   rolesValue,
   serverFactsValue,
+  wildcardDnsValue,
 } from './integrations';
 
 describe('settings values come from configuration only', () => {
@@ -59,6 +60,15 @@ describe('settings values come from configuration only', () => {
   it('shows the heartbeat only when a URL is configured', () => {
     expect(heartbeatValue(false)).toBe(NOT_SET);
     expect(heartbeatValue(true)).toContain('healthchecks.io');
+  });
+
+  it('shows the wildcard DNS state from a real lookup', () => {
+    const ip = '85.9.209.58';
+    expect(wildcardDnsValue('gust.zephyron.tech', null, ['85.9.209.58'])).toBe(NOT_SET);
+    expect(wildcardDnsValue(undefined, ip, ['85.9.209.58'])).toBe(NOT_SET);
+    expect(wildcardDnsValue('gust.zephyron.tech', ip, null)).toBe('*.gust.zephyron.tech · not set up');
+    expect(wildcardDnsValue('gust.zephyron.tech', ip, ['85.9.209.58'])).toBe('*.gust.zephyron.tech → 85.9.209.58 · this server');
+    expect(wildcardDnsValue('gust.zephyron.tech', ip, ['1.2.3.4'])).toBe('*.gust.zephyron.tech → 1.2.3.4 · not this server');
   });
 
   it('shows Discord only when a webhook is configured', () => {
