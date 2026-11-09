@@ -39,7 +39,7 @@ for (const p of sample) {
 }
 
 // Env vars: the sample set for smart-targets/api, and what the demo app reads.
-const envSeed: { serviceId: string; key: string; value: string; secret: boolean; scope: 'production' | 'preview' }[] = [
+const envSeed: { serviceId: string; key: string; value: string; secret: boolean; scope: 'all' | 'production' | 'preview' }[] = [
   ...sampleEnv.map((e) => ({ serviceId: 'svc_smart-targets_api', key: e.key, value: e.value, secret: e.secret, scope: e.scope })),
   { serviceId: 'svc_demo_hello', key: 'STARTUP_DELAY_MS', value: '1500', secret: false, scope: 'production' },
   { serviceId: 'svc_demo_hello', key: 'GREETING', value: 'Hello from Gust', secret: false, scope: 'production' },

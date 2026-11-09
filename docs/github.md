@@ -100,9 +100,23 @@ or with `gust project set <slug> --preview dev` (comma-separated, empty clears t
 the service on `<branch>-<project>.<GUST_DOMAIN>` (branch name cut to one DNS
 label). The wildcard DNS record covers it; Traefik asks Let's Encrypt for a
 certificate for that host (HTTP-01). Preview and production never share a
-container, route or env scope: preview uses env variables scoped `preview`.
+container or route. Env variables are set for **Production + Preview**,
+**Production** or **Preview**; one set for a single environment overrides the
+shared one with the same key. After a change, the Environment tab offers a
+redeploy only for the environments it reaches.
 Each push to a branch replaces that branch's previous preview. Previews are not
 removed when their branch is deleted yet.
+
+## Custom domains
+
+Production domains are added in the service's **Domains** tab (admins). Gust
+shows the DNS record to add: an `A` record to `GUST_SERVER_IP` for an apex, a
+`CNAME` to `GUST_DOMAIN` (or an `A`) for a subdomain. The worker checks DNS every
+30 s. Once the name resolves to the server it adds the host to the service,
+redeploys the live production image (blue/green, no downtime) and checks that
+HTTPS answers; Traefik gets the certificate on the first request. Removing a
+domain redeploys the same way. The worker needs `GUST_SERVER_IP` in
+`/opt/gust/.env`. Preview hosts are automatic and listed in the same tab.
 
 - Repository permissions: **Commit statuses: Read and write**, Metadata: Read.
   Nothing else.

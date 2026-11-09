@@ -1,20 +1,42 @@
 'use client';
 
+import type { EnvScope } from '@gust/contracts';
 import { ArrowsClockwise, Eye, EyeSlash, LockSimple, PencilSimple, Plus, Trash } from '@phosphor-icons/react/ssr';
 import { use, useCallback, useEffect, useState } from 'react';
 
-import { Segmented } from '@/components/Segmented';
+import { EnvBadge } from '@/components/EnvBadge';
 import { btn, cx, Table, Td } from '@/components/ui';
 import { authClient } from '@/lib/auth-client';
 import { useDemo } from '@/lib/demo';
 
-type Row = { id: string; key: string; scope: 'production' | 'preview'; isSecret: boolean; value: string | null };
-type Scope = Row['scope'];
-type EnvResponse = { rows: Row[]; stale: boolean; liveTag: string | null; changedAt: string | null };
+type Row = { id: string; key: string; scope: EnvScope; isSecret: boolean; value: string | null };
+type Stale = { branch: string | null; liveTag: string; changedAt: string };
+type EnvResponse = { rows: Row[]; stale: Stale[] };
+
+const SCOPES: { value: EnvScope; label: string }[] = [
+  { value: 'all', label: 'Production + Preview' },
+  { value: 'production', label: 'Production' },
+  { value: 'preview', label: 'Preview' },
+];
+const scopeLabel = (s: EnvScope) => SCOPES.find((x) => x.value === s)?.label ?? s;
+const scopeOrder: Record<EnvScope, number> = { all: 0, production: 1, preview: 2 };
 
 const field =
   'h-9 w-full rounded-[10px] border border-line bg-bg px-3 font-mono text-[13px] outline-none transition-colors focus:border-accent';
+const select = 'h-9 rounded-[10px] border border-line bg-bg px-2.5 text-[14px] text-fg outline-none transition-colors focus:border-accent';
 const linkBtn = 'inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[14px] font-medium transition-colors duration-150';
+
+function ScopeSelect({ value, onChange, label }: { value: EnvScope; onChange: (s: EnvScope) => void; label: string }) {
+  return (
+    <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value as EnvScope)} className={select}>
+      {SCOPES.map((s) => (
+        <option key={s.value} value={s.value}>
+          {s.label}
+        </option>
+      ))}
+    </select>
+  );
+}
 
 export default function EnvironmentPage({ params }: { params: Promise<{ slug: string; service: string }> }) {
   const { slug, service } = use(params);
@@ -23,17 +45,21 @@ export default function EnvironmentPage({ params }: { params: Promise<{ slug: st
   const { data: session } = authClient.useSession();
   const admin = (session?.user as { role?: string } | undefined)?.role === 'admin';
 
-  const [scope, setScope] = useState<Scope>('production');
   const [data, setData] = useState<EnvResponse | null>(null);
   const [shown, setShown] = useState<Record<string, string>>({});
   const [confirm, setConfirm] = useState<string | null>(null);
-  const [editing, setEditing] = useState<{ id: string; value: string; isSecret: boolean } | null>(null);
-  const [draft, setDraft] = useState({ key: '', value: '', isSecret: true });
+  const [editing, setEditing] = useState<{ id: string; value: string; isSecret: boolean; scope: EnvScope } | null>(null);
+  const [draft, setDraft] = useState<{ key: string; value: string; isSecret: boolean; scope: EnvScope }>({
+    key: '',
+    value: '',
+    isSecret: false,
+    scope: 'all',
+  });
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch(base).catch(() => null);
-    setData(res?.ok ? await res.json() : { rows: [], stale: false, liveTag: null, changedAt: null });
+    setData(res?.ok ? await res.json() : { rows: [], stale: [] });
   }, [base]);
   useEffect(() => {
     void load();
@@ -45,12 +71,8 @@ export default function EnvironmentPage({ params }: { params: Promise<{ slug: st
       return rest;
     });
 
-  async function put(v: { key: string; value: string; isSecret: boolean }) {
-    const res = await fetch(base, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ ...v, scope }),
-    });
+  async function send(url: string, method: 'POST' | 'PUT', body: object) {
+    const res = await fetch(url, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     if (!res.ok) {
       const { error } = (await res.json().catch(() => ({}))) as { error?: string };
       notify('Not saved', error ?? 'Check the key and try again.', 'err');
@@ -85,7 +107,7 @@ export default function EnvironmentPage({ params }: { params: Promise<{ slug: st
   async function saveEdit(r: Row) {
     if (!editing) return;
     setSaving(true);
-    const ok = await put({ key: r.key, value: editing.value, isSecret: editing.isSecret });
+    const ok = await send(`${base}/${r.id}`, 'PUT', { value: editing.value, isSecret: editing.isSecret, scope: editing.scope });
     setSaving(false);
     if (!ok) return;
     hide(r.id);
@@ -98,59 +120,67 @@ export default function EnvironmentPage({ params }: { params: Promise<{ slug: st
     e.preventDefault();
     const key = draft.key.trim().toUpperCase();
     setSaving(true);
-    const ok = await put({ ...draft, key });
+    const ok = await send(base, 'POST', { ...draft, key });
     setSaving(false);
     if (!ok) return;
     notify(`${key} saved`, draft.isSecret ? 'Encrypted at rest.' : undefined);
-    setDraft({ key: '', value: '', isSecret: true });
+    setDraft({ key: '', value: '', isSecret: false, scope: draft.scope });
     void load();
   }
 
-  const list = (data?.rows ?? []).filter((r) => r.scope === scope);
+  const list = [...(data?.rows ?? [])].sort((a, b) => a.key.localeCompare(b.key) || scopeOrder[a.scope] - scopeOrder[b.scope]);
+  const stale = data?.stale ?? [];
 
   return (
     <div className="view-in space-y-4">
-      {data?.stale && scope === 'production' && (
-        <div className="fade-in flex items-center gap-4 rounded-2xl border border-accent/40 bg-accent-soft px-5 py-3.5">
-          <ArrowsClockwise size={20} className="shrink-0 text-accent" />
-          <p className="flex-1 text-[14.5px]">
-            <span className="font-medium">Environment changed.</span>{' '}
-            <span className="text-fg-2">
-              The running deployment{data.liveTag ? ` (${data.liveTag})` : ''} still has the previous values. Redeploy to apply them.
+      {stale.length > 0 && (
+        <div className="fade-in space-y-3 rounded-2xl border border-accent/40 bg-accent-soft px-5 py-4">
+          <p className="flex items-center gap-3 text-[14.5px]">
+            <ArrowsClockwise size={20} className="shrink-0 text-accent" />
+            <span>
+              <span className="font-medium">Environment changed.</span>{' '}
+              <span className="text-fg-2">These deployments still run with the previous values. Redeploy only what changed.</span>
             </span>
           </p>
-          <button
-            type="button"
-            className={btn.primary}
-            disabled={busy(slug, service)}
-            onClick={() => deploy(slug, service, undefined, data.liveTag ?? undefined)}
-          >
-            <ArrowsClockwise /> Redeploy
-          </button>
+          <ul className="space-y-2">
+            {stale.map((s) => (
+              <li key={s.branch ?? 'production'} className="flex flex-wrap items-center gap-3 rounded-xl bg-bg/50 px-3.5 py-2.5">
+                <EnvBadge env={s.branch ? { kind: 'preview', branch: s.branch } : { kind: 'production' }} />
+                <span className="flex-1 text-[14px] text-fg-2">
+                  running <span className="font-mono text-[13px] text-fg">{s.liveTag}</span>
+                </span>
+                <button
+                  type="button"
+                  className={btn.primary}
+                  disabled={busy(slug, service, s.branch)}
+                  onClick={() => deploy(slug, service, undefined, s.liveTag, s.branch)}
+                >
+                  <ArrowsClockwise /> {s.branch ? `Redeploy preview · ${s.branch}` : 'Redeploy production'}
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-4">
-        <Segmented options={['production', 'preview'] as const} value={scope} onChange={setScope} label="Scope" />
-        {!data?.stale && <p className="text-[14px] text-fg-3">Changes apply on the next deploy.</p>}
-      </div>
+      {stale.length === 0 && <p className="text-[14px] text-fg-3">Changes apply on the next deploy of each environment.</p>}
 
-      <Table head={['Key', 'Value', '']}>
+      <Table head={['Key', 'Value', 'Environment', '']}>
         {list.map((r) => {
           const value = r.isSecret ? shown[r.id] : (r.value ?? undefined);
           const isEditing = editing?.id === r.id;
           return (
             <tr key={r.id}>
-              <Td className="w-[260px]">
+              <Td className="w-px whitespace-nowrap">
                 <span className="flex items-center gap-2 font-mono text-[13px]">
                   {r.isSecret && <LockSimple size={14} className="shrink-0 text-fg-3" aria-label="secret" />}
                   {r.key}
                 </span>
               </Td>
               {isEditing ? (
-                <Td colSpan={2}>
+                <Td colSpan={3}>
                   <form
-                    className="fade-in flex items-center gap-3"
+                    className="fade-in flex flex-wrap items-center gap-3"
                     onSubmit={(e) => {
                       e.preventDefault();
                       void saveEdit(r);
@@ -159,16 +189,21 @@ export default function EnvironmentPage({ params }: { params: Promise<{ slug: st
                     <input
                       // biome-ignore lint/a11y/noAutofocus: the field the user just asked to edit
                       autoFocus
-                      required
+                      required={!r.isSecret}
                       value={editing.value}
                       onChange={(e) => setEditing((x) => x && { ...x, value: e.target.value })}
                       type={editing.isSecret ? 'password' : 'text'}
-                      placeholder={r.isSecret ? 'New value' : undefined}
+                      placeholder={r.isSecret ? 'Leave empty to keep the current value' : undefined}
                       autoComplete="new-password"
                       spellCheck={false}
                       aria-label={`New value for ${r.key}`}
                       onKeyDown={(e) => e.key === 'Escape' && setEditing(null)}
-                      className={field}
+                      className={cx(field, 'min-w-[220px] flex-1')}
+                    />
+                    <ScopeSelect
+                      label={`Environment for ${r.key}`}
+                      value={editing.scope}
+                      onChange={(scope) => setEditing((x) => x && { ...x, scope })}
                     />
                     <label className="flex shrink-0 items-center gap-2 text-[14px] text-fg-2">
                       <input
@@ -189,12 +224,15 @@ export default function EnvironmentPage({ params }: { params: Promise<{ slug: st
                 </Td>
               ) : (
                 <>
-                  <Td className={cx('font-mono text-[13px] break-all text-fg-2', value === undefined && 'tracking-[0.15em] text-fg-3')}>
+                  <Td
+                    className={cx('w-full font-mono text-[13px] break-all text-fg-2', value === undefined && 'tracking-[0.15em] text-fg-3')}
+                  >
                     <span key={String(value !== undefined)} className="fade-in">
                       {value ?? '••••••••••••'}
                     </span>
                   </Td>
-                  <Td className="w-[260px] text-right whitespace-nowrap">
+                  <Td className="w-px text-[14px] whitespace-nowrap text-fg-2">{scopeLabel(r.scope)}</Td>
+                  <Td className="w-px text-right whitespace-nowrap">
                     {admin && r.isSecret && (
                       <button type="button" onClick={() => reveal(r)} className={cx(linkBtn, 'text-accent hover:bg-accent-soft')}>
                         {shown[r.id] !== undefined ? <EyeSlash size={17} /> : <Eye size={17} />}
@@ -206,7 +244,9 @@ export default function EnvironmentPage({ params }: { params: Promise<{ slug: st
                         type="button"
                         aria-label={`Edit ${r.key}`}
                         // Secrets start empty: editing never shows the old value.
-                        onClick={() => setEditing({ id: r.id, value: r.isSecret ? '' : (r.value ?? ''), isSecret: r.isSecret })}
+                        onClick={() =>
+                          setEditing({ id: r.id, value: r.isSecret ? '' : (r.value ?? ''), isSecret: r.isSecret, scope: r.scope })
+                        }
                         className={cx(linkBtn, 'ml-1 text-fg-2 hover:bg-bg-3 hover:text-fg')}
                       >
                         <PencilSimple size={16} /> Edit
@@ -230,10 +270,13 @@ export default function EnvironmentPage({ params }: { params: Promise<{ slug: st
           );
         })}
       </Table>
-      {data !== null && list.length === 0 && <p className="text-[14px] text-fg-3">No {scope} variables yet.</p>}
+      {data !== null && list.length === 0 && <p className="text-[14px] text-fg-3">No variables yet.</p>}
 
       {admin ? (
-        <form onSubmit={add} className="grid grid-cols-[260px_1fr_auto_auto] items-end gap-3 rounded-2xl border border-line bg-bg-2 p-4">
+        <form
+          onSubmit={add}
+          className="grid grid-cols-2 items-end gap-3 rounded-2xl border border-line bg-bg-2 p-4 xl:grid-cols-[200px_1fr_auto_auto_auto]"
+        >
           <label className="space-y-1">
             <span className="text-[13px] text-fg-3">Key</span>
             <input
@@ -258,6 +301,10 @@ export default function EnvironmentPage({ params }: { params: Promise<{ slug: st
               className={field}
             />
           </label>
+          <span className="space-y-1">
+            <span className="block text-[13px] text-fg-3">Environment</span>
+            <ScopeSelect label="Environment" value={draft.scope} onChange={(scope) => setDraft((d) => ({ ...d, scope }))} />
+          </span>
           <label className="flex h-9 items-center gap-2 text-[14px] text-fg-2">
             <input
               type="checkbox"
@@ -275,8 +322,8 @@ export default function EnvironmentPage({ params }: { params: Promise<{ slug: st
         <p className="text-[14px] text-fg-3">Only admins can change variables and reveal secrets.</p>
       )}
       <p className="text-[13.5px] text-fg-3">
-        Secrets are encrypted at rest with the server's master key. Saving, deleting and revealing are written to the audit log; values
-        never are.
+        A variable for Production + Preview is overridden by one with the same key set for a single environment. Secrets are encrypted at
+        rest with the server's master key. Saving, deleting and revealing are written to the audit log; values never are.
       </p>
     </div>
   );

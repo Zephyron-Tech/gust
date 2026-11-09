@@ -21,6 +21,7 @@ function toApi({ d, p, s, pb }: Row, logs: { ts: Date; phase: string; line: stri
     message: d.message,
     author: d.author,
     branch: d.branch ?? pb,
+    preview: d.branch !== null,
     previewUrl,
     trigger: d.trigger,
     state: d.state,

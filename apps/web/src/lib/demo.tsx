@@ -5,7 +5,7 @@
 // store polls the rows while the tab is visible. Everything else is sample
 // data played through the same states in the browser.
 import { Toast } from '@base-ui/react/toast';
-import { type Deployment, type DeployState, RUNNING_STATES } from '@gust/contracts';
+import { type Deployment, type DeployState, environmentOf, RUNNING_STATES } from '@gust/contracts';
 import { nextCommits, projects, deployments as seed } from '@gust/contracts/sample';
 import { useRouter } from 'next/navigation';
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -41,8 +41,10 @@ const isEngine = (project: string) => projects.some((p) => p.slug === project &&
 
 interface Demo {
   deployments: UiDeployment[];
-  busy: (project: string, service: string) => boolean;
-  deploy: (project: string, service: string, rollbackOf?: Deployment, tag?: string) => void;
+  /** Whether a deploy is running in one environment: production, or the preview of `branch`. */
+  busy: (project: string, service: string, branch?: string | null) => boolean;
+  /** Starts a deploy. With `branch` it redeploys that preview instead of production. */
+  deploy: (project: string, service: string, rollbackOf?: Deployment, tag?: string, branch?: string | null) => void;
   /** null while loading, false when the engine does not answer. */
   engineUp: boolean | null;
   failNext: boolean;
@@ -118,20 +120,22 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   }, [notify]);
 
   const busy = useCallback(
-    // Production only: a running preview does not block a production deploy.
-    (project: string, service: string) =>
-      deployments.some(
-        (d) => d.project === project && d.service === service && d.trigger !== 'preview' && RUNNING_STATES.includes(d.state),
-      ),
+    // Per environment: a running preview does not block production, nor the other way round.
+    (project: string, service: string, branch?: string | null) =>
+      deployments.some((d) => {
+        if (d.project !== project || d.service !== service || !RUNNING_STATES.includes(d.state)) return false;
+        const env = environmentOf(d);
+        return branch ? env.kind === 'preview' && env.branch === branch : env.kind === 'production';
+      }),
     [deployments],
   );
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: realDeploy reads the same state as its dependencies below
   const deploy = useCallback(
-    (project: string, service: string, rollbackOf?: Deployment, tag?: string) => {
-      if (busy(project, service)) return;
+    (project: string, service: string, rollbackOf?: Deployment, tag?: string, branch?: string | null) => {
+      if (busy(project, service, branch)) return;
       if (isEngine(project)) {
-        void realDeploy(project, service, rollbackOf, tag);
+        void realDeploy(project, service, rollbackOf, tag, branch);
         return;
       }
       const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -210,13 +214,13 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     [busy, deployments, failNext, notify, router],
   );
 
-  async function realDeploy(project: string, service: string, rollbackOf?: Deployment, tag?: string) {
+  async function realDeploy(project: string, service: string, rollbackOf?: Deployment, tag?: string, branch?: string | null) {
     const version = rollbackOf?.sha ?? tag;
     if (!version) return;
     const res = await fetch('/api/deployments', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ project, service, tag: version, rollbackOf: rollbackOf?.id }),
+      body: JSON.stringify({ project, service, tag: version, rollbackOf: rollbackOf?.id, ...(branch && { branch }) }),
     }).catch(() => null);
     const body = (await res?.json().catch(() => null)) as { id?: string; error?: string } | null;
     if (!res?.ok || !body?.id) {

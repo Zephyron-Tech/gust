@@ -44,6 +44,7 @@ export default async function ServiceSettingsPage({ params }: { params: Promise<
           productionBranch={project.productionBranch ?? 'main'}
           previewBranches={previewBranches}
           previewUrls={previewUrls}
+          productionDomains={s.domains ?? []}
         />
       )}
       <Panel className="view-in max-w-3xl p-7">

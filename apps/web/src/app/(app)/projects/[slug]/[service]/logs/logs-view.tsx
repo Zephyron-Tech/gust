@@ -1,7 +1,10 @@
 'use client';
 
+import { environmentOf } from '@gust/contracts';
 import { useEffect, useRef, useState } from 'react';
 
+import { EnvBadge } from '@/components/EnvBadge';
+import { Segmented } from '@/components/Segmented';
 import { useDemo } from '@/lib/demo';
 import { clock } from '@/lib/format';
 
@@ -24,7 +27,22 @@ const ENGINE_SILENT_MS = 15_000;
 // logs over SSE); sample projects get a line every second and a half.
 export function LogsView({ slug, service, engine }: { slug: string; service: string; engine: boolean }) {
   const { deployments } = useDemo();
-  const containerId = deployments.find((d) => d.project === slug && d.service === service && d.state === 'live')?.containerId;
+  // One stream per environment: production, or the preview of a branch. The
+  // newest live deployment of each is the one running.
+  const live = deployments.filter((d) => d.project === slug && d.service === service && d.state === 'live');
+  const envs: string[] = [];
+  for (const d of live) {
+    const env = environmentOf(d);
+    const key = env.kind === 'production' ? 'production' : env.branch;
+    if (!envs.includes(key)) envs.push(key);
+  }
+  if (!envs.includes('production')) envs.unshift('production');
+  envs.sort((a, b) => (a === 'production' ? -1 : b === 'production' ? 1 : a.localeCompare(b)));
+  const [envKey, setEnvKey] = useState('production');
+  const containerId = live.find((d) => {
+    const env = environmentOf(d);
+    return envKey === 'production' ? env.kind === 'production' : env.kind === 'preview' && env.branch === envKey;
+  })?.containerId;
   const [lines, setLines] = useState<Line[]>(() => (engine ? [] : SAMPLE.slice(0, 5).map((line, i) => ({ ts: `15:40:0${i + 2}`, line }))));
   const [paused, setPaused] = useState(false);
   const [status, setStatus] = useState(engine ? 'Connecting to the container…' : 'Following runtime logs');
@@ -33,7 +51,7 @@ export function LogsView({ slug, service, engine }: { slug: string; service: str
   useEffect(() => {
     if (!engine || paused) return;
     if (!containerId) {
-      setStatus('No running container for this service yet.');
+      setStatus('No running container in this environment yet.');
       return;
     }
     setLines([]);
@@ -83,8 +101,17 @@ export function LogsView({ slug, service, engine }: { slug: string; service: str
 
   return (
     <div className="view-in space-y-4">
+      {envs.length > 1 && (
+        <Segmented
+          options={envs}
+          value={envKey}
+          onChange={setEnvKey}
+          label="Environment"
+          format={(k) => (k === 'production' ? 'Production' : `Preview · ${k}`)}
+        />
+      )}
       <div className="flex items-center gap-3 text-[14px] text-fg-3">
-        <span className="rounded-md bg-bg-3 px-2 py-1 text-[13px] font-medium text-fg-2">{service}</span>
+        <EnvBadge env={envKey === 'production' ? { kind: 'production' } : { kind: 'preview', branch: envKey }} />
         <span>{paused ? 'Paused' : status}</span>
         <button
           type="button"

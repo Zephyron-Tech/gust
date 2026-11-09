@@ -1,3 +1,4 @@
+import { envScope } from '@gust/contracts';
 import { z } from 'zod';
 
 import { requireUser } from '@/lib/auth';
@@ -12,14 +13,14 @@ export async function GET(req: Request, { params }: Ctx) {
   const { slug, service } = await params;
   const row = await getServiceRow(slug, service);
   if (!row) return Response.json({ error: 'Not found' }, { status: 404 });
-  const [rows, status] = await Promise.all([listEnv(row.s.id), envStaleness(row.s.id, `${slug}/${service}`)]);
-  return Response.json({ rows, ...status });
+  const [rows, stale] = await Promise.all([listEnv(row.s.id), envStaleness(row.s.id, `${slug}/${service}`)]);
+  return Response.json({ rows, stale });
 }
 
 const body = z.object({
   key: z.string().regex(/^[A-Z_][A-Z0-9_]{0,127}$/, 'Use capitals, digits and underscores, e.g. DATABASE_URL'),
   value: z.string().max(8192),
-  scope: z.enum(['production', 'preview']),
+  scope: envScope,
   isSecret: z.boolean(),
 });
 

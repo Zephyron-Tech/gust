@@ -1,7 +1,7 @@
 // Runs one deploy: calls the engine, stores every event as a log line and
 // moves the deployment's state along. The only place that changes a
 // deployment after it was queued.
-import { branchLabel, previewHost } from '@gust/contracts';
+import { branchLabel, pickEnv, previewHost } from '@gust/contracts';
 import { db, deploymentLogs, deployments, envVars, projects, services } from '@gust/db';
 import { decryptSecret } from '@gust/db/secrets';
 import { and, eq, isNull, ne } from 'drizzle-orm';
@@ -60,10 +60,8 @@ export async function runDeploy(id: string) {
 
   // Env of the service for this deploy's scope; secrets are decrypted only here,
   // on their way to the engine, and never logged.
-  const vars = await db
-    .select()
-    .from(envVars)
-    .where(and(eq(envVars.serviceId, svc.id), eq(envVars.scope, d.branch ? 'preview' : 'production')));
+  // Shared (`all`) rows plus this environment's own, which win on the same key.
+  const vars = pickEnv(await db.select().from(envVars).where(eq(envVars.serviceId, svc.id)), d.branch ? 'preview' : 'production');
   let env: Record<string, string>;
   try {
     env = Object.fromEntries(vars.map((v) => [v.key, v.isSecret ? decryptSecret(v.value) : v.value]));

@@ -15,7 +15,10 @@ export const deployState = pgEnum('deploy_state', [
   'cancelled',
 ]);
 export const deployTrigger = pgEnum('deploy_trigger', ['push', 'rollback', 'manual', 'preview', 'reconcile']);
-export const envScope = pgEnum('env_scope', ['production', 'preview']);
+/** `all` is production and every preview; a production or preview row with the same key overrides it. */
+export const envScope = pgEnum('env_scope', ['all', 'production', 'preview']);
+/** A custom production domain on its way to serving: DNS first, then a deploy, then HTTPS. */
+export const domainState = pgEnum('domain_state', ['pending_dns', 'applying', 'live', 'error']);
 
 const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
 
@@ -62,6 +65,30 @@ export const services = pgTable(
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex('services_project_name').on(t.projectId, t.name)],
+);
+
+/**
+ * Custom production domains of a service and how far each one is. Only
+ * verified hosts are copied into services.domains, which is what a deploy
+ * routes, so an unverified name never makes Traefik ask for a certificate.
+ */
+export const serviceDomains = pgTable(
+  'service_domains',
+  {
+    id: text('id').primaryKey(), // dom_<random>
+    serviceId: text('service_id')
+      .notNull()
+      .references(() => services.id, { onDelete: 'cascade' }),
+    host: text('host').notNull().unique(),
+    state: domainState('state').notNull().default('pending_dns'),
+    /** Why the last check did not pass, for the UI. */
+    error: text('error'),
+    checkedAt: timestamp('checked_at', { withTimezone: true }),
+    /** When DNS passed and the host was added to services.domains; a production deploy after this serves it. */
+    appliedAt: timestamp('applied_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index('service_domains_service').on(t.serviceId)],
 );
 
 export const deployments = pgTable(

@@ -40,6 +40,8 @@ export async function startDeploy(input: {
   if (!row?.project.engine) throw new DeployError('This service is not deployed through the engine');
   const svc = row.service;
   const branch = input.branch ?? null;
+  if (branch && !row.project.previewBranches.includes(branch))
+    throw new DeployError(`${branch} is not a preview branch of ${input.project}. Add it in Settings → Branches.`);
 
   // A rollback redeploys the image tag stored with the target deployment. The
   // UI only knows the short commit, which is not the image tag.

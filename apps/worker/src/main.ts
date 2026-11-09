@@ -4,6 +4,7 @@ import { type DeployJob, QUEUES } from '@gust/db/queue';
 import { PgBoss } from 'pg-boss';
 
 import { runDeploy } from './deploy';
+import { checkDomains } from './domains';
 import { failInterrupted, reconcile } from './reconcile';
 
 const log = (line: string) => console.log(`${new Date().toISOString()} ${line}`);
@@ -28,6 +29,11 @@ const every = Number(process.env.RECONCILE_EVERY_S ?? 20) * 1000;
 const tick = () => reconcile(log).catch((e) => log(`reconcile failed: ${(e as Error).message}`));
 setTimeout(tick, 3000);
 setInterval(tick, every);
+
+// Custom domains on their way to serving: DNS, then a deploy, then HTTPS.
+const domainTick = () => checkDomains(log).catch((e) => log(`domain check failed: ${(e as Error).message}`));
+setTimeout(domainTick, 5000);
+setInterval(domainTick, Number(process.env.DOMAIN_CHECK_EVERY_S ?? 30) * 1000);
 
 log('gust worker started');
 

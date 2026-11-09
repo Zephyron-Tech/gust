@@ -56,6 +56,8 @@ export const deployment = z.object({
   trigger: z.enum(['push', 'rollback', 'manual', 'preview', 'reconcile']),
   state: deployState,
   createdAt: z.string(),
+  /** True for a deploy of a preview branch; absent or false is production. */
+  preview: z.boolean().optional(),
   /** Where a preview is served; absent for production. */
   previewUrl: z.string().optional(),
   duration: z.string().optional(),
@@ -72,11 +74,15 @@ export const domain = z.object({
 });
 export type Domain = z.infer<typeof domain>;
 
+/** Where an env var applies: `all` is production and every preview. */
+export const envScope = z.enum(['all', 'production', 'preview']);
+export type EnvScope = z.infer<typeof envScope>;
+
 export const envVar = z.object({
   key: z.string(),
   value: z.string(),
   secret: z.boolean(),
-  scope: z.enum(['production', 'preview']),
+  scope: envScope,
 });
 export type EnvVar = z.infer<typeof envVar>;
 
@@ -176,3 +182,30 @@ export function deployTarget(ref: string, productionBranch: string, previewBranc
   const preview = previewBranches.find((b) => ref === `refs/heads/${b}`);
   return preview ? { branch: preview } : null;
 }
+
+/** The environment a deploy runs in: production, or the preview of one branch. */
+export type Environment = { kind: 'production' } | { kind: 'preview'; branch: string };
+
+export function environmentOf(d: Pick<Deployment, 'preview' | 'trigger' | 'branch'>): Environment {
+  return d.preview || d.trigger === 'preview' ? { kind: 'preview', branch: d.branch } : { kind: 'production' };
+}
+
+/** Whether a variable of `scope` reaches `env`. */
+export const scopeApplies = (scope: EnvScope, env: 'production' | 'preview') => scope === 'all' || scope === env;
+
+/**
+ * The variables one deploy gets: every row whose scope applies, and where a
+ * key is set both for `all` and for the environment itself, the specific one.
+ */
+export function pickEnv<T extends { key: string; scope: EnvScope }>(rows: T[], env: 'production' | 'preview'): T[] {
+  const out = new Map<string, T>();
+  for (const r of rows) {
+    if (!scopeApplies(r.scope, env)) continue;
+    const prev = out.get(r.key);
+    if (!prev || prev.scope === 'all') out.set(r.key, r);
+  }
+  return [...out.values()];
+}
+
+/** A hostname someone can point at Gust: lowercase labels, a dot, no wildcard. */
+export const HOSTNAME = /^(?=.{4,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;

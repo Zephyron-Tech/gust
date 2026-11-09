@@ -19,6 +19,11 @@ const body = z.object({
     .string()
     .regex(/^dpl_[a-z0-9]+$/)
     .optional(),
+  /** A preview branch to redeploy; omitted deploys production. */
+  branch: z
+    .string()
+    .regex(/^[A-Za-z0-9._/-]{1,100}$/)
+    .optional(),
 });
 
 // Starts a deploy and returns its id right away; the deploy runs on the

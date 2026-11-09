@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
-import { branchLabel, deployment, deployRequest, deployTarget, observedStack, previewHost, project, RUNNING_STATES } from './index';
+import {
+  branchLabel,
+  deployment,
+  deployRequest,
+  deployTarget,
+  environmentOf,
+  HOSTNAME,
+  observedStack,
+  pickEnv,
+  previewHost,
+  project,
+  RUNNING_STATES,
+} from './index';
 import { deployments, observed, projects } from './sample';
 
 describe('deployRequest', () => {
@@ -65,5 +77,49 @@ describe('preview deploys', () => {
     expect(deployTarget('refs/heads/feature', 'main', ['dev'])).toBeNull();
     expect(deployTarget('refs/tags/v1', 'main', ['dev'])).toBeNull();
     expect(deployTarget('refs/heads/dev', 'main', [])).toBeNull();
+  });
+});
+
+describe('environmentOf', () => {
+  it('reads production from a push and preview from a preview deploy', () => {
+    expect(environmentOf({ trigger: 'push', branch: 'main' })).toEqual({ kind: 'production' });
+    expect(environmentOf({ trigger: 'preview', branch: 'dev' })).toEqual({ kind: 'preview', branch: 'dev' });
+  });
+
+  it('keeps a redeploy of a preview a preview', () => {
+    expect(environmentOf({ trigger: 'manual', branch: 'dev', preview: true })).toEqual({ kind: 'preview', branch: 'dev' });
+  });
+});
+
+describe('pickEnv', () => {
+  const rows = [
+    { key: 'A', scope: 'all' as const, v: 'shared' },
+    { key: 'B', scope: 'all' as const, v: 'shared' },
+    { key: 'B', scope: 'preview' as const, v: 'preview' },
+    { key: 'C', scope: 'production' as const, v: 'prod' },
+  ];
+
+  it('gives production the shared and production rows', () => {
+    expect(pickEnv(rows, 'production').map((r) => `${r.key}=${r.v}`)).toEqual(['A=shared', 'B=shared', 'C=prod']);
+  });
+
+  it('lets a preview row override the shared one', () => {
+    expect(pickEnv(rows, 'preview').map((r) => `${r.key}=${r.v}`)).toEqual(['A=shared', 'B=preview']);
+  });
+
+  it('lets the specific row win whatever the order', () => {
+    const reversed = [...rows].reverse();
+    expect(pickEnv(reversed, 'preview').find((r) => r.key === 'B')?.v).toBe('preview');
+  });
+});
+
+describe('HOSTNAME', () => {
+  it('accepts plain and nested hosts', () => {
+    for (const h of ['zephyron.tech', 'app.zephyron.tech', 'a-b.c.example.cz']) expect(HOSTNAME.test(h)).toBe(true);
+  });
+
+  it('rejects wildcards, capitals, ports and bad dashes', () => {
+    for (const h of ['*.zephyron.tech', 'Zephyron.tech', 'app.zephyron.tech:443', '-app.x.cz', 'app-.x.cz', 'localhost', 'http://a.cz'])
+      expect(HOSTNAME.test(h)).toBe(false);
   });
 });

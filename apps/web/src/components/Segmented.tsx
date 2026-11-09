@@ -9,11 +9,14 @@ export function Segmented<T extends string>({
   value,
   onChange,
   label,
+  format,
 }: {
   options: readonly T[];
   value: T;
   onChange: (v: T) => void;
   label: string;
+  /** Text shown for an option; without it the option itself, capitalised. */
+  format?: (v: T) => string;
 }) {
   const { ref, style } = useIndicator<HTMLFieldSetElement>(value);
   return (
@@ -27,11 +30,12 @@ export function Segmented<T extends string>({
           aria-pressed={value === o}
           onClick={() => onChange(o)}
           className={cx(
-            'relative rounded-lg px-3.5 py-1.5 text-[14px] capitalize transition-colors duration-200',
+            'relative rounded-lg px-3.5 py-1.5 text-[14px] transition-colors duration-200',
+            !format && 'capitalize',
             value === o ? 'text-fg' : 'text-fg-2 hover:text-fg',
           )}
         >
-          {o}
+          {format ? format(o) : o}
         </button>
       ))}
     </fieldset>

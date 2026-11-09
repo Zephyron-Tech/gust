@@ -1,13 +1,15 @@
 'use client';
 
-import { type Deployment, RUNNING_STATES } from '@gust/contracts';
+import { type Deployment, environmentOf, RUNNING_STATES } from '@gust/contracts';
 import { projects } from '@gust/contracts/sample';
 import { ArrowCounterClockwise, Check, X } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
 import { use, useEffect, useRef } from 'react';
 import { Ago } from '@/components/Ago';
+import { EnvBadge } from '@/components/EnvBadge';
 import { btn, Code, cx, Pill } from '@/components/ui';
 import { useDemo, useDeploymentDetail } from '@/lib/demo';
+import { triggerLabel } from '@/lib/deploy-labels';
 
 const PHASES = ['Queued', 'Pull image', 'Start', 'Health check', 'Live'];
 
@@ -55,20 +57,11 @@ export default function DeploymentPage({ params }: { params: Promise<{ slug: str
         <div className="min-w-0 space-y-2">
           <div className="flex items-center gap-3">
             <Pill state={d.state} />
+            <EnvBadge env={environmentOf(d)} />
             <h2 className="truncate text-[24px] leading-tight">{d.message}</h2>
           </div>
           <p className="text-[14px] text-fg-3">
-            <Code>{d.id}</Code> · <Code>{d.sha}</Code> · {d.author} ·{' '}
-            {d.trigger === 'preview'
-              ? `preview · ${d.branch}`
-              : d.trigger === 'rollback'
-                ? 'rollback'
-                : d.trigger === 'manual'
-                  ? 'deployed from Gust'
-                  : d.trigger === 'reconcile'
-                    ? 'restored by Gust'
-                    : `push to ${d.branch}`}{' '}
-            · <Ago iso={d.createdAt} />
+            <Code>{d.id}</Code> · <Code>{d.sha}</Code> · {d.author} · {triggerLabel(d)} · <Ago iso={d.createdAt} />
             {d.duration ? ` · ${d.duration}` : ''}
           </p>
         </div>
@@ -79,7 +72,7 @@ export default function DeploymentPage({ params }: { params: Promise<{ slug: str
             </a>
           )}
           {/* Rollbacks stay on production; a preview is replaced by the next push to its branch. */}
-          {d.state === 'superseded' && d.trigger !== 'preview' && (
+          {d.state === 'superseded' && environmentOf(d).kind === 'production' && (
             <button type="button" className={btn.secondary} disabled={busy(slug, service)} onClick={() => deploy(slug, service, d)}>
               <ArrowCounterClockwise /> Roll back to this
             </button>
