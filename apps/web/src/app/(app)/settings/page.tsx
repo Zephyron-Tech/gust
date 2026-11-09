@@ -1,46 +1,54 @@
 import { UpdatePanel } from '@/components/UpdatePanel';
 import { PageHead, Panel } from '@/components/ui';
+import { readLastBackup } from '@/lib/backup-status';
+import { authentikValue, backupValue, breakGlassValue, githubAppValue, NOT_SET, registryValue, rolesValue } from '@/lib/integrations';
 import { serverIp } from '@/lib/public-url';
 
 export const metadata = { title: 'Settings' };
 
-// `-` marks a value that is not implemented yet. Each one is a to-do, not a
-// status: nothing listed as `-` is running.
-const gustRows: [string, string][] = [
-  ['Server', '-'],
-  ['Address', `gust.zephyron.tech · ${serverIp() ?? '-'}`],
-];
+// Read at request time: the values come from the environment and the backup record.
+export const dynamic = 'force-dynamic';
 
-const sections: { title: string; rows: [string, string][] }[] = [
-  {
-    title: 'Sign-in',
-    rows: [
-      ['Provider', 'Authentik OIDC · auth.zephyron.tech'],
-      ['Break-glass account', 'on, for when Authentik is down'],
-      ['Roles', 'admin: everything · member: deploys and logs, no secrets'],
-    ],
-  },
-  {
-    title: 'Integrations',
-    rows: [
-      ['GitHub App', '-'],
-      ['Wildcard DNS', '-'],
-      ['Registry', '-'],
-    ],
-  },
-  {
-    title: 'Alerts and backups',
-    rows: [
-      ['Push', '-'],
-      ['Discord', '-'],
-      ['Heartbeat', '-'],
-      ['Backups', '-'],
-      ['Image cleanup', '-'],
-    ],
-  },
-];
+// Each value is read from configuration. `-` means it is not set up here, or
+// the feature does not exist yet (no code behind it).
+export default async function SettingsPage() {
+  const env = process.env;
+  const lastBackup = await readLastBackup();
 
-export default function SettingsPage() {
+  const gustRows: [string, string][] = [
+    ['Server', NOT_SET],
+    ['Address', `${env.GUST_DOMAIN ?? NOT_SET} · ${serverIp() ?? NOT_SET}`],
+  ];
+
+  const sections: { title: string; rows: [string, string][] }[] = [
+    {
+      title: 'Sign-in',
+      rows: [
+        ['Provider', authentikValue(env.AUTHENTIK_ISSUER)],
+        ['Break-glass account', breakGlassValue(env.BREAK_GLASS_EMAIL)],
+        ['Roles', rolesValue(env.GUST_ADMIN_GROUP)],
+      ],
+    },
+    {
+      title: 'Integrations',
+      rows: [
+        ['GitHub App', githubAppValue(env.GITHUB_APP_ID, env.GITHUB_APP_KEY_SET === 'yes', env.GITHUB_ALLOWED_OWNERS)],
+        ['Wildcard DNS', NOT_SET],
+        ['Registry', registryValue(env.REGISTRY_DOMAIN)],
+      ],
+    },
+    {
+      title: 'Alerts and backups',
+      rows: [
+        ['Push', NOT_SET],
+        ['Discord', NOT_SET],
+        ['Heartbeat', NOT_SET],
+        ['Backups', backupValue(lastBackup)],
+        ['Image cleanup', NOT_SET],
+      ],
+    },
+  ];
+
   return (
     <div className="view-in space-y-7">
       <PageHead title="Settings" />
