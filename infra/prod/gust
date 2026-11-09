@@ -111,10 +111,10 @@ sample_metrics() {
   stamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   local line
   line="$(awk -v t=$((t2-t1)) -v i=$((i2-i1)) -v s=$((s2-s1)) -v rx=$((rx2-rx1)) -v tx=$((tx2-tx1)) \
-    -v load="$(awk '{print $1}' /proc/loadavg)" '
+    -v ld="$(awk '{print $1}' /proc/loadavg)" '
     BEGIN {
       printf "{\"cpu\":%.1f,\"steal\":%.1f,\"load1\":%s,\"netInMBps\":%.2f,\"netOutMBps\":%.2f", \
-        (t>0 ? (t-i)*100/t : 0), (t>0 ? s*100/t : 0), load, rx/1000000, tx/1000000
+        (t>0 ? (t-i)*100/t : 0), (t>0 ? s*100/t : 0), ld, rx/1000000, tx/1000000
     }' )"
   line="$line$(awk '/MemTotal/{t=$2} /MemAvailable/{a=$2} END {printf ",\"ramUsedGb\":%.2f,\"ramTotalGb\":%.2f", (t-a)/1048576, t/1048576}' /proc/meminfo)"
   line="$line$(df -B1 --output=used,size / | tail -n1 | awk '{printf ",\"diskUsedGb\":%.2f,\"diskTotalGb\":%.2f", $1/1073741824, $2/1073741824}')"
