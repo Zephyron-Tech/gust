@@ -37,6 +37,18 @@ export async function startDeploy(input: {
   const row = await findService(input.project, input.service);
   if (!row?.project.engine) throw new DeployError('This service is not deployed through the engine');
   const svc = row.service;
+
+  // A rollback redeploys the image tag stored with the target deployment. The
+  // UI only knows the short commit, which is not the image tag.
+  let tag = input.tag;
+  if (input.rollbackOf) {
+    const [target] = await db
+      .select({ tag: deployments.tag, serviceId: deployments.serviceId })
+      .from(deployments)
+      .where(eq(deployments.id, input.rollbackOf));
+    if (!target || target.serviceId !== svc.id) throw new DeployError('Rollback target not found');
+    tag = target.tag;
+  }
   if (svc.type !== 'app' || !svc.port) throw new DeployError('Only app services can be deployed');
 
   const [busy] = await db
@@ -46,14 +58,14 @@ export async function startDeploy(input: {
   if (busy) throw new DeployError(`A deploy is already running (${busy.id})`);
 
   const id = `dpl_${crypto.randomUUID().replace(/-/g, '').slice(0, 10)}`;
-  const imageRef = `${registryHost()}/${svc.image}:${input.tag}`;
+  const imageRef = `${registryHost()}/${svc.image}:${tag}`;
   await db.insert(deployments).values({
     id,
     serviceId: svc.id,
     trigger: input.push ? 'push' : input.rollbackOf ? 'rollback' : 'manual',
-    tag: input.tag,
+    tag,
     imageRef,
-    message: input.push?.message || (input.rollbackOf ? `Roll back to ${input.tag}` : `Deploy ${input.tag}`),
+    message: input.push?.message || (input.rollbackOf ? `Roll back to ${tag}` : `Deploy ${tag}`),
     author: input.author,
     commitSha: input.push?.sha ?? null,
     rollbackOf: input.rollbackOf ?? null,
@@ -65,7 +77,7 @@ export async function startDeploy(input: {
     target: `${input.project}/${input.service}`,
     detail: {
       deploymentId: id,
-      tag: input.tag,
+      tag,
       rollbackOf: input.rollbackOf ?? null,
       ...(input.push && { sha: input.push.sha, repository: input.push.repository, runId: input.push.runId }),
     },
