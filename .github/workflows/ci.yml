@@ -27,6 +27,7 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      - run: node --test .github/actions/deploy/
       - run: pnpm build
 
   image:

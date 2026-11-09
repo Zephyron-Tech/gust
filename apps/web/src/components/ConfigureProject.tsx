@@ -214,7 +214,8 @@ export function ConfigureProject({ repo, gustDomain }: { repo: ConfigureRepo; gu
         {!repo.dockerfile.found && (
           <p className="flex items-start gap-2.5 rounded-xl bg-warn/10 px-4 py-3 text-[14px] text-fg-2">
             <Warning size={18} className="mt-px shrink-0 text-warn" />
-            No Dockerfile at the root of {repo.defaultBranch}. The deploy action builds the image from it, so add one before the first push.
+            No Dockerfile at the root of {repo.defaultBranch}. The deploy action generates one for Next.js and Node.js apps. Other stacks
+            need a Dockerfile before the first push.
           </p>
         )}
 

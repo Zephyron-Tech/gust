@@ -24,7 +24,7 @@ inputs:
     description: Docker build context
     default: .
   dockerfile:
-    description: Path to the Dockerfile; defaults to <context>/Dockerfile
+    description: Path to the Dockerfile. Defaults to <context>/Dockerfile; when that is missing, one is generated for Next.js and Node.js apps
     default: ""
   build-args:
     description: Build arguments, one KEY=value per line
@@ -61,6 +61,35 @@ runs:
         REGISTRY_PASSWORD: ${{ inputs.registry-password }}
       run: printf '%s' "$REGISTRY_PASSWORD" | docker login "$REGISTRY" -u "$REGISTRY_USERNAME" --password-stdin
 
+    # Builds from the repository's Dockerfile. Without one, generates it for a
+    # Next.js or Node.js app (dockerfile.mjs) and keeps it out of the repository.
+    - name: Find or generate the Dockerfile
+      id: dockerfile
+      shell: bash
+      env:
+        CONTEXT: ${{ inputs.context }}
+        DOCKERFILE: ${{ inputs.dockerfile }}
+      run: |
+        set -euo pipefail
+        path="${DOCKERFILE:-$CONTEXT/Dockerfile}"
+        if [[ -f "$path" ]]; then
+          echo "Building $path"
+          echo "path=$path" >>"$GITHUB_OUTPUT"
+          echo "generated=false" >>"$GITHUB_OUTPUT"
+          exit 0
+        fi
+        if [[ -n "$DOCKERFILE" ]]; then
+          echo "::error::No Dockerfile at $DOCKERFILE"
+          exit 1
+        fi
+        out="$RUNNER_TEMP/gust-dockerfile"
+        path=$(node "$GITHUB_ACTION_PATH/dockerfile.mjs" "$CONTEXT" "$out")
+        echo "::group::Generated $path"
+        cat "$path"
+        echo "::endgroup::"
+        echo "path=$path" >>"$GITHUB_OUTPUT"
+        echo "generated=true" >>"$GITHUB_OUTPUT"
+
     # The docker driver pushes Docker schema2 manifests, which Zot rejects (415).
     # The docker-container driver pushes OCI manifests, as the image workflow does.
     - name: Set up buildx
@@ -73,14 +102,14 @@ runs:
         REGISTRY: ${{ inputs.registry }}
         IMAGE: ${{ inputs.image }}
         CONTEXT: ${{ inputs.context }}
-        DOCKERFILE: ${{ inputs.dockerfile }}
+        DOCKERFILE: ${{ steps.dockerfile.outputs.path }}
         BUILD_ARGS: ${{ inputs.build-args }}
       run: |
         tag="${GITHUB_SHA::12}"
         ref="$REGISTRY/$IMAGE:$tag"
         args=()
         while IFS= read -r line; do [[ -n "$line" ]] && args+=(--build-arg "$line"); done <<<"$BUILD_ARGS"
-        docker buildx build "$CONTEXT" ${DOCKERFILE:+--file "$DOCKERFILE"} "${args[@]}" \
+        docker buildx build "$CONTEXT" --file "$DOCKERFILE" "${args[@]}" \
           --platform linux/amd64 --tag "$ref" --provenance=false --sbom=false \
           --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
           --label "org.opencontainers.image.revision=$GITHUB_SHA" \

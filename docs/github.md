@@ -84,6 +84,26 @@ The image is tagged with the first 12 characters of the commit. The action
 waits for the deploy and fails the job when the deploy fails; `wait: false`
 returns as soon as Gust accepted it.
 
+### Dockerfile
+
+The action builds the repository's `Dockerfile` (or the one at `dockerfile:`).
+When there is none, it generates one (`.github/actions/deploy/dockerfile.mjs`)
+for:
+
+- **Next.js** (`next` in dependencies). With `output: 'standalone'` in
+  `next.config` the image runs `.next/standalone`, the smallest option. Without
+  it the image runs `next start` with the production dependencies.
+- **Node.js** with a `start` script. The image runs `npm`, `pnpm` or `yarn
+  start`; the app listens on `PORT` (3000) and `EXPOSE`s it.
+
+The package manager comes from `packageManager`, else from the lockfile.
+Installs use the frozen lockfile, the image runs as `node`, and `.env`,
+`.env.local`, `.git` and `node_modules` stay out of the build. A committed
+`.env.production` is still available at build time. Anything else (other
+stacks, Bun, a repository with no `start` script) fails the job with a message
+and needs a Dockerfile. The generated file is printed in the job log and is
+never committed.
+
 The Gust repository is private. For other repositories to use its action, set
 **Settings → Actions → General → Access** to "Accessible from repositories in
 the Zephyron-Tech organization".
