@@ -1,18 +1,15 @@
 import { server } from '@gust/contracts/sample';
-
+import { UpdatePanel } from '@/components/UpdatePanel';
 import { PageHead, Panel } from '@/components/ui';
 
 export const metadata = { title: 'Settings' };
 
+const gustRows: [string, string][] = [
+  ['Server', `${server.plan} · ${server.vcpu} vCPU · ${server.ramGb} GB · ${server.os}`],
+  ['Address', `gust.zephyron.tech · ${server.ip}`],
+];
+
 const sections: { title: string; rows: [string, string][] }[] = [
-  {
-    title: 'Gust',
-    rows: [
-      ['Version', 'gust 0.1.0 · up to date'],
-      ['Server', `${server.plan} · ${server.vcpu} vCPU · ${server.ramGb} GB · ${server.os}`],
-      ['Address', `gust.zephyron.tech · ${server.ip}`],
-    ],
-  },
   {
     title: 'Sign-in',
     rows: [
@@ -46,6 +43,7 @@ export default function SettingsPage() {
     <div className="view-in space-y-7">
       <PageHead title="Settings" />
       <div className="grid max-w-4xl gap-4">
+        <UpdatePanel rows={gustRows} />
         {sections.map((s) => (
           <Panel key={s.title} className="p-6">
             <h2 className="mb-4 font-display text-[17px]">{s.title}</h2>

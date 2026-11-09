@@ -38,6 +38,58 @@ sync_files() {
   chmod +x gust.new && mv gust.new gust
 }
 
+# Update requests from the web UI. The web container only writes request files
+# in $GUST_DIR/requests and reads status.json; this runs on the host, started by
+# systemd (gust-requests.path and gust-version-check.timer).
+REQ="$GUST_DIR/requests"
+STATUS="$REQ/status.json"
+
+img_ref() { local i; i="$(image)"; echo "${i:-ghcr.io/zephyron-tech/gust:latest}"; }
+
+# Digest of the image on this host, and of the newest one on the registry.
+digest_local() {
+  docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$(img_ref)" 2>/dev/null \
+    | sed -n 's/^.*@\(sha256:[a-f0-9]*\)$/\1/p' | head -n1 || true
+}
+digest_remote() {
+  docker buildx imagetools inspect "$(img_ref)" --format '{{.Manifest.Digest}}' 2>/dev/null | head -n1 || true
+}
+
+# write_status <state> <action> <current> <latest>
+write_status() {
+  local avail=false
+  [ -n "$3" ] && [ -n "$4" ] && [ "$3" != "$4" ] && avail=true
+  printf '{"state":"%s","action":"%s","current":"%s","latest":"%s","available":%s,"checkedAt":"%s"}\n' \
+    "$1" "$2" "$3" "$4" "$avail" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$STATUS.tmp"
+  chmod 644 "$STATUS.tmp"
+  mv "$STATUS.tmp" "$STATUS"
+}
+
+# Reads one string field of status.json, empty when there is no file yet.
+prev_field() { sed -n "s/.*\"$1\":\"\([^\"]*\)\".*/\1/p" "$STATUS" 2>/dev/null | head -n1 || true; }
+
+# Refreshes the version fields and keeps the last install result (timer and check).
+refresh_status() {
+  local st act
+  st="$(prev_field state)"; act="$(prev_field action)"
+  write_status "${st:-idle}" "${act:-none}" "$(digest_local)" "$(digest_remote)"
+}
+
+requests_run() {
+  mkdir -p "$REQ"
+  if [ -f "$REQ/install" ]; then
+    rm -f "$REQ/install" "$REQ/check"
+    write_status running install "$(digest_local)" "$(digest_remote)"
+    local state=failed
+    # A backup first, so a bad update can be restored with gust restore.
+    if { "$GUST_DIR/gust" backup && "$GUST_DIR/gust" update; } >"$REQ/update.log" 2>&1; then state=ok; fi
+    write_status "$state" install "$(digest_local)" "$(digest_remote)"
+  elif [ -f "$REQ/check" ]; then
+    rm -f "$REQ/check"
+    refresh_status
+  fi
+}
+
 cmd="${1:-help}"
 [ $# -gt 0 ] && shift
 
@@ -100,6 +152,12 @@ case "$cmd" in
     ;;
   sync-files)
     sync_files
+    ;;
+  version-check)
+    refresh_status
+    ;;
+  requests-run)
+    requests_run
     ;;
   help | -h | --help)
     sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'

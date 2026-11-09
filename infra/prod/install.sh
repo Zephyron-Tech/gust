@@ -174,6 +174,8 @@ htp() { docker run --rm httpd:2.4-alpine htpasswd -nbB "$1" "$2" | sed -n '1p'; 
 } > "$GUST_DIR/zot/htpasswd"
 chmod 644 "$GUST_DIR/zot/htpasswd"
 
+mkdir -p "$GUST_DIR/requests"
+
 say "Starting Gust"
 "$GUST_DIR/gust" up
 
@@ -185,11 +187,67 @@ done
 echo
 [ "${ok:-}" = 1 ] || die "The web UI did not start. See: gust logs web"
 
+# The web container writes update requests into this folder as the user the image runs as.
+uid="$(cd "$GUST_DIR" && docker compose exec -T web id -u 2>/dev/null | tr -d '\r' || true)"
+if [ -n "$uid" ]; then chown "$uid" "$GUST_DIR/requests"; chmod 775 "$GUST_DIR/requests"; fi
+
 "$GUST_DIR/gust" break-glass
 
 if [ "$SKIP_SYSTEM" != 1 ]; then
   ln -sf "$GUST_DIR/gust" /usr/local/bin/gust
   echo "15 3 * * * root GUST_DIR=$GUST_DIR /usr/local/bin/gust backup >/dev/null 2>&1" > /etc/cron.d/gust-backup
+
+  if [ -d /run/systemd/system ]; then
+    say "Updates from the Settings page"
+    # Runs gust requests-run whenever the web UI creates install or check in requests/.
+    cat > /etc/systemd/system/gust-requests.path <<UNIT
+[Unit]
+Description=Gust: update requests from the web UI
+
+[Path]
+PathExists=$GUST_DIR/requests/install
+PathExists=$GUST_DIR/requests/check
+Unit=gust-requests.service
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+    cat > /etc/systemd/system/gust-requests.service <<UNIT
+[Unit]
+Description=Gust: handle update requests from the web UI
+
+[Service]
+Type=oneshot
+Environment=GUST_DIR=$GUST_DIR
+ExecStart=$GUST_DIR/gust requests-run
+TimeoutStartSec=30min
+UNIT
+    # Checks the registry for a newer image every 10 minutes.
+    cat > /etc/systemd/system/gust-version-check.service <<UNIT
+[Unit]
+Description=Gust: check the registry for a newer image
+
+[Service]
+Type=oneshot
+Environment=GUST_DIR=$GUST_DIR
+ExecStart=$GUST_DIR/gust version-check
+UNIT
+    cat > /etc/systemd/system/gust-version-check.timer <<UNIT
+[Unit]
+Description=Gust: check for a newer image every 10 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=10min
+Unit=gust-version-check.service
+
+[Install]
+WantedBy=timers.target
+UNIT
+    systemctl daemon-reload
+    systemctl enable --now gust-requests.path gust-version-check.timer
+    "$GUST_DIR/gust" version-check || warn "The first version check failed. It runs again in 10 minutes."
+  fi
 fi
 
 say "Gust is running"
@@ -203,5 +261,5 @@ Next:
   2. Add a project:  gust project add <slug> --repo Zephyron-Tech/<repo> --service web --port 3000 --domain <domain>
   3. Add the repository to the Zephyron Gust GitHub App installation and its deploy workflow (docs/github.md).
 
-Backups run every night at 03:15 into $GUST_DIR/backups. Update Gust with: gust update
+Backups run every night at 03:15 into $GUST_DIR/backups. Updates: Settings in the web UI, or gust update.
 EOF

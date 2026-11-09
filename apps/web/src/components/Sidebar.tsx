@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { useDemo } from '@/lib/demo';
 import { useLive } from '@/lib/metrics';
 import { useIndicator } from '@/lib/useIndicator';
+import { useUpdateStatus } from '@/lib/useUpdateStatus';
 import { GustMark } from './GustMark';
 import { cx, Dot, Meter } from './ui';
 
@@ -30,6 +31,8 @@ export function Sidebar() {
   const path = usePathname();
   const live = useLive();
   const { diskAlert } = useDemo();
+  const { status: update } = useUpdateStatus();
+  const updateAvailable = update?.available === true;
   // The highlight moves on click, before the next page has loaded, so it feels instant.
   const [pending, setPending] = useState<{ href: string; from: string } | null>(null);
   const current = nav.find((n) => path.startsWith(n.href))?.href ?? null;
@@ -61,6 +64,11 @@ export function Sidebar() {
               {href === '/server' && diskAlert && (
                 <span className="pop-in ml-auto grid size-5 place-items-center rounded-full bg-err text-[11.5px] font-semibold text-white">
                   1
+                </span>
+              )}
+              {href === '/settings' && updateAvailable && (
+                <span className="pop-in ml-auto grid size-5 place-items-center rounded-full bg-accent text-[11.5px] font-semibold text-accent-ink">
+                  1<span className="sr-only"> update available</span>
                 </span>
               )}
             </Link>
