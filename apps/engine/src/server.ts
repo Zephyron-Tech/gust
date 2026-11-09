@@ -63,6 +63,13 @@ app.post('/v1/containers/:id/stop', async (c) => {
   return c.json({ ok: true });
 });
 
+// Removes a container, stopping it first if it runs. Volumes stay: stateful data
+// is kept until someone removes it on purpose.
+app.delete('/v1/containers/:id', async (c) => {
+  await docker.getContainer(c.req.param('id')).remove({ force: true, v: false });
+  return c.json({ ok: true });
+});
+
 // Live logs of a container as SSE. Docker multiplexes stdout and stderr into
 // frames with an 8-byte header; demux splits them back into lines.
 app.get('/v1/containers/:id/logs', (c) =>

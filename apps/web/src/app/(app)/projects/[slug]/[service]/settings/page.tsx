@@ -2,6 +2,7 @@ import { previewHost } from '@gust/contracts';
 import { notFound } from 'next/navigation';
 
 import { BranchesPanel } from '@/components/BranchesPanel';
+import { DeleteProject } from '@/components/DeleteProject';
 import { Panel } from '@/components/ui';
 import { getProject } from '@/lib/data';
 
@@ -57,6 +58,7 @@ export default async function ServiceSettingsPage({ params }: { params: Promise<
           ))}
         </dl>
       </Panel>
+      <DeleteProject slug={slug} services={project.services.map((x) => x.name)} />
     </div>
   );
 }

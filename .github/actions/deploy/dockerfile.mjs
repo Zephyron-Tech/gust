@@ -36,10 +36,22 @@ function tooling({ name, version }, files, yarnLock) {
   const lock = { npm: 'package-lock.json', pnpm: 'pnpm-lock.yaml', yarn: 'yarn.lock' }[name];
   const hasLock = files.has(lock);
   if (name === 'pnpm') {
+    const pinned = version ?? '10';
+    const major = Number(pinned.split('.')[0]);
+    const frozen = hasLock ? ' --frozen-lockfile' : '';
+    // pnpm 10+ runs a dependency's install scripts only when it is approved, and
+    // fails the install while any are pending. Pending ones are only listed by a
+    // failed install, so the first attempt may fail: the approval step then
+    // approves them all, and the last install runs the scripts. The image is a
+    // throwaway build, so approving everything here does not reach the app.
+    // A failure that is not about approval still fails at the last install.
+    // pnpm older than 10 has no approval step and runs the scripts itself.
+    const install =
+      major >= 10 ? `(pnpm install${frozen} || true) && pnpm approve-builds --all && pnpm install${frozen}` : `pnpm install${frozen}`;
     return {
       lock: hasLock ? lock : null,
-      global: `npm install -g pnpm@${version ?? '10'}`,
-      install: hasLock ? 'pnpm install --frozen-lockfile' : 'pnpm install',
+      global: `npm install -g pnpm@${pinned}`,
+      install,
       cache: { target: '/root/.local/share/pnpm/store', id: 'pnpm' },
       prune: 'pnpm prune --prod',
     };

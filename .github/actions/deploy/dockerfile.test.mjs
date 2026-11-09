@@ -15,7 +15,10 @@ test('pnpm Next app with standalone output copies .next/standalone and runs serv
     },
   );
   assert.match(out, /^COPY package\.json pnpm-lock\.yaml \.\/$/m);
-  assert.match(out, /RUN --mount=type=cache,id=pnpm,target=\/root\/\.local\/share\/pnpm\/store pnpm install --frozen-lockfile/);
+  assert.match(
+    out,
+    /RUN --mount=type=cache,id=pnpm,target=\/root\/\.local\/share\/pnpm\/store \(pnpm install --frozen-lockfile \|\| true\) && pnpm approve-builds --all && pnpm install --frozen-lockfile/,
+  );
   assert.match(out, /npm install -g pnpm@10\.4\.1$/m);
   assert.match(out, /RUN pnpm run build/);
   assert.match(out, /COPY --from=build --chown=node:node \/app\/\.next\/standalone \.\//);
@@ -60,6 +63,12 @@ test('a generic Node app runs its start script as a non-root user on port 3000',
   assert.match(out, /EXPOSE 3000/);
   assert.match(out, /CMD \["npm", "start"\]/);
   assert.doesNotMatch(out, /standalone|next/);
+});
+
+test('pnpm 9 installs with plain frozen lockfile, since it has no build approval step', () => {
+  const out = plan(['package.json', 'pnpm-lock.yaml'], { ...next, packageManager: 'pnpm@9.15.0' });
+  assert.match(out, /pnpm install --frozen-lockfile$/m);
+  assert.doesNotMatch(out, /approve-builds/);
 });
 
 test('pnpm generic app installs pnpm in the run stage, because its start command needs it', () => {
