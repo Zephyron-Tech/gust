@@ -1,147 +1,159 @@
 'use client';
 
-import { alerts, server } from '@gust/contracts/sample';
-import { CheckCircle, HeartStraight, Warning } from '@phosphor-icons/react/ssr';
-import { useMemo, useState } from 'react';
-import { Ago } from '@/components/Ago';
+import { useState } from 'react';
 import { Chart } from '@/components/Chart';
 import { Segmented } from '@/components/Segmented';
-import { btn, Code, cx, PageHead, Panel, Table, Td } from '@/components/ui';
-import { useDemo } from '@/lib/demo';
-import { series, useLive } from '@/lib/metrics';
+import { Code, cx, PageHead, Panel, Table, Td } from '@/components/ui';
+import { NOT_SET } from '@/lib/integrations';
+import { RANGES, type Range, type ServerView } from '@/lib/server-metrics';
+import { useServerMetrics } from '@/lib/useServerMetrics';
 
-type Range = '1h' | '24h' | '7d' | '30d';
-const POINTS: Record<Range, number> = { '1h': 60, '24h': 96, '7d': 84, '30d': 90 };
-
+// Everything on this page is measured on the host and read from its sample files.
+// `-` means the host has not reported it yet.
 export default function ServerPage() {
-  const live = useLive();
-  const { diskAlert, setDiskAlert, notify } = useDemo();
   const [range, setRange] = useState<Range>('24h');
-  const n = POINTS[range];
-
-  const charts = useMemo(() => {
-    const disk = series(7, n, range === '30d' ? 22 : 30, 0.6, range === '30d' ? 0.1 : 0.01);
-    if (diskAlert) disk.splice(-6, 6, 58, 66, 74, 82, 88, 91);
-    return { cpu: series(3, n, 16, 14), ram: series(5, n, 5.1, 0.5), disk, net: series(11, n, 3, 4) };
-  }, [n, range, diskAlert]);
-
-  const disk = diskAlert ? 91 : 31;
+  const { data, error } = useServerMetrics(range);
 
   return (
     <div className="view-in space-y-6">
       <PageHead
-        title={server.name}
-        sub={`${server.plan} · ${server.vcpu} vCPU · ${server.ramGb} GB · ${server.os} · up ${server.uptimeDays} days`}
-        actions={<Segmented options={Object.keys(POINTS) as Range[]} value={range} onChange={setRange} label="Time range" />}
+        title={data?.domain ?? 'Server'}
+        sub={subtitle(data)}
+        actions={<Segmented options={[...RANGES]} value={range} onChange={setRange} label="Time range" />}
       />
 
-      {diskAlert ? (
-        <div className="fade-in flex items-center gap-3 rounded-2xl border border-err/35 bg-err/10 px-5 py-3.5 text-[14.5px]">
-          <Warning size={22} weight="fill" className="shrink-0 text-err" />
-          <p className="flex-1">
-            <b className="font-medium">Disk 91 % full</b> · 91 of 100 GB. At the current rate it fills up in about 9 hours. Sent to iPhone
-            and #ops on Discord.
-          </p>
-          <button
-            type="button"
-            className={btn.secondary}
-            onClick={() => {
-              setDiskAlert(false);
-              notify('Disk alert resolved', 'Pruned 61 GB of old images. Disk back to 30 %.');
-            }}
-          >
-            Prune images
-          </button>
-        </div>
-      ) : (
-        <div className="fade-in flex items-center gap-3 rounded-2xl border border-line bg-bg-2 px-5 py-3.5 text-[14.5px] text-fg-2">
-          <CheckCircle size={22} weight="fill" className="shrink-0 text-ok" />
-          <p className="flex-1">All 9 rules passing.</p>
-          <span className="flex items-center gap-1.5 text-[13.5px] text-fg-3">
-            <HeartStraight size={16} weight="fill" className="text-ok" /> Heartbeat to healthchecks.io 12 s ago
-          </span>
-          <button type="button" className={btn.ghost} onClick={() => setDiskAlert(true)}>
-            Simulate full disk
-          </button>
-        </div>
+      {error && <p className="rounded-xl border border-err/35 bg-err/10 px-5 py-3 text-[14px] text-err">{error}</p>}
+
+      {data && !data.snapshot && (
+        <p className="rounded-xl border border-line bg-bg-2 px-5 py-3 text-[14px] text-fg-2">
+          No samples yet. The host records its state every minute (gust-metrics.timer).
+        </p>
       )}
 
-      <Panel className="grid grid-cols-5 divide-x divide-line">
-        {[
-          ['CPU', `${live.cpu.toFixed(0)} %`, ''],
-          ['RAM', `${live.ramGb.toFixed(1)} / ${server.ramGb} GB`, ''],
-          ['Load (1 min)', live.load.toFixed(2), `${server.vcpu} vCPU`],
-          ['Disk', `${disk} %`, diskAlert ? 'full in ~9 h' : 'full in ~210 days'],
-          ['CPU steal', `${live.steal.toFixed(1)} %`, 'rule at 10 %'],
-        ].map(([k, v, note]) => (
-          <div key={k} className="space-y-1 px-6 py-5">
-            <p className="text-[13.5px] text-fg-3">{k}</p>
-            <p
-              className={cx(
-                'font-display text-[26px] leading-tight font-semibold tracking-tight tabular-nums',
-                k === 'Disk' && diskAlert && 'text-err',
-              )}
-            >
-              {v}
-            </p>
-            {note && <p className="text-[13px] text-fg-3">{note}</p>}
-          </div>
-        ))}
-      </Panel>
-
-      <div className="grid grid-cols-2 gap-4">
-        {[
-          ['CPU', `${live.cpu.toFixed(0)} %`, charts.cpu, 100, '%', undefined],
-          ['Memory', `${live.ramGb.toFixed(1)} GB used`, charts.ram, server.ramGb, 'GB', undefined],
-          ['Disk', diskAlert ? 'forecast: full in ~9 h' : 'forecast: full in ~210 days', charts.disk, 100, '%', diskAlert ? 100 : 33],
-          ['Network', `↓ ${live.netIn.toFixed(1)} · ↑ ${live.netOut.toFixed(1)} MB/s`, charts.net, 20, 'MB/s', undefined],
-        ].map(([title, note, data, max, unit, fc]) => (
-          <Panel key={title as string} className="space-y-3 px-5 pt-4 pb-3">
-            <div className="flex items-baseline justify-between">
-              <h2 className="font-sans text-[15px] font-medium tracking-normal">{title as string}</h2>
-              <span className="text-[13.5px] text-fg-3 tabular-nums">{note as string}</span>
-            </div>
-            <div key={range} className="fade-in">
-              <Chart data={data as number[]} max={max as number} unit={unit as string} forecast={fc as number | undefined} />
-            </div>
-          </Panel>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-[1.4fr_1fr] gap-4">
-        <Table head={['Container · live', 'Project', 'CPU', 'Memory', 'Restarts']}>
-          {live.containers.map((c) => (
-            <tr key={c.name}>
-              <Td>
-                <Code>{c.name}</Code>
-              </Td>
-              <Td className="text-fg-3">{c.project}</Td>
-              <Td className="tabular-nums">{c.cpu.toFixed(1)} %</Td>
-              <Td className="tabular-nums">{Math.round(c.memoryMb)} MB</Td>
-              <Td className="tabular-nums">{c.restarts}</Td>
-            </tr>
-          ))}
-        </Table>
-        <Panel className="self-start">
-          <h2 className="border-b border-line px-5 py-3 font-sans text-[13px] font-medium tracking-normal text-fg-3">Alerts</h2>
-          <ul>
-            {diskAlert && (
-              <li className="row-in space-y-1 px-5 py-3.5">
-                <p className="text-[14.5px] font-medium text-err">Disk above 90 %</p>
-                <p className="text-[13.5px] text-fg-3">firing · just now · critical</p>
-              </li>
-            )}
-            {alerts.map((a) => (
-              <li key={a.id} className="space-y-1 border-t border-line px-5 py-3.5 first:border-t-0">
-                <p className="text-[14.5px] font-medium">{a.rule}</p>
-                <p className="text-[13.5px] text-fg-3">
-                  resolved · <Ago iso={a.startedAt} /> · {a.detail}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </Panel>
-      </div>
+      <Summary data={data} />
+      <Charts data={data} />
+      <Containers data={data} />
     </div>
   );
+}
+
+function subtitle(data: ServerView | null): string {
+  const f = data?.facts;
+  const up = data?.snapshot?.uptimeSec;
+  const parts = [
+    f?.os,
+    f ? `${f.vcpu} vCPU` : null,
+    f ? `${f.ramGb} GB RAM` : null,
+    f ? `${f.diskGb} GB disk` : null,
+    up != null ? `up ${Math.floor(up / 86400)} days` : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(' · ') : NOT_SET;
+}
+
+function Summary({ data }: { data: ServerView | null }) {
+  const s = data?.snapshot ?? null;
+  const cells: [string, string, string][] = [
+    ['CPU', s ? `${s.cpu.toFixed(0)} %` : NOT_SET, ''],
+    ['RAM', s ? `${s.ramUsedGb.toFixed(1)} / ${s.ramTotalGb.toFixed(1)} GB` : NOT_SET, ''],
+    ['Load (1 min)', s ? s.load1.toFixed(2) : NOT_SET, data?.facts ? `${data.facts.vcpu} vCPU` : ''],
+    ['Disk', s ? `${diskPct(s).toFixed(0)} %` : NOT_SET, diskNote(data)],
+    ['CPU steal', s ? `${s.steal.toFixed(1)} %` : NOT_SET, ''],
+  ];
+  return (
+    <Panel className="grid grid-cols-5 divide-x divide-line">
+      {cells.map(([k, v, note]) => (
+        <div key={k} className="space-y-1 px-6 py-5">
+          <p className="text-[13.5px] text-fg-3">{k}</p>
+          <p className="font-display text-[26px] leading-tight font-semibold tracking-tight tabular-nums">{v}</p>
+          {note && <p className="text-[13px] text-fg-3">{note}</p>}
+        </div>
+      ))}
+    </Panel>
+  );
+}
+
+function Charts({ data }: { data: ServerView | null }) {
+  const s = data?.snapshot ?? null;
+  const series = data?.series;
+  const netNow = s ? `↓ ${s.netInMBps.toFixed(1)} · ↑ ${s.netOutMBps.toFixed(1)} MB/s` : NOT_SET;
+  const panels: { title: string; note: string; data: number[]; max: number; unit: string }[] = [
+    { title: 'CPU', note: s ? `${s.cpu.toFixed(0)} %` : NOT_SET, data: series?.cpu ?? [], max: 100, unit: '%' },
+    {
+      title: 'Memory',
+      note: s ? `${s.ramUsedGb.toFixed(1)} GB used` : NOT_SET,
+      data: series?.ram ?? [],
+      max: s?.ramTotalGb ?? 1,
+      unit: 'GB',
+    },
+    { title: 'Disk', note: diskNote(data) || NOT_SET, data: series?.disk ?? [], max: 100, unit: '%' },
+    {
+      title: 'Network',
+      note: netNow,
+      data: series?.net ?? [],
+      max: niceMax(Math.max(0, ...(series?.net ?? []))),
+      unit: 'MB/s',
+    },
+  ];
+  return (
+    <div className="grid grid-cols-2 gap-4">
+      {panels.map((p) => (
+        <Panel key={p.title} className="space-y-3 px-5 pt-4 pb-3">
+          <div className="flex items-baseline justify-between">
+            <h2 className="font-sans text-[15px] font-medium tracking-normal">{p.title}</h2>
+            <span className="text-[13.5px] text-fg-3 tabular-nums">{p.note}</span>
+          </div>
+          {p.data.length > 1 ? (
+            <div key={`${p.title}-${data?.range}`} className="fade-in">
+              <Chart data={p.data} max={p.max} unit={p.unit} />
+            </div>
+          ) : (
+            <p className="py-10 text-center text-[14px] text-fg-3">Not enough samples for this range yet.</p>
+          )}
+        </Panel>
+      ))}
+    </div>
+  );
+}
+
+function Containers({ data }: { data: ServerView | null }) {
+  const rows = data?.containers ?? [];
+  return (
+    <Table head={['Container', 'Project', 'CPU', 'Memory', 'Restarts']}>
+      {rows.map((c) => (
+        <tr key={c.name}>
+          <Td>
+            <Code>{c.name}</Code>
+          </Td>
+          <Td className="text-fg-3">{c.project ?? NOT_SET}</Td>
+          <Td className="tabular-nums">{c.cpu.toFixed(1)} %</Td>
+          <Td className="tabular-nums">{Math.round(c.memoryMb)} MB</Td>
+          <Td className={cx('tabular-nums', c.restarts > 0 && 'text-warn')}>{c.restarts}</Td>
+        </tr>
+      ))}
+      {data && rows.length === 0 && (
+        <tr>
+          <Td colSpan={5} className="text-center text-fg-3">
+            No containers reported yet.
+          </Td>
+        </tr>
+      )}
+    </Table>
+  );
+}
+
+function diskPct(s: { diskUsedGb: number; diskTotalGb: number }): number {
+  return s.diskTotalGb > 0 ? (s.diskUsedGb / s.diskTotalGb) * 100 : 0;
+}
+
+function diskNote(data: ServerView | null): string {
+  if (!data?.snapshot) return '';
+  const days = data.diskForecastDays;
+  return days === null ? 'no growth forecast' : `full in ~${days} days`;
+}
+
+/** A round upper bound for the network chart, so the line never touches the top. */
+function niceMax(v: number): number {
+  if (v <= 1) return 1;
+  const step = 10 ** Math.floor(Math.log10(v));
+  return Math.ceil((v * 1.2) / step) * step;
 }

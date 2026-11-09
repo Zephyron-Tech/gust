@@ -1,15 +1,13 @@
 'use client';
 
-import { server } from '@gust/contracts/sample';
 import type { Icon } from '@phosphor-icons/react';
 import { Cube, Eye, Gear, Pulse, SquaresFour } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 
-import { useDemo } from '@/lib/demo';
-import { useLive } from '@/lib/metrics';
 import { useIndicator } from '@/lib/useIndicator';
+import { useServerMetrics } from '@/lib/useServerMetrics';
 import { useUpdateStatus } from '@/lib/useUpdateStatus';
 import { GustMark } from './GustMark';
 import { cx, Dot, Meter } from './ui';
@@ -29,8 +27,8 @@ const pinned = [
 
 export function Sidebar() {
   const path = usePathname();
-  const live = useLive();
-  const { diskAlert } = useDemo();
+  const { data: metrics } = useServerMetrics('1h');
+  const snap = metrics?.snapshot ?? null;
   const { status: update } = useUpdateStatus({ autoCheck: true });
   const updateAvailable = update?.available === true;
   // The highlight moves on click, before the next page has loaded, so it feels instant.
@@ -61,11 +59,6 @@ export function Sidebar() {
             >
               <I size={20} weight={on ? 'fill' : 'regular'} />
               {label}
-              {href === '/server' && diskAlert && (
-                <span className="pop-in ml-auto grid size-5 place-items-center rounded-full bg-err text-[11.5px] font-semibold text-white">
-                  1
-                </span>
-              )}
               {href === '/settings' && updateAvailable && (
                 <span className="pop-in ml-auto grid size-5 place-items-center rounded-full bg-accent text-[11.5px] font-semibold text-accent-ink">
                   1<span className="sr-only"> update available</span>
@@ -94,20 +87,38 @@ export function Sidebar() {
         className="mt-auto grid gap-2.5 rounded-xl bg-bg-3/60 px-3.5 py-3.5 text-[13px] text-fg-3 transition-colors hover:text-fg-2"
       >
         <span className="flex justify-between">
-          <span className="font-medium text-fg-2">{server.plan.replace('Cloud ', '')}</span>
-          <span>{server.vcpu} vCPU</span>
+          <span className="font-medium text-fg-2">{metrics?.facts?.os ?? '-'}</span>
+          <span>{metrics?.facts ? `${metrics.facts.vcpu} vCPU` : '-'}</span>
         </span>
-        {[
-          ['CPU', live.cpu, `${live.cpu.toFixed(0)} %`],
-          ['RAM', (live.ramGb / server.ramGb) * 100, `${live.ramGb.toFixed(1)} / ${server.ramGb} GB`],
-          ['Disk', diskAlert ? 91 : 31, diskAlert ? '91 / 100 GB' : '31 / 100 GB'],
-        ].map(([k, v, t]) => (
-          <span key={k as string} className="grid grid-cols-[38px_1fr_92px] items-center gap-2.5">
-            <span>{k}</span>
-            <Meter value={v as number} tone={k === 'Disk' && diskAlert ? 'err' : 'accent'} />
-            <span className="text-right tabular-nums">{t}</span>
-          </span>
-        ))}
+        {snap
+          ? [
+              ['CPU', snap.cpu, `${snap.cpu.toFixed(0)} %`, 'accent'],
+              [
+                'RAM',
+                snap.ramTotalGb > 0 ? (snap.ramUsedGb / snap.ramTotalGb) * 100 : 0,
+                `${snap.ramUsedGb.toFixed(1)} / ${snap.ramTotalGb.toFixed(1)} GB`,
+                'accent',
+              ],
+              [
+                'Disk',
+                snap.diskTotalGb > 0 ? (snap.diskUsedGb / snap.diskTotalGb) * 100 : 0,
+                `${snap.diskUsedGb.toFixed(0)} / ${snap.diskTotalGb.toFixed(0)} GB`,
+                snap.diskTotalGb > 0 && snap.diskUsedGb / snap.diskTotalGb >= 0.9 ? 'err' : 'accent',
+              ],
+            ].map(([k, v, t, tone]) => (
+              <span key={k as string} className="grid grid-cols-[38px_1fr_92px] items-center gap-2.5">
+                <span>{k}</span>
+                <Meter value={v as number} tone={tone as 'accent' | 'err'} />
+                <span className="text-right tabular-nums">{t}</span>
+              </span>
+            ))
+          : ['CPU', 'RAM', 'Disk'].map((k) => (
+              <span key={k} className="grid grid-cols-[38px_1fr_92px] items-center gap-2.5">
+                <span>{k}</span>
+                <span />
+                <span className="text-right">-</span>
+              </span>
+            ))}
       </Link>
     </aside>
   );

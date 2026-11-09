@@ -5,14 +5,11 @@ import { CheckCircle, WarningCircle, X } from '@phosphor-icons/react/ssr';
 import type { ReactNode } from 'react';
 
 import { DemoProvider } from '@/lib/demo';
-import { MetricsProvider } from '@/lib/metrics';
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <Toast.Provider timeout={4500} limit={3}>
-      <MetricsProvider>
-        <DemoProvider>{children}</DemoProvider>
-      </MetricsProvider>
+      <DemoProvider>{children}</DemoProvider>
       <Toast.Portal>
         <Toast.Viewport className="fixed right-6 bottom-6 z-50 w-[380px]">
           <Toasts />

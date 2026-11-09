@@ -47,8 +47,6 @@ interface Demo {
   engineUp: boolean | null;
   failNext: boolean;
   setFailNext: (v: boolean) => void;
-  diskAlert: boolean;
-  setDiskAlert: (v: boolean) => void;
   notify: (title: string, description?: string, tone?: 'ok' | 'err') => void;
 }
 
@@ -67,7 +65,6 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const deployments = useMemo(() => [...real, ...sim], [real, sim]);
   const watching = useRef(new Set<string>());
   const [failNext, setFailNext] = useState(false);
-  const [diskAlert, setDiskAlert] = useState(false);
   const timers = useRef<number[]>([]);
   const seq = useRef(0);
   const toasts = Toast.useToastManager();
@@ -228,8 +225,8 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   }
 
   const value = useMemo(
-    () => ({ deployments, busy, deploy, engineUp, failNext, setFailNext, diskAlert, setDiskAlert, notify }),
-    [deployments, busy, deploy, engineUp, failNext, diskAlert, notify],
+    () => ({ deployments, busy, deploy, engineUp, failNext, setFailNext, notify }),
+    [deployments, busy, deploy, engineUp, failNext, notify],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

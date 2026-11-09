@@ -92,6 +92,50 @@ refresh_status() {
   fi
 }
 
+# Samples the host for the Server page: CPU and steal over one second, RAM, disk,
+# network, load and the containers. Runs every minute from gust-metrics.timer.
+# Files in $REQ: metrics.json (latest), metrics.jsonl (30 days, one line a minute),
+# containers.jsonl (docker stats) and containers.txt (name|restarts|labels).
+sample_metrics() {
+  mkdir -p "$REQ"
+  local cpu_a cpu_b net_a net_b t1 i1 s1 t2 i2 s2 rx1 tx1 rx2 tx2 stamp
+  cpu_a="$(awk '/^cpu /{print $2+$3+$4+$5+$6+$7+$8+$9, $5+$6, $9}' /proc/stat)"
+  net_a="$(awk 'NR>2 && $1 !~ /^lo:/ {rx+=$2; tx+=$10} END {print rx+0, tx+0}' /proc/net/dev)"
+  sleep 1
+  cpu_b="$(awk '/^cpu /{print $2+$3+$4+$5+$6+$7+$8+$9, $5+$6, $9}' /proc/stat)"
+  net_b="$(awk 'NR>2 && $1 !~ /^lo:/ {rx+=$2; tx+=$10} END {print rx+0, tx+0}' /proc/net/dev)"
+  read -r t1 i1 s1 <<<"$cpu_a"
+  read -r t2 i2 s2 <<<"$cpu_b"
+  read -r rx1 tx1 <<<"$net_a"
+  read -r rx2 tx2 <<<"$net_b"
+  stamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  local line
+  line="$(awk -v t=$((t2-t1)) -v i=$((i2-i1)) -v s=$((s2-s1)) -v rx=$((rx2-rx1)) -v tx=$((tx2-tx1)) \
+    -v load="$(awk '{print $1}' /proc/loadavg)" '
+    BEGIN {
+      printf "{\"cpu\":%.1f,\"steal\":%.1f,\"load1\":%s,\"netInMBps\":%.2f,\"netOutMBps\":%.2f", \
+        (t>0 ? (t-i)*100/t : 0), (t>0 ? s*100/t : 0), load, rx/1000000, tx/1000000
+    }' )"
+  line="$line$(awk '/MemTotal/{t=$2} /MemAvailable/{a=$2} END {printf ",\"ramUsedGb\":%.2f,\"ramTotalGb\":%.2f", (t-a)/1048576, t/1048576}' /proc/meminfo)"
+  line="$line$(df -B1 --output=used,size / | tail -n1 | awk '{printf ",\"diskUsedGb\":%.2f,\"diskTotalGb\":%.2f", $1/1073741824, $2/1073741824}')"
+  line="$line,\"uptimeSec\":$(awk '{printf "%d", $1}' /proc/uptime),\"at\":\"$stamp\"}"
+  printf '%s\n' "$line" > "$REQ/metrics.json.tmp" && mv "$REQ/metrics.json.tmp" "$REQ/metrics.json"
+  printf '%s\n' "$line" >> "$REQ/metrics.jsonl"
+  if [ "$(wc -l < "$REQ/metrics.jsonl")" -gt 44640 ]; then
+    tail -n 43200 "$REQ/metrics.jsonl" > "$REQ/metrics.jsonl.tmp" && mv "$REQ/metrics.jsonl.tmp" "$REQ/metrics.jsonl"
+  fi
+  docker stats --no-stream --format '{{json .}}' > "$REQ/containers.jsonl.tmp" 2>/dev/null || : > "$REQ/containers.jsonl.tmp"
+  mv "$REQ/containers.jsonl.tmp" "$REQ/containers.jsonl"
+  local ids
+  ids="$(docker ps -aq 2>/dev/null || true)"
+  if [ -n "$ids" ]; then
+    docker inspect --format '{{.Name}}|{{.RestartCount}}|{{index .Config.Labels "gust.project"}}|{{index .Config.Labels "com.docker.compose.project"}}' $ids > "$REQ/containers.txt.tmp" 2>/dev/null || : > "$REQ/containers.txt.tmp"
+  else
+    : > "$REQ/containers.txt.tmp"
+  fi
+  mv "$REQ/containers.txt.tmp" "$REQ/containers.txt"
+}
+
 # How many tags the registry keeps, read from its own config so Settings shows the real value.
 registry_status() {
   mkdir -p "$REQ"
@@ -224,6 +268,9 @@ case "$cmd" in
     refresh_status
     server_status
     registry_status
+    ;;
+  sample)
+    sample_metrics
     ;;
   requests-run)
     requests_run

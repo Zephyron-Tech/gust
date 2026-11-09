@@ -113,7 +113,7 @@ export function Topbar() {
 
 function CommandPalette({ open, onOpenChange, onTheme }: { open: boolean; onOpenChange: (v: boolean) => void; onTheme: () => void }) {
   const router = useRouter();
-  const { deploy, setDiskAlert } = useDemo();
+  const { deploy } = useDemo();
   const run = (fn: () => void) => {
     onOpenChange(false);
     fn();
@@ -169,9 +169,6 @@ function CommandPalette({ open, onOpenChange, onTheme }: { open: boolean; onOpen
               <Command.Group heading="Actions" className={group}>
                 <Command.Item className={item} onSelect={() => run(() => deploy('smart-targets', 'api'))}>
                   Redeploy smart-targets/api
-                </Command.Item>
-                <Command.Item className={item} onSelect={() => run(() => setDiskAlert(true))}>
-                  Simulate a full disk alert
                 </Command.Item>
                 <Command.Item className={item} onSelect={() => run(onTheme)}>
                   Toggle light and dark theme
