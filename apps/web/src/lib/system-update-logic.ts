@@ -10,6 +10,7 @@ export type UpdateStatus = {
   latest: string;
   available: boolean;
   checkedAt: string | null;
+  error: string | null;
   log?: string;
 };
 
@@ -26,6 +27,7 @@ export function parseStatus(raw: string | null): UpdateStatus {
     latest: '',
     available: false,
     checkedAt: null,
+    error: null,
   };
   if (!raw) return unknown;
   let v: Record<string, unknown>;
@@ -43,6 +45,7 @@ export function parseStatus(raw: string | null): UpdateStatus {
     latest: str(v.latest),
     available: v.available === true,
     checkedAt: str(v.checkedAt) || null,
+    error: str(v.error) || null,
   };
 }
 

@@ -42,7 +42,7 @@ export default function SettingsPage() {
   return (
     <div className="view-in space-y-7">
       <PageHead title="Settings" />
-      <div className="grid max-w-4xl gap-4">
+      <div className="grid min-w-0 max-w-4xl grid-cols-[minmax(0,1fr)] gap-4">
         <UpdatePanel rows={gustRows} />
         {sections.map((s) => (
           <Panel key={s.title} className="p-6">

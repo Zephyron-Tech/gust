@@ -17,6 +17,7 @@ describe('parseStatus', () => {
       latest: 'sha256:b',
       available: true,
       checkedAt: '2026-11-09T10:00:00Z',
+      error: null,
     });
   });
 
