@@ -7,7 +7,7 @@
 import { Toast } from '@base-ui/react/toast';
 import { type Deployment, type DeployState, environmentOf, RUNNING_STATES } from '@gust/contracts';
 import { nextCommits, projects, deployments as seed } from '@gust/contracts/sample';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { clock } from './format';
@@ -37,7 +37,8 @@ export function useDeploymentDetail(id: string, enabled: boolean) {
 
 export type UiDeployment = Deployment & { containerId?: string; engine?: boolean };
 
-const isEngine = (project: string) => projects.some((p) => p.slug === project && p.engine);
+// Before the server's answer arrives, the sample data decides.
+const sampleIsEngine = (project: string) => projects.some((p) => p.slug === project && p.engine);
 
 interface Demo {
   deployments: UiDeployment[];
@@ -45,6 +46,8 @@ interface Demo {
   busy: (project: string, service: string, branch?: string | null) => boolean;
   /** Starts a deploy. With `branch` it redeploys that preview instead of production. */
   deploy: (project: string, service: string, rollbackOf?: Deployment, tag?: string, branch?: string | null) => void;
+  /** Whether a project deploys through the engine, from the database. */
+  isEngine: (project: string) => boolean;
   /** null while loading, false when the engine does not answer. */
   engineUp: boolean | null;
   failNext: boolean;
@@ -64,6 +67,8 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const [sim, setDeployments] = useState<UiDeployment[]>(seed);
   const [real, setReal] = useState<UiDeployment[]>([]);
   const [engineUp, setEngineUp] = useState<boolean | null>(null);
+  const [engineSlugs, setEngineSlugs] = useState<Set<string> | null>(null);
+  const pathname = usePathname();
   const deployments = useMemo(() => [...real, ...sim], [real, sim]);
   const watching = useRef(new Set<string>());
   const [failNext, setFailNext] = useState(false);
@@ -80,6 +85,21 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       .then((r) => setEngineUp(r.ok))
       .catch(() => setEngineUp(false));
   }, []);
+
+  // Which projects deploy through the engine. Read from the database, so a project
+  // imported after the sample data was written is a real one too. Reloaded on
+  // every navigation, since a new project appears while the app stays open.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the pathname is the trigger, the body does not read it
+  useEffect(() => {
+    fetch('/api/projects')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((list: { slug: string; engine: boolean }[] | null) => {
+        if (list) setEngineSlugs(new Set(list.filter((p) => p.engine).map((p) => p.slug)));
+      })
+      .catch(() => null);
+  }, [pathname]);
+
+  const isEngine = useCallback((project: string) => (engineSlugs ? engineSlugs.has(project) : sampleIsEngine(project)), [engineSlugs]);
 
   const notify = useCallback(
     (title: string, description?: string, tone: 'ok' | 'err' = 'ok') => {
@@ -211,7 +231,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
         });
       }
     },
-    [busy, deployments, failNext, notify, router],
+    [busy, deployments, failNext, isEngine, notify, router],
   );
 
   async function realDeploy(project: string, service: string, rollbackOf?: Deployment, tag?: string, branch?: string | null) {
@@ -232,8 +252,8 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   }
 
   const value = useMemo(
-    () => ({ deployments, busy, deploy, engineUp, failNext, setFailNext, notify }),
-    [deployments, busy, deploy, engineUp, failNext, notify],
+    () => ({ deployments, busy, deploy, isEngine, engineUp, failNext, setFailNext, notify }),
+    [deployments, busy, deploy, isEngine, engineUp, failNext, notify],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

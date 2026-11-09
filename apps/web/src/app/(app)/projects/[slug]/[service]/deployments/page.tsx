@@ -1,7 +1,6 @@
 'use client';
 
 import { environmentOf } from '@gust/contracts';
-import { projects } from '@gust/contracts/sample';
 import { CaretRight } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
 import { use, useState } from 'react';
@@ -17,7 +16,7 @@ type Filter = 'all' | 'production' | 'previews';
 
 export default function DeploymentsPage({ params }: { params: Promise<{ slug: string; service: string }> }) {
   const { slug, service } = use(params);
-  const { deployments, failNext, setFailNext } = useDemo();
+  const { deployments, failNext, setFailNext, isEngine } = useDemo();
   const all = deployments.filter((d) => d.project === slug && d.service === service);
   const hasPreviews = all.some((d) => environmentOf(d).kind === 'preview');
   const [filter, setFilter] = useState<Filter>('all');
@@ -70,7 +69,7 @@ export default function DeploymentsPage({ params }: { params: Promise<{ slug: st
           </p>
         )}
       </Panel>
-      {!projects.some((p) => p.slug === slug && p.engine) && (
+      {!isEngine(slug) && (
         <label className="flex w-max items-center gap-2.5 text-[14px] text-fg-3">
           <input
             type="checkbox"

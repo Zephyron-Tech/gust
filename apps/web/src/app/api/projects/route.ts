@@ -26,6 +26,14 @@ const id = (prefix: string) => `${prefix}_${crypto.randomUUID().replace(/-/g, ''
 // Creates a project with its first service from an imported repository. It
 // is served on <slug>.<GUST_DOMAIN> right away; a custom domain, when given,
 // waits for its DNS like one added in the Domains tab. Admins only.
+// Slug and engine flag of every project, for the UI to tell real deploys from sample ones.
+export async function GET(req: Request) {
+  const u = await requireUser(req);
+  if (u instanceof Response) return u;
+  const rows = await db.select({ slug: projects.slug, engine: projects.engine }).from(projects);
+  return Response.json(rows);
+}
+
 export async function POST(req: Request) {
   const u = await requireUser(req, 'admin');
   if (u instanceof Response) return u;

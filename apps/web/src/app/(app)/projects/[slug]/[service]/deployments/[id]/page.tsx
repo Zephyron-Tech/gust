@@ -1,7 +1,6 @@
 'use client';
 
 import { type Deployment, environmentOf, RUNNING_STATES } from '@gust/contracts';
-import { projects } from '@gust/contracts/sample';
 import { ArrowCounterClockwise, Check, X } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
 import { use, useEffect, useRef } from 'react';
@@ -21,8 +20,8 @@ function phase(d: Deployment) {
 
 export default function DeploymentPage({ params }: { params: Promise<{ slug: string; service: string; id: string }> }) {
   const { slug, service, id } = use(params);
-  const { deployments, deploy, busy } = useDemo();
-  const real = projects.some((p) => p.slug === slug && p.engine);
+  const { deployments, deploy, busy, isEngine } = useDemo();
+  const real = isEngine(slug);
   const detail = useDeploymentDetail(id, real);
   const listed = deployments.find((x) => x.id === id);
   // Real deploys: the polled row with its log; the list entry keeps the state fresh afterwards.
