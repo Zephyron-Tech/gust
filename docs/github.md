@@ -103,6 +103,7 @@ certificate for that host (HTTP-01). Preview and production never share a
 container, route or env scope: preview uses env variables scoped `preview`.
 Each push to a branch replaces that branch's previous preview. Previews are not
 removed when their branch is deleted yet.
+
 - Repository permissions: **Commit statuses: Read and write**, Metadata: Read.
   Nothing else.
 - Installed on selected repositories; add each repository when it moves to
