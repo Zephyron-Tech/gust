@@ -30,5 +30,7 @@ jobs:
           service: hello
           image: demo/hello
           context: infra/demo-app
+          build-args: |
+            VERSION=${{ github.sha }}
           registry-username: ${{ secrets.GUST_REGISTRY_USERNAME }}
           registry-password: ${{ secrets.GUST_REGISTRY_PASSWORD }}
