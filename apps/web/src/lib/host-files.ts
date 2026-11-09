@@ -3,7 +3,7 @@ import 'server-only';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-import { type LastBackup, parseLastBackup, parseServerFacts, type ServerFacts } from './integrations';
+import { type LastBackup, parseLastBackup, parseRegistryKeep, parseServerFacts, type ServerFacts } from './integrations';
 
 // The host writes these files into the shared requests folder (see infra/prod/gust).
 const dir = () => process.env.GUST_REQUESTS_DIR ?? '/gust-requests';
@@ -20,4 +20,9 @@ export async function readLastBackup(): Promise<LastBackup> {
 /** The machine's facts as `gust version-check` wrote them, or null. */
 export async function readServerFacts(): Promise<ServerFacts | null> {
   return parseServerFacts(await readFileOrNull('server.json'));
+}
+
+/** How many registry tags zot keeps, read by `gust version-check` from its config. */
+export async function readRegistryKeep(): Promise<number | null> {
+  return parseRegistryKeep(await readFileOrNull('registry.json'));
 }

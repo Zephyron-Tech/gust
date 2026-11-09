@@ -61,6 +61,23 @@ export function serverFactsValue(f: ServerFacts | null): string {
   return f ? `${f.os} · ${f.vcpu} vCPU · ${f.ramGb} GB RAM · ${f.diskGb} GB disk` : NOT_SET;
 }
 
+/** Parses registry.json as `gust version-check` writes it; null when unknown. */
+export function parseRegistryKeep(raw: string | null): number | null {
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw) as { keepTags?: unknown };
+    return typeof v.keepTags === 'number' && Number.isInteger(v.keepTags) && v.keepTags > 0 ? v.keepTags : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Image cleanup row: zot keeps the newest tags; each push makes two (latest and the SHA). */
+export function imageCleanupValue(keepTags: number | null): string {
+  if (keepTags === null) return NOT_SET;
+  return `registry keeps last ${Math.floor(keepTags / 2)} pushes (${keepTags} tags)`;
+}
+
 /**
  * Wildcard DNS row. `resolved` is what a lookup of a random name under the domain
  * returned (null when it did not resolve). `serverIp` is GUST_SERVER_IP.
