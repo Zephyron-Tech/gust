@@ -36,18 +36,18 @@ function tooling({ name, version }, files, yarnLock) {
   const lock = { npm: 'package-lock.json', pnpm: 'pnpm-lock.yaml', yarn: 'yarn.lock' }[name];
   const hasLock = files.has(lock);
   if (name === 'pnpm') {
-    const pinned = version ?? '10';
+    const pinned = version ?? '12';
     const major = Number(pinned.split('.')[0]);
     const frozen = hasLock ? ' --frozen-lockfile' : '';
-    // pnpm 10+ runs a dependency's install scripts only when it is approved, and
-    // fails the install while any are pending. Pending ones are only listed by a
-    // failed install, so the first attempt may fail: the approval step then
-    // approves them all, and the last install runs the scripts. The image is a
-    // throwaway build, so approving everything here does not reach the app.
-    // A failure that is not about approval still fails at the last install.
-    // pnpm older than 10 has no approval step and runs the scripts itself.
+    // pnpm 11 and later fail an install while a dependency's build scripts await
+    // approval, and only a failed install lists them. So the first attempt may
+    // fail; the approval step then approves them all, and the last install runs
+    // the scripts. The image is a throwaway build, so approving everything here
+    // does not reach the app. A failure that is not about approval still fails at
+    // the last install. pnpm 10 has no --all and installs without failing; pnpm
+    // 9 and older do not have the approval step at all.
     const install =
-      major >= 10 ? `(pnpm install${frozen} || true) && pnpm approve-builds --all && pnpm install${frozen}` : `pnpm install${frozen}`;
+      major >= 11 ? `(pnpm install${frozen} || true) && pnpm approve-builds --all && pnpm install${frozen}` : `pnpm install${frozen}`;
     return {
       lock: hasLock ? lock : null,
       global: `npm install -g pnpm@${pinned}`,
@@ -124,6 +124,9 @@ export function planDockerfile({ files, pkg, nextConfig = '', yarnLock = '' }) {
   L.push('# Run stage: only what the app needs to start, as a non-root user.');
   L.push(`FROM ${NODE_IMAGE} AS run`);
   L.push('WORKDIR /app');
+  // The engine's Docker health check runs curl or wget inside the container, and
+  // node:slim has neither, so every deploy would be marked unhealthy.
+  L.push('RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*');
   L.push('ENV NODE_ENV=production PORT=3000');
   if (isNext) L.push('ENV NEXT_TELEMETRY_DISABLED=1');
 

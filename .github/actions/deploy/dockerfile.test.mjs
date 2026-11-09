@@ -9,7 +9,7 @@ const plan = (files, pkg, extra = {}) => planDockerfile({ files: new Set(files),
 test('pnpm Next app with standalone output copies .next/standalone and runs server.js', () => {
   const out = plan(
     ['package.json', 'pnpm-lock.yaml', 'public'],
-    { ...next, packageManager: 'pnpm@10.4.1+sha256.abc' },
+    { ...next, packageManager: 'pnpm@12.5.1+sha256.abc' },
     {
       nextConfig: "const c = { output: 'standalone' }; export default c;",
     },
@@ -19,7 +19,7 @@ test('pnpm Next app with standalone output copies .next/standalone and runs serv
     out,
     /RUN --mount=type=cache,id=pnpm,target=\/root\/\.local\/share\/pnpm\/store \(pnpm install --frozen-lockfile \|\| true\) && pnpm approve-builds --all && pnpm install --frozen-lockfile/,
   );
-  assert.match(out, /npm install -g pnpm@10\.4\.1$/m);
+  assert.match(out, /npm install -g pnpm@12\.5\.1$/m);
   assert.match(out, /RUN pnpm run build/);
   assert.match(out, /COPY --from=build --chown=node:node \/app\/\.next\/standalone \.\//);
   assert.match(out, /COPY --from=build --chown=node:node \/app\/public \.\/public/);
@@ -74,7 +74,7 @@ test('pnpm 9 installs with plain frozen lockfile, since it has no build approval
 test('pnpm generic app installs pnpm in the run stage, because its start command needs it', () => {
   const out = plan(['package.json', 'pnpm-lock.yaml'], { scripts: { start: 'node index.js' } });
   const run = out.split('AS run')[1];
-  assert.match(run, /RUN npm install -g pnpm@10/);
+  assert.match(run, /RUN npm install -g pnpm@12/);
   assert.match(run, /CMD \["pnpm", "start"\]/);
 });
 
@@ -92,4 +92,29 @@ test('dockerignore keeps dependencies, secrets and git out of the build context'
   const rules = dockerignore.split('\n');
   for (const rule of ['.git', '**/node_modules', '**/.env', '**/.env.local', '**/.next']) assert.ok(rules.includes(rule), rule);
   assert.ok(!rules.includes('**/.env.production'), 'committed .env.production stays available to the build');
+});
+
+test('the run stage carries curl, which the engine health check needs', () => {
+  for (const files of [
+    ['package.json', 'package-lock.json'],
+    ['package.json', 'pnpm-lock.yaml'],
+  ]) {
+    const out = plan(files, next, { nextConfig: "output: 'standalone'" });
+    assert.match(out, /apt-get install -y --no-install-recommends curl/);
+    assert.ok(out.indexOf('curl') > out.indexOf('AS run'), 'installed in the run stage, not the build stage');
+  }
+  const node = plan(['package.json', 'package-lock.json'], { scripts: { start: 'node index.js' } });
+  assert.match(node, /apt-get install -y --no-install-recommends curl/);
+});
+
+test('pnpm 10 installs with the plain frozen lockfile: it has no --all approval and does not fail on pending builds', () => {
+  const out = plan(['package.json', 'pnpm-lock.yaml'], { ...next, packageManager: 'pnpm@10.4.1' });
+  assert.match(out, /pnpm install --frozen-lockfile$/m);
+  assert.doesNotMatch(out, /approve-builds/);
+});
+
+test('an unpinned pnpm project gets the current pnpm, with the approval step', () => {
+  const out = plan(['package.json', 'pnpm-lock.yaml'], next);
+  assert.match(out, /npm install -g pnpm@12$/m);
+  assert.match(out, /approve-builds --all/);
 });
