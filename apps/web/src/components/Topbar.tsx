@@ -83,7 +83,7 @@ export function Topbar() {
             {initials}
           </Menu.Trigger>
           <Menu.Portal>
-            <Menu.Positioner sideOffset={10} align="end">
+            <Menu.Positioner sideOffset={10} align="end" className="z-50">
               <Menu.Popup className="min-w-56 origin-[var(--transform-origin)] rounded-xl border border-raised-line bg-raised p-1.5 text-[14.5px] shadow-pop transition-[scale,opacity,translate] duration-200 ease-[var(--ease-out)] data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:-translate-y-1 data-starting-style:scale-95 data-starting-style:opacity-0">
                 <div className="mb-1 border-b border-raised-line px-2.5 pt-1.5 pb-2.5">
                   <p className="text-fg">{me?.name ?? 'Signed in'}</p>

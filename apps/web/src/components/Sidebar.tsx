@@ -31,7 +31,7 @@ export function Sidebar() {
   const path = usePathname();
   const live = useLive();
   const { diskAlert } = useDemo();
-  const { status: update } = useUpdateStatus();
+  const { status: update } = useUpdateStatus({ autoCheck: true });
   const updateAvailable = update?.available === true;
   // The highlight moves on click, before the next page has loaded, so it feels instant.
   const [pending, setPending] = useState<{ href: string; from: string } | null>(null);
