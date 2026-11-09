@@ -4,7 +4,7 @@ import type { Icon } from '@phosphor-icons/react';
 import { Cube, Eye, Gear, Pulse, SquaresFour } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { useIndicator } from '@/lib/useIndicator';
 import { useServerMetrics } from '@/lib/useServerMetrics';
@@ -35,7 +35,12 @@ export function Sidebar() {
   const [pending, setPending] = useState<{ href: string; from: string } | null>(null);
   const current = nav.find((n) => path.startsWith(n.href))?.href ?? null;
   const active = pending && pending.from === path ? pending.href : current;
-  const { ref: navRef, style } = useIndicator<HTMLElement>(active);
+  // Hover slides between items; it keeps its last spot and fades out when the pointer leaves the nav.
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [hovering, setHovering] = useState(false);
+  const navRef = useRef<HTMLElement>(null);
+  const { style } = useIndicator<HTMLElement>(active, navRef);
+  const { style: hoverStyle } = useIndicator<HTMLElement>(hovered, navRef);
   const item = 'group flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14.5px] transition-[background-color,color] duration-150';
 
   return (
@@ -44,8 +49,13 @@ export function Sidebar() {
         <GustMark size={30} />
         gust
       </Link>
-      <nav ref={navRef} aria-label="Main" className="relative flex flex-col gap-0.5">
-        <span aria-hidden className="absolute top-0 left-0 rounded-[10px] bg-accent-soft" style={style('fill')} />
+      <nav ref={navRef} aria-label="Main" className="relative flex flex-col gap-0.5" onMouseLeave={() => setHovering(false)}>
+        <span
+          aria-hidden
+          className="pointer-events-none absolute top-0 left-0 rounded-[10px] bg-bg-3"
+          style={{ ...hoverStyle('fill'), opacity: hovering ? 1 : 0 }}
+        />
+        <span aria-hidden className="pointer-events-none absolute top-0 left-0 rounded-[10px] bg-accent-soft" style={style('fill')} />
         {nav.map(({ href, label, icon: I }) => {
           const on = active === href;
           return (
@@ -54,8 +64,12 @@ export function Sidebar() {
               href={href}
               data-key={href}
               onClick={() => setPending({ href, from: path })}
+              onMouseEnter={() => {
+                setHovered(href);
+                setHovering(true);
+              }}
               aria-current={on ? 'page' : undefined}
-              className={cx('relative', item, on ? 'text-fg' : 'text-fg-2 hover:bg-bg-3/70 hover:text-fg')}
+              className={cx('relative', item, on ? 'text-fg' : 'text-fg-2 hover:text-fg')}
             >
               <I size={20} weight={on ? 'fill' : 'regular'} />
               {label}

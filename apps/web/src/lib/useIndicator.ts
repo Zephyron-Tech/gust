@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 export interface IndicatorBox {
   x: number;
@@ -14,8 +14,9 @@ export interface IndicatorBox {
  * single highlight can slide between items instead of jumping. The first
  * placement is not animated; later moves are.
  */
-export function useIndicator<T extends HTMLElement>(key: string | null) {
-  const ref = useRef<T>(null);
+export function useIndicator<T extends HTMLElement>(key: string | null, external?: RefObject<T | null>) {
+  const own = useRef<T>(null);
+  const ref = external ?? own;
   const [box, setBox] = useState<IndicatorBox | null>(null);
   const [animate, setAnimate] = useState(false);
 
@@ -30,7 +31,7 @@ export function useIndicator<T extends HTMLElement>(key: string | null) {
     const ro = new ResizeObserver(measure);
     ro.observe(root);
     return () => ro.disconnect();
-  }, [key]);
+  }, [key, ref]);
 
   useEffect(() => {
     if (!box || animate) return;
@@ -45,7 +46,9 @@ export function useIndicator<T extends HTMLElement>(key: string | null) {
       transform: `translate(${box.x}px, ${y}px)`,
       width: box.w,
       height: part === 'underline' ? 2 : box.h,
-      transition: animate ? 'transform 280ms var(--ease-out), width 280ms var(--ease-out), height 280ms var(--ease-out)' : 'none',
+      transition: animate
+        ? 'transform 280ms var(--ease-out), width 280ms var(--ease-out), height 280ms var(--ease-out), opacity 150ms var(--ease-out)'
+        : 'none',
     };
   };
 

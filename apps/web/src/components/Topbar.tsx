@@ -79,7 +79,7 @@ export function Topbar() {
           </span>
         </button>
         <Menu.Root>
-          <Menu.Trigger className="ml-1 grid size-9 place-items-center overflow-hidden rounded-full bg-accent font-display text-[13px] font-semibold text-accent-ink transition-[box-shadow] duration-200 ease-[var(--ease-out)] hover:ring-4 hover:ring-accent/20 data-popup-open:ring-4 data-popup-open:ring-accent/25">
+          <Menu.Trigger className="ml-2 grid size-10 place-items-center overflow-hidden rounded-full bg-accent font-display text-[13.5px] font-semibold text-accent-ink ring-1 ring-line shadow-[0_2px_10px_-3px_rgb(0_0_0/0.5)] transition-[box-shadow,transform] duration-200 ease-[var(--ease-out)] hover:ring-4 hover:ring-accent/25 active:scale-95 data-popup-open:ring-4 data-popup-open:ring-accent/30">
             {me?.image ? (
               // biome-ignore lint/performance/noImgElement: the avatar is a small external URL from Authentik, not worth the optimizer
               <img src={me.image} alt="" referrerPolicy="no-referrer" className="size-full object-cover" />
