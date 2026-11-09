@@ -74,7 +74,10 @@ export const auth = betterAuth({
                     const admin = Array.isArray(profile.groups) && profile.groups.includes(adminGroup);
                     authentikRoles.set(profile.email.toLowerCase(), admin ? 'admin' : 'member');
                   }
-                  return {};
+                  // The avatar Authentik sends, only when it is an https address. Updated at each sign-in.
+                  const picture =
+                    typeof profile.picture === 'string' && profile.picture.startsWith('https://') ? profile.picture : undefined;
+                  return picture ? { image: picture } : {};
                 },
               },
             ],

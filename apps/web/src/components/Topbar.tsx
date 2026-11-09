@@ -34,7 +34,7 @@ export function Topbar() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const { data } = authClient.useSession();
-  const me = data?.user as { name: string; email: string; role?: string } | undefined;
+  const me = data?.user as { name: string; email: string; role?: string; image?: string | null } | undefined;
   const initials = (me?.name ?? '?')
     .split(/\s+/)
     .map((w) => w[0])
@@ -79,8 +79,13 @@ export function Topbar() {
           </span>
         </button>
         <Menu.Root>
-          <Menu.Trigger className="ml-1 grid size-9 place-items-center rounded-full bg-accent font-display text-[13px] font-semibold text-accent-ink transition-[box-shadow] duration-200 ease-[var(--ease-out)] hover:ring-4 hover:ring-accent/20 data-popup-open:ring-4 data-popup-open:ring-accent/25">
-            {initials}
+          <Menu.Trigger className="ml-1 grid size-9 place-items-center overflow-hidden rounded-full bg-accent font-display text-[13px] font-semibold text-accent-ink transition-[box-shadow] duration-200 ease-[var(--ease-out)] hover:ring-4 hover:ring-accent/20 data-popup-open:ring-4 data-popup-open:ring-accent/25">
+            {me?.image ? (
+              // biome-ignore lint/performance/noImgElement: the avatar is a small external URL from Authentik, not worth the optimizer
+              <img src={me.image} alt="" referrerPolicy="no-referrer" className="size-full object-cover" />
+            ) : (
+              initials
+            )}
           </Menu.Trigger>
           <Menu.Portal>
             <Menu.Positioner sideOffset={10} align="end" className="z-50">
