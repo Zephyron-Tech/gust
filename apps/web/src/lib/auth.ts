@@ -74,13 +74,6 @@ export const auth = betterAuth({
                     const admin = Array.isArray(profile.groups) && profile.groups.includes(adminGroup);
                     authentikRoles.set(profile.email.toLowerCase(), admin ? 'admin' : 'member');
                   }
-                  // TEMP debug: which claims Authentik sends and how picture looks. Remove after checking.
-                  console.info(
-                    '[authentik-profile-debug]',
-                    Object.keys(profile).join(','),
-                    typeof profile.picture,
-                    typeof profile.picture === 'string' ? profile.picture.slice(0, 40) : null,
-                  );
                   // The avatar Authentik sends, only when it is an https address. Updated at each sign-in.
                   const picture =
                     typeof profile.picture === 'string' && profile.picture.startsWith('https://') ? profile.picture : undefined;
