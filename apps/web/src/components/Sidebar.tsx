@@ -41,6 +41,10 @@ export function Sidebar() {
   const navRef = useRef<HTMLElement>(null);
   const { style } = useIndicator<HTMLElement>(active, navRef);
   const { style: hoverStyle } = useIndicator<HTMLElement>(hovered, navRef);
+  const [pinnedHovered, setPinnedHovered] = useState<string | null>(null);
+  const [pinnedHovering, setPinnedHovering] = useState(false);
+  const pinnedRef = useRef<HTMLDivElement>(null);
+  const { style: pinnedHoverStyle } = useIndicator<HTMLDivElement>(pinnedHovered, pinnedRef);
   const item = 'group flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14.5px] transition-[background-color,color] duration-150';
 
   return (
@@ -83,18 +87,33 @@ export function Sidebar() {
         })}
       </nav>
       <p className="mt-7 mb-2 px-3 text-[12.5px] font-medium text-fg-3">Pinned</p>
-      <div className="flex flex-col gap-0.5">
+      <nav
+        ref={pinnedRef}
+        aria-label="Pinned projects"
+        className="relative flex flex-col gap-0.5"
+        onMouseLeave={() => setPinnedHovering(false)}
+      >
+        <span
+          aria-hidden
+          className="pointer-events-none absolute top-0 left-0 rounded-[10px] bg-bg-3"
+          style={{ ...pinnedHoverStyle('fill'), opacity: pinnedHovering ? 1 : 0 }}
+        />
         {pinned.map((p) => (
           <Link
             key={p.slug}
             href={p.href}
-            className={cx(item, path.startsWith(`/projects/${p.slug}`) ? 'bg-bg-3 text-fg' : 'text-fg-2 hover:bg-bg-3/70 hover:text-fg')}
+            data-key={p.slug}
+            onMouseEnter={() => {
+              setPinnedHovered(p.slug);
+              setPinnedHovering(true);
+            }}
+            className={cx('relative', item, path.startsWith(`/projects/${p.slug}`) ? 'bg-bg-3 text-fg' : 'text-fg-2 hover:text-fg')}
           >
             <Dot health="live" />
             {p.slug}
           </Link>
         ))}
-      </div>
+      </nav>
 
       <Link
         href="/server"
