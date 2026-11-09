@@ -19,6 +19,7 @@ describe('validateNewProject', () => {
         repo: 'Zephyron-Tech/smart-targets-core',
         branch: 'main',
         domain: 'api.smarttargets.cz',
+        previewBranches: [],
         service: 'web',
         port: 3000,
         healthPath: null,
@@ -26,6 +27,17 @@ describe('validateNewProject', () => {
         cpu: 1,
       },
     });
+  });
+
+  it('leaves the domain out for the automatic host and takes preview branches', () => {
+    const r = validateNewProject({ ...valid, domain: '', previewBranches: ['dev', ' staging '] });
+    expect(r.ok && r.value.domain).toBeNull();
+    expect(r.ok && r.value.previewBranches).toEqual(['dev', 'staging']);
+  });
+
+  it('refuses the production branch as a preview', () => {
+    const r = validateNewProject({ ...valid, branch: 'main', previewBranches: ['main'] });
+    expect(!r.ok && r.errors.previewBranches).toBeTruthy();
   });
 
   it('lowercases the domain and slug', () => {

@@ -10,7 +10,9 @@ export type NewProject = {
   slug: string;
   repo: string;
   branch: string;
-  domain: string;
+  /** A custom production domain; null means the automatic <slug>.<GUST_DOMAIN> host. */
+  domain: string | null;
+  previewBranches: string[];
   service: string;
   port: number;
   healthPath: string | null;
@@ -36,7 +38,11 @@ export function validateNewProject(raw: Record<string, unknown>): ValidationResu
   if (!BRANCH.test(branch)) errors.branch = 'Branch name is not valid';
 
   const domain = text(raw.domain).toLowerCase();
-  if (!DOMAIN.test(domain)) errors.domain = 'Enter a domain such as app.example.com';
+  if (domain && !DOMAIN.test(domain)) errors.domain = 'Enter a domain such as app.example.com, or leave it empty';
+
+  const previewRaw = Array.isArray(raw.previewBranches) ? raw.previewBranches.map(text) : text(raw.previewBranches).split(',');
+  const previews = validatePreviewBranches(previewRaw, branch);
+  if (!previews.ok) errors.previewBranches = previews.error;
 
   const service = text(raw.service) || 'web';
   if (!SLUG.test(service)) errors.service = 'Use 1–40 lowercase letters, digits and dashes';
@@ -56,7 +62,18 @@ export function validateNewProject(raw: Record<string, unknown>): ValidationResu
   if (Object.keys(errors).length) return { ok: false, errors };
   return {
     ok: true,
-    value: { slug, repo, branch, domain, service, port, healthPath: health || null, memoryMb: memory, cpu },
+    value: {
+      slug,
+      repo,
+      branch,
+      domain: domain || null,
+      previewBranches: previews.ok ? previews.value : [],
+      service,
+      port,
+      healthPath: health || null,
+      memoryMb: memory,
+      cpu,
+    },
   };
 }
 

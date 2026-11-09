@@ -41,8 +41,15 @@ deploy is written to the audit log as `deploy.push` with actor
 
 ## A project's workflow
 
-The project must have `github_repo` set (for now in the database:
-`update projects set github_repo = 'Zephyron-Tech/smart-targets-core' where slug = 'smart-targets'`).
+**Projects → New project** lists the public repositories of the owners in
+`GITHUB_ALLOWED_OWNERS`, read from GitHub's public API (cached; set
+`GITHUB_TOKEN` on web if the 60 requests an hour ever run out). Import one,
+check the settings Gust filled in from the repository (branches, the port from
+the Dockerfile's `EXPOSE`), and create the project. It is served on
+`<slug>.<GUST_DOMAIN>`; custom domains are added later in the Domains tab.
+The setup page that follows shows the workflow below, filled in for the
+project, with a button that opens GitHub's editor for the new file. Commit it
+there and the next push deploys.
 
 ```yaml
 # .github/workflows/deploy.yml in the project's repository

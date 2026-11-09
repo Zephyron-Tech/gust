@@ -62,7 +62,12 @@ export default function DeploymentsPage({ params }: { params: Promise<{ slug: st
           );
         })}
         {list.length === 0 && (
-          <p className="px-5 py-10 text-center text-fg-3">No deployments yet. Push to main and GitHub Actions starts the first one.</p>
+          <p className="px-5 py-10 text-center text-fg-3">
+            No deployments yet.{' '}
+            <Link href={`/projects/${slug}/${service}/setup`} className="text-accent">
+              Set up deploys from GitHub
+            </Link>
+          </p>
         )}
       </Panel>
       {!projects.some((p) => p.slug === slug && p.engine) && (
