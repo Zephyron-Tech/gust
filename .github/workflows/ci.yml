@@ -27,7 +27,7 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
-      - run: node --test .github/actions/deploy/
+      - run: node --test .github/actions/deploy/dockerfile.test.mjs
       - run: pnpm build
 
   image:

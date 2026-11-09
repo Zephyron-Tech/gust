@@ -22,7 +22,10 @@ token() {
 }
 
 # GitHub tokens are short-lived, so each call gets a fresh one.
-body=$(jq -nc --arg service "$GUST_SERVICE" --arg tag "$GUST_TAG" --arg message "${GUST_MESSAGE:-}" \
+# Gust takes the subject line only and rejects messages over 500 characters,
+# so a long commit body must not be sent.
+subject=$(printf '%s' "${GUST_MESSAGE:-}" | head -n 1 | cut -c1-500)
+body=$(jq -nc --arg service "$GUST_SERVICE" --arg tag "$GUST_TAG" --arg message "$subject" \
   '{service: $service, tag: $tag} + (if $message == "" then {} else {message: $message} end)')
 
 for attempt in 1 2 3 4 5 6; do
