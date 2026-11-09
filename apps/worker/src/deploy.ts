@@ -1,9 +1,10 @@
 // Runs one deploy: calls the engine, stores every event as a log line and
 // moves the deployment's state along. The only place that changes a
 // deployment after it was queued.
+import { branchLabel, previewHost } from '@gust/contracts';
 import { db, deploymentLogs, deployments, envVars, projects, services } from '@gust/db';
 import { decryptSecret } from '@gust/db/secrets';
-import { and, eq, ne } from 'drizzle-orm';
+import { and, eq, isNull, ne } from 'drizzle-orm';
 
 import { engineFetch } from './engine';
 import { type CommitState, setCommitStatus } from './github';
@@ -47,12 +48,22 @@ export async function runDeploy(id: string) {
     await notifyDiscord(deployFailedText(p.slug, svc.name, d.tag, error));
   };
 
-  // Production env of the service; secrets are decrypted only here, on their
-  // way to the engine, and never logged.
+  // A preview gets its own host under the wildcard and its own env scope.
+  const branch = d.branch ? branchLabel(d.branch) : undefined;
+  let domains = svc.domains;
+  if (d.branch) {
+    const domain = process.env.GUST_DOMAIN;
+    if (!domain) return fail('GUST_DOMAIN is not set on the worker, so the preview has no host.');
+    domains = [previewHost(d.branch, p.slug, domain)];
+    await log('route', `Preview host https://${domains[0]}`);
+  }
+
+  // Env of the service for this deploy's scope; secrets are decrypted only here,
+  // on their way to the engine, and never logged.
   const vars = await db
     .select()
     .from(envVars)
-    .where(and(eq(envVars.serviceId, svc.id), eq(envVars.scope, 'production')));
+    .where(and(eq(envVars.serviceId, svc.id), eq(envVars.scope, d.branch ? 'preview' : 'production')));
   let env: Record<string, string>;
   try {
     env = Object.fromEntries(vars.map((v) => [v.key, v.isSecret ? decryptSecret(v.value) : v.value]));
@@ -71,11 +82,12 @@ export async function runDeploy(id: string) {
       image: d.imageRef,
       port: svc.port,
       healthPath: svc.healthPath ?? '/',
-      domains: svc.domains,
+      domains,
       cpu: svc.cpu,
       memoryMb: svc.memoryMb,
       healthTimeout: 30,
       env,
+      ...(branch && { branch }),
     }),
   }).catch(() => null);
   if (!res?.ok || !res.body) return fail('The engine did not answer. Is it running?');
@@ -117,7 +129,14 @@ export async function runDeploy(id: string) {
     await tx
       .update(deployments)
       .set({ state: 'superseded' })
-      .where(and(eq(deployments.serviceId, svc.id), eq(deployments.state, 'live'), ne(deployments.id, id)));
+      .where(
+        and(
+          eq(deployments.serviceId, svc.id),
+          eq(deployments.state, 'live'),
+          ne(deployments.id, id),
+          d.branch ? eq(deployments.branch, d.branch) : isNull(deployments.branch),
+        ),
+      );
   });
   await report('success');
 }

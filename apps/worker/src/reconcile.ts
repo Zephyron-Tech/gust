@@ -5,7 +5,7 @@
 import { RUNNING_STATES } from '@gust/contracts';
 import { auditEvents, db, deployments, projects, services } from '@gust/db';
 import { enqueueDeploy } from '@gust/db/queue';
-import { and, desc, eq, gt, inArray } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNull } from 'drizzle-orm';
 
 import { engineFetch } from './engine';
 
@@ -30,7 +30,13 @@ export async function reconcile(log: (line: string) => void) {
     const [recent] = await db
       .select({ id: deployments.id, state: deployments.state, createdAt: deployments.createdAt })
       .from(deployments)
-      .where(and(eq(deployments.serviceId, s.id), gt(deployments.createdAt, d.createdAt)))
+      .where(
+        and(
+          eq(deployments.serviceId, s.id),
+          d.branch ? eq(deployments.branch, d.branch) : isNull(deployments.branch),
+          gt(deployments.createdAt, d.createdAt),
+        ),
+      )
       .orderBy(desc(deployments.createdAt))
       .limit(1);
     if (recent && (running.includes(recent.state) || Date.now() - recent.createdAt.getTime() < RESTORE_COOLDOWN_MS)) continue;
@@ -40,6 +46,7 @@ export async function reconcile(log: (line: string) => void) {
       id,
       serviceId: s.id,
       trigger: 'reconcile',
+      branch: d.branch,
       tag: d.tag,
       imageRef: d.imageRef,
       message: `Restore ${d.tag}: its container was gone`,

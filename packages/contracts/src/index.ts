@@ -124,6 +124,11 @@ export const deploySpec = z.object({
   memoryMb: z.number().int().positive().default(512),
   /** Seconds to wait for the new container to report healthy. */
   healthTimeout: z.number().int().positive().default(60),
+  /** Set for a preview deploy: its own container and route, apart from production. */
+  branch: z
+    .string()
+    .regex(/^[a-z0-9-]+$/)
+    .optional(),
 });
 export type DeploySpec = z.infer<typeof deploySpec>;
 
@@ -143,4 +148,27 @@ export const LABEL = {
   service: 'gust.service',
   deployment: 'gust.deployment',
   type: 'gust.type',
+  branch: 'gust.branch',
 } as const;
+
+/** A branch name as one DNS label: lowercase letters, digits and dashes, at most 40 characters. */
+export const branchLabel = (branch: string) =>
+  branch
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40)
+    .replace(/-+$/, '');
+
+/** Public host of a preview, one label under the wildcard: <branch>-<project>.<domain>. */
+export const previewHost = (branch: string, project: string, domain: string) => `${branchLabel(branch)}-${project}.${domain}`;
+
+/**
+ * Which deploy a GitHub run means, from its ref. `null` branch is production;
+ * a preview branch deploys as a preview. Anything else is refused.
+ */
+export function deployTarget(ref: string, productionBranch: string, previewBranches: string[]): { branch: string | null } | null {
+  if (ref === `refs/heads/${productionBranch}`) return { branch: null };
+  const preview = previewBranches.find((b) => ref === `refs/heads/${b}`);
+  return preview ? { branch: preview } : null;
+}

@@ -17,7 +17,9 @@ export const undrain = (id: string) => draining.delete(id);
 const traefikApi = () => process.env.TRAEFIK_API ?? 'http://127.0.0.1:8081';
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export const routeName = (project: string, service: string) => `${project}-${service}`;
+/** One route per service; a preview branch gets a route of its own, so it never shares servers with production. */
+export const routeName = (project: string, service: string, branch?: string | null) =>
+  branch ? `${project}-${service}-${branch}` : `${project}-${service}`;
 
 // On the VPS every route is HTTPS with a Let's Encrypt certificate from this
 // Traefik resolver; locally it is unset and routes stay on plain HTTP.
@@ -43,7 +45,7 @@ export async function traefikConfig(): Promise<TraefikConfig | Record<string, ne
     const port = c.Labels['gust.port'];
     const ip = c.NetworkSettings?.Networks?.[EDGE_NETWORK]?.IPAddress;
     if (!project || !service || !domains.length || !port || !ip) continue;
-    const name = routeName(project, service);
+    const name = routeName(project, service, c.Labels[LABEL.branch]);
     const resolver = tlsResolver();
     cfg.http.routers[name] = {
       rule: domains.map((d) => `Host(\`${d}\`)`).join(' || '),

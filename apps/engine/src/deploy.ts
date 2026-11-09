@@ -18,7 +18,7 @@ type Emit = (e: Omit<DeployEvent, 'ts'>) => void;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export const serviceName = (s: Pick<DeploySpec, 'project' | 'service'>) => routeName(s.project, s.service);
+export const serviceName = (s: Pick<DeploySpec, 'project' | 'service' | 'branch'>) => routeName(s.project, s.service, s.branch);
 
 /** Seconds between leaving the load balancer and SIGTERM, for in-flight requests. */
 const DRAIN_GRACE_MS = Number(process.env.GUST_DRAIN_GRACE_MS ?? 2000);
@@ -32,16 +32,17 @@ function labels(spec: DeploySpec): Record<string, string> {
     [LABEL.type]: 'app',
     'gust.port': String(spec.port),
   };
+  if (spec.branch) l[LABEL.branch] = spec.branch;
   if (spec.domains.length) l['gust.domains'] = spec.domains.join(',');
   return l;
 }
 
-/** Running containers of this service, oldest first. */
-export async function running(project: string, service: string) {
+/** Running containers of this service on one branch (production when none), oldest first. */
+export async function running(project: string, service: string, branch?: string | null) {
   const list = await docker.listContainers({
     filters: { label: [`${LABEL.project}=${project}`, `${LABEL.service}=${service}`], status: ['running'] },
   });
-  return list.sort((a, b) => a.Created - b.Created);
+  return list.filter((c) => (c.Labels[LABEL.branch] ?? null) === (branch ?? null)).sort((a, b) => a.Created - b.Created);
 }
 
 async function waitHealthy(c: Docker.Container, timeoutS: number, emit: Emit) {
@@ -79,7 +80,7 @@ export async function deploy(spec: DeploySpec, emit: Emit): Promise<{ ok: boolea
   }
 
   // 2. New container next to the old one
-  const previous = await running(spec.project, spec.service);
+  const previous = await running(spec.project, spec.service, spec.branch);
   const container = await docker.createContainer({
     name: `gust-${name}-${spec.deploymentId.replace('_', '')}`,
     Image: spec.image,

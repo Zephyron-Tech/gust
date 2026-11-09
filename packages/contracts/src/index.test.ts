@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { deployment, deployRequest, observedStack, project, RUNNING_STATES } from './index';
+import { branchLabel, deployment, deployRequest, deployTarget, observedStack, previewHost, project, RUNNING_STATES } from './index';
 import { deployments, observed, projects } from './sample';
 
 describe('deployRequest', () => {
@@ -40,5 +40,30 @@ describe('sample data', () => {
 describe('RUNNING_STATES', () => {
   it('excludes final states', () => {
     for (const s of ['live', 'failed', 'superseded', 'cancelled'] as const) expect(RUNNING_STATES).not.toContain(s);
+  });
+});
+
+describe('preview deploys', () => {
+  it('turns a branch into one DNS label', () => {
+    expect(branchLabel('dev')).toBe('dev');
+    expect(branchLabel('feature/Login_Page')).toBe('feature-login-page');
+    expect(branchLabel('--odd--')).toBe('odd');
+    expect(branchLabel('a'.repeat(60)).length).toBe(40);
+  });
+
+  it('builds the preview host under the domain', () => {
+    expect(previewHost('dev', 'demo', 'gust.zephyron.tech')).toBe('dev-demo.gust.zephyron.tech');
+    expect(previewHost('feature/x', 'demo', 'gust.zephyron.tech')).toBe('feature-x-demo.gust.zephyron.tech');
+  });
+
+  it('sends the production branch to production and listed branches to previews', () => {
+    expect(deployTarget('refs/heads/main', 'main', ['dev'])).toEqual({ branch: null });
+    expect(deployTarget('refs/heads/dev', 'main', ['dev'])).toEqual({ branch: 'dev' });
+  });
+
+  it('refuses branches that are neither production nor preview', () => {
+    expect(deployTarget('refs/heads/feature', 'main', ['dev'])).toBeNull();
+    expect(deployTarget('refs/tags/v1', 'main', ['dev'])).toBeNull();
+    expect(deployTarget('refs/heads/dev', 'main', [])).toBeNull();
   });
 });

@@ -26,7 +26,9 @@ push to main ─▶ Actions: docker build ─▶ push to Zot ─▶ POST /api/de
 3. A project has `github_repo` equal to the token's `repository` and a service
    with that name. A token from another repository gets 404.
 4. The token's `ref` is `refs/heads/<production_branch>` of that project
-   (default `main`). Other branches get 403; previews come in M4.
+   (default `main`), which deploys to production, or `refs/heads/<branch>` of
+   the project's `preview_branches`, which deploys a preview. Any other branch
+   gets 403.
 5. The token's `jti` was not used for a deploy before (`github_token_uses`), so
    a captured token cannot start a second deploy.
 
@@ -89,7 +91,18 @@ own check still shows the result.
 The app is registered as **Zephyron Gust** (App ID `5670843`, installable
 only on Zephyron-Tech) with:
 
-- Webhook: off for now (M4 turns it on for pull-request previews).
+- Webhook: off for now. Pull-request previews are not built; branch previews are.
+
+## Branch previews
+
+A project lists its preview branches with `gust project set <slug> --preview dev`
+(comma-separated, empty clears them). A push to one deploys a separate copy of
+the service on `<branch>-<project>.<GUST_DOMAIN>` (branch name cut to one DNS
+label). The wildcard DNS record covers it; Traefik asks Let's Encrypt for a
+certificate for that host (HTTP-01). Preview and production never share a
+container, route or env scope: preview uses env variables scoped `preview`.
+Each push to a branch replaces that branch's previous preview. Previews are not
+removed when their branch is deleted yet.
 - Repository permissions: **Commit statuses: Read and write**, Metadata: Read.
   Nothing else.
 - Installed on selected repositories; add each repository when it moves to

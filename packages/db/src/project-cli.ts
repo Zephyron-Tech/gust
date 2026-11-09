@@ -7,7 +7,7 @@
 //       [--branch main] [--health /healthz] [--memory 512] [--cpu 1]
 //   service <slug> <service> --port 3000 --domain a.example.com[,b.example.com]
 //       [--health /healthz] [--memory 512] [--cpu 1]
-//   set <slug> [--repo owner/name] [--branch main] [--domain example.com]
+//   set <slug> [--repo owner/name] [--branch main] [--domain example.com] [--preview dev,staging]
 //
 // Every change writes an audit_events row with actor "cli".
 import { parseArgs } from 'node:util';
@@ -24,6 +24,7 @@ const { positionals, values } = parseArgs({
   options: {
     repo: { type: 'string' },
     branch: { type: 'string' },
+    preview: { type: 'string' },
     service: { type: 'string' },
     port: { type: 'string' },
     domain: { type: 'string' },
@@ -58,6 +59,15 @@ function int(raw: string | undefined, what: string, min: number, max: number) {
   return n;
 }
 
+/** Preview branches as a list; an empty value clears them. */
+function previewList(raw: string) {
+  return raw
+    .split(',')
+    .map((b) => b.trim())
+    .filter(Boolean)
+    .map((b) => check(b, /^[\w./-]{1,100}$/, 'Preview branch'));
+}
+
 function serviceFields() {
   const cpu = values.cpu === undefined ? undefined : Number(values.cpu);
   if (cpu !== undefined && !(cpu > 0 && cpu <= 64)) throw new UsageError('CPU must be a number above 0');
@@ -85,7 +95,8 @@ async function list() {
   if (!rows.length) return console.log('No projects yet. Add one with: gust project add <slug> …');
   for (const { project: p, service: s } of rows) {
     const svc = s ? `${s.name}  port ${s.port ?? '-'}  ${s.domains.join(', ') || 'no domain'}  image ${s.image}` : 'no services';
-    console.log(`${p.slug}  ${p.githubRepo ?? '-'}@${p.productionBranch}  ${svc}`);
+    const previews = p.previewBranches.length ? `  previews ${p.previewBranches.join(', ')}` : '';
+    console.log(`${p.slug}  ${p.githubRepo ?? '-'}@${p.productionBranch}${previews}  ${svc}`);
   }
 }
 
@@ -137,6 +148,7 @@ async function add(slug: string) {
     engine: true,
     githubRepo: repo,
     productionBranch: values.branch ?? 'main',
+    previewBranches: values.preview === undefined ? [] : previewList(values.preview),
   });
   await audit('project.create', slug, { repo, branch: values.branch ?? 'main' });
   console.log(`added project ${slug} (${repo}@${values.branch ?? 'main'})`);
@@ -148,7 +160,8 @@ async function set(slug: string) {
   if (values.repo) change.repo = change.githubRepo = check(values.repo, REPO, 'Repository');
   if (values.branch) change.productionBranch = values.branch;
   if (values.domain) change.domain = domains(values.domain)[0];
-  if (!Object.keys(change).length) throw new UsageError('Nothing to change: pass --repo, --branch or --domain');
+  if (values.preview !== undefined) change.previewBranches = previewList(values.preview);
+  if (!Object.keys(change).length) throw new UsageError('Nothing to change: pass --repo, --branch, --domain or --preview');
   const updated = await db.update(projects).set(change).where(eq(projects.slug, slug)).returning({ id: projects.id });
   if (!updated.length) throw new UsageError(`Project ${slug} does not exist`);
   await audit('project.update', slug, change);

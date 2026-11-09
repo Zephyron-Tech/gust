@@ -6,7 +6,7 @@ import 'server-only';
 import { RUNNING_STATES } from '@gust/contracts';
 import { auditEvents, db, deployments, projects, services } from '@gust/db';
 import { enqueueDeploy } from '@gust/db/queue';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 
 import { registryHost } from './engine-server';
 
@@ -29,6 +29,8 @@ export async function startDeploy(input: {
   service: string;
   tag: string;
   rollbackOf?: string;
+  /** Preview branch; omitted or null deploys to production. */
+  branch?: string | null;
   author: string;
   actor: string;
   /** Set for deploys from GitHub Actions. */
@@ -37,16 +39,18 @@ export async function startDeploy(input: {
   const row = await findService(input.project, input.service);
   if (!row?.project.engine) throw new DeployError('This service is not deployed through the engine');
   const svc = row.service;
+  const branch = input.branch ?? null;
 
   // A rollback redeploys the image tag stored with the target deployment. The
   // UI only knows the short commit, which is not the image tag.
   let tag = input.tag;
   if (input.rollbackOf) {
     const [target] = await db
-      .select({ tag: deployments.tag, serviceId: deployments.serviceId })
+      .select({ tag: deployments.tag, serviceId: deployments.serviceId, branch: deployments.branch })
       .from(deployments)
       .where(eq(deployments.id, input.rollbackOf));
     if (!target || target.serviceId !== svc.id) throw new DeployError('Rollback target not found');
+    if (target.branch !== branch) throw new DeployError('A rollback stays on its own branch: production or the same preview');
     tag = target.tag;
   }
   if (svc.type !== 'app' || !svc.port) throw new DeployError('Only app services can be deployed');
@@ -54,7 +58,13 @@ export async function startDeploy(input: {
   const [busy] = await db
     .select({ id: deployments.id })
     .from(deployments)
-    .where(and(eq(deployments.serviceId, svc.id), inArray(deployments.state, running)));
+    .where(
+      and(
+        eq(deployments.serviceId, svc.id),
+        branch ? eq(deployments.branch, branch) : isNull(deployments.branch),
+        inArray(deployments.state, running),
+      ),
+    );
   if (busy) throw new DeployError(`A deploy is already running (${busy.id})`);
 
   const id = `dpl_${crypto.randomUUID().replace(/-/g, '').slice(0, 10)}`;
@@ -62,7 +72,8 @@ export async function startDeploy(input: {
   await db.insert(deployments).values({
     id,
     serviceId: svc.id,
-    trigger: input.push ? 'push' : input.rollbackOf ? 'rollback' : 'manual',
+    trigger: branch ? 'preview' : input.push ? 'push' : input.rollbackOf ? 'rollback' : 'manual',
+    branch,
     tag,
     imageRef,
     message: input.push?.message || (input.rollbackOf ? `Roll back to ${tag}` : `Deploy ${tag}`),
@@ -73,8 +84,8 @@ export async function startDeploy(input: {
 
   await db.insert(auditEvents).values({
     actor: input.actor,
-    action: input.push ? 'deploy.push' : input.rollbackOf ? 'deploy.rollback' : 'deploy.start',
-    target: `${input.project}/${input.service}`,
+    action: branch ? 'deploy.preview' : input.push ? 'deploy.push' : input.rollbackOf ? 'deploy.rollback' : 'deploy.start',
+    target: `${input.project}/${input.service}${branch ? `@${branch}` : ''}`,
     detail: {
       deploymentId: id,
       tag,

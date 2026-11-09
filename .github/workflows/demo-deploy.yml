@@ -1,10 +1,11 @@
 name: Deploy demo app
 
 # Test deploy of infra/demo-app to the production Gust. Runs on pushes to main
-# that touch the demo app or the deploy action.
+# that touch the demo app or the deploy action. dev is a preview branch: Gust
+# serves it on its own host (see docs/github.md).
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
     paths:
       - infra/demo-app/**
       - .github/actions/deploy/**

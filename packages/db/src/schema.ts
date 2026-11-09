@@ -30,6 +30,8 @@ export const projects = pgTable('projects', {
   githubRepo: text('github_repo'),
   /** Pushes to this branch deploy to production. */
   productionBranch: text('production_branch').notNull().default('main'),
+  /** Pushes to these branches deploy as previews, on their own host, apart from production. */
+  previewBranches: text('preview_branches').array().notNull().default(sql`'{}'::text[]`),
   createdAt: createdAt(),
 });
 
@@ -76,6 +78,8 @@ export const deployments = pgTable(
     message: text('message').notNull(),
     author: text('author').notNull(),
     commitSha: text('commit_sha'),
+    /** Preview branch of this deploy; null for production. */
+    branch: text('branch'),
     rollbackOf: text('rollback_of'),
     containerId: text('container_id'),
     error: text('error'),

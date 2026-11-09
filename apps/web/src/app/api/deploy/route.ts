@@ -28,13 +28,14 @@ export async function POST(req: Request) {
   if (!parsed.success) return Response.json({ error: 'Send service and tag' }, { status: 400 });
 
   try {
-    const { project, service } = await serviceForToken(claims, parsed.data.service);
+    const { project, service, branch } = await serviceForToken(claims, parsed.data.service);
     await spendToken(claims);
     try {
       const id = await startDeploy({
         project: project.slug,
         service: service.name,
         tag: parsed.data.tag,
+        branch,
         author: claims.actor,
         actor: `github:${claims.repository}`,
         push: {
