@@ -92,6 +92,19 @@ refresh_status() {
   fi
 }
 
+# How many tags the registry keeps, read from its own config so Settings shows the real value.
+registry_status() {
+  mkdir -p "$REQ"
+  local keep
+  keep="$(sed -n 's/.*"mostRecentlyPushedCount": *\([0-9]*\).*/\1/p' "$GUST_DIR/zot/config.json" 2>/dev/null | head -n1)"
+  if [ -n "$keep" ]; then
+    printf '{"keepTags":%s,"at":"%s"}\n' "$keep" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$REQ/registry.json.tmp"
+  else
+    printf '{"keepTags":null,"at":"%s"}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$REQ/registry.json.tmp"
+  fi
+  mv "$REQ/registry.json.tmp" "$REQ/registry.json"
+}
+
 # What the Settings page shows about this machine, read from the host itself.
 server_status() {
   mkdir -p "$REQ"
@@ -210,6 +223,7 @@ case "$cmd" in
   version-check)
     refresh_status
     server_status
+    registry_status
     ;;
   requests-run)
     requests_run

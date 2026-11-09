@@ -7,8 +7,10 @@ import {
   discordValue,
   githubAppValue,
   heartbeatValue,
+  imageCleanupValue,
   NOT_SET,
   parseLastBackup,
+  parseRegistryKeep,
   parseServerFacts,
   registryValue,
   rolesValue,
@@ -60,6 +62,15 @@ describe('settings values come from configuration only', () => {
   it('shows the heartbeat only when a URL is configured', () => {
     expect(heartbeatValue(false)).toBe(NOT_SET);
     expect(heartbeatValue(true)).toContain('healthchecks.io');
+  });
+
+  it('reads the registry retention the host wrote', () => {
+    expect(parseRegistryKeep('{"keepTags":8,"at":"2026-11-09T12:00:00Z"}')).toBe(8);
+    expect(parseRegistryKeep('{"keepTags":null}')).toBeNull();
+    expect(parseRegistryKeep('{"keepTags":"8"}')).toBeNull();
+    expect(parseRegistryKeep(null)).toBeNull();
+    expect(imageCleanupValue(8)).toBe('registry keeps last 4 pushes (8 tags)');
+    expect(imageCleanupValue(null)).toBe(NOT_SET);
   });
 
   it('shows the wildcard DNS state from a real lookup', () => {

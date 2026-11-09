@@ -7,7 +7,7 @@
     "gcInterval": "24h",
     "retention": {
       "delay": "24h",
-      "policies": [{ "repositories": ["**"], "deleteReferrers": true, "keepTags": [{ "mostRecentlyPushedCount": 20 }] }]
+      "policies": [{ "repositories": ["**"], "deleteReferrers": true, "keepTags": [{ "mostRecentlyPushedCount": 8 }] }]
     }
   },
   "http": {

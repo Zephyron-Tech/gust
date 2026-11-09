@@ -4,7 +4,7 @@ import { LocalTime } from '@/components/LocalTime';
 import { UpdatePanel } from '@/components/UpdatePanel';
 import { PageHead, Panel } from '@/components/ui';
 import { wildcardAddresses } from '@/lib/dns-check';
-import { readLastBackup, readServerFacts } from '@/lib/host-files';
+import { readLastBackup, readRegistryKeep, readServerFacts } from '@/lib/host-files';
 import {
   authentikValue,
   backupSizeKb,
@@ -12,6 +12,7 @@ import {
   discordValue,
   githubAppValue,
   heartbeatValue,
+  imageCleanupValue,
   NOT_SET,
   registryValue,
   rolesValue,
@@ -32,6 +33,7 @@ export default async function SettingsPage() {
   const lastBackup = await readLastBackup();
   const facts = await readServerFacts();
   const wildcard = env.GUST_DOMAIN ? await wildcardAddresses(env.GUST_DOMAIN) : null;
+  const registryKeep = await readRegistryKeep();
 
   const gustRows: [string, string][] = [
     ['Server', serverFactsValue(facts)],
@@ -70,7 +72,7 @@ export default async function SettingsPage() {
         ['Discord', discordValue(env.DISCORD_SET === 'yes')],
         ['Heartbeat', heartbeatValue(env.HEARTBEAT_SET === 'yes')],
         ['Backups', backupRow],
-        ['Image cleanup', NOT_SET],
+        ['Image cleanup', imageCleanupValue(registryKeep)],
       ],
     },
   ];
