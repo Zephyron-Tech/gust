@@ -1,6 +1,8 @@
 import 'server-only';
 
 import { auditEvents, db, projectDatabases, projects } from '@gust/db';
+import { normalizeName, planFor, randomPassword } from '@gust/db/postgres-admin';
+import { encryptSecret } from '@gust/db/secrets';
 import { and, desc, eq } from 'drizzle-orm';
 
 export type DatabaseRow = {
@@ -42,4 +44,47 @@ export async function listProjectDatabases(slug: string): Promise<{ databases: D
     return { at: r.at, name: d.name ?? '', database: d.database ?? '', file: (d.file ?? '').split('/').pop() ?? '' };
   });
   return { databases, backups };
+}
+
+export class DuplicateDatabase extends Error {}
+
+/**
+ * Inserts a new database row and its audit row in one transaction. The worker
+ * creates the database itself; the caller queues the job. Throws DuplicateDatabase
+ * on a name clash and the planFor error for a bad name.
+ */
+export async function insertDatabaseRow(opts: {
+  projectId: string;
+  slug: string;
+  name: string;
+  actor: string;
+  action: 'database.create' | 'database.restore';
+  detail?: Record<string, unknown>;
+}): Promise<{ id: string; name: string; database: string }> {
+  const plan = planFor(opts.slug, opts.name);
+  const name = normalizeName(opts.name);
+  const id = `pdb_${plan.database}`;
+  try {
+    await db.transaction(async (tx) => {
+      await tx.insert(projectDatabases).values({
+        id,
+        projectId: opts.projectId,
+        name,
+        database: plan.database,
+        role: plan.role,
+        passwordEncrypted: encryptSecret(randomPassword()),
+      });
+      await tx.insert(auditEvents).values({
+        actor: opts.actor,
+        action: opts.action,
+        target: `project:${opts.slug}`,
+        detail: { name, database: plan.database, ...opts.detail },
+      });
+    });
+  } catch (e) {
+    const code = (e as { code?: string; cause?: { code?: string } }).code ?? (e as { cause?: { code?: string } }).cause?.code;
+    if (code === '23505') throw new DuplicateDatabase('A database with this name already exists');
+    throw e;
+  }
+  return { id, name, database: plan.database };
 }

@@ -1,14 +1,13 @@
 import 'server-only';
 
-import { auditEvents, db, projectDatabases, projects } from '@gust/db';
-import { normalizeName, planFor, randomPassword } from '@gust/db/postgres-admin';
+import { db, projects } from '@gust/db';
 import { enqueueDatabase } from '@gust/db/queue';
-import { encryptSecret } from '@gust/db/secrets';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { requireUser } from '@/lib/auth';
-import { listProjectDatabases } from '@/lib/databases-db';
+import { DuplicateDatabase, insertDatabaseRow, listProjectDatabases } from '@/lib/databases-db';
+import { markFailed } from './helpers';
 
 type Ctx = { params: Promise<{ slug: string }> };
 
@@ -32,46 +31,20 @@ export async function POST(req: Request, { params }: Ctx) {
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: 'Enter a database name' }, { status: 400 });
 
-  let plan: { database: string; role: string };
+  let row: { id: string; name: string; database: string };
   try {
-    plan = planFor(slug, parsed.data.name);
+    row = await insertDatabaseRow({ projectId: project.id, slug, name: parsed.data.name, actor: u.email, action: 'database.create' });
   } catch (e) {
-    return Response.json({ error: (e as Error).message }, { status: 400 });
-  }
-  const name = normalizeName(parsed.data.name);
-  const id = `pdb_${plan.database}`;
-
-  try {
-    await db.transaction(async (tx) => {
-      await tx.insert(projectDatabases).values({
-        id,
-        projectId: project.id,
-        name,
-        database: plan.database,
-        role: plan.role,
-        passwordEncrypted: encryptSecret(randomPassword()),
-      });
-      await tx.insert(auditEvents).values({
-        actor: u.email,
-        action: 'database.create',
-        target: `project:${slug}`,
-        detail: { name, database: plan.database },
-      });
-    });
-  } catch (e) {
-    const code = (e as { code?: string; cause?: { code?: string } }).code ?? (e as { cause?: { code?: string } }).cause?.code;
-    if (code === '23505') return Response.json({ error: 'A database with this name already exists' }, { status: 409 });
+    if (e instanceof DuplicateDatabase) return Response.json({ error: e.message }, { status: 409 });
+    if (e instanceof Error && !(e as { code?: string }).code) return Response.json({ error: e.message }, { status: 400 });
     throw e;
   }
   try {
-    await enqueueDatabase(id, 'provision');
+    await enqueueDatabase(row.id, 'provision');
   } catch {
     // Without the job the row would wait forever; mark it so the user can delete and try again.
-    await db
-      .update(projectDatabases)
-      .set({ state: 'failed', error: 'Could not queue the job. Delete it and create it again.' })
-      .where(eq(projectDatabases.id, id));
+    await markFailed(row.id, 'Could not queue the job. Delete it and create it again.');
     return Response.json({ error: 'Could not reach the worker queue. Try again.' }, { status: 503 });
   }
-  return Response.json({ id, name, database: plan.database, state: 'provisioning' }, { status: 201 });
+  return Response.json({ id: row.id, name: row.name, database: row.database, state: 'provisioning' }, { status: 201 });
 }

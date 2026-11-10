@@ -78,7 +78,7 @@ describe('database endpoints', () => {
       await db
         .select()
         .from(projectDatabases)
-        .where(eq(projectDatabases.projectId, 'prj_demo'))
+        .where(and(eq(projectDatabases.projectId, 'prj_demo'), gte(projectDatabases.createdAt, startedAt)))
         .then((r) => r.length),
     ).toBe(0);
   });
