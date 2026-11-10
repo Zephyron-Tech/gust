@@ -59,6 +59,9 @@ export function ProjectActions({
   if (engine && !stateful) {
     return (
       <div className="flex shrink-0 items-center gap-2">
+        <Link href={`/projects/${project}/${service}/databases`} className={btn.secondary}>
+          Databases
+        </Link>
         <Link href={`/projects/${project}/${service}/logs`} className={btn.secondary}>
           View logs
         </Link>
@@ -68,6 +71,9 @@ export function ProjectActions({
   }
   return (
     <div className="flex shrink-0 items-center gap-2">
+      <Link href={`/projects/${project}/${service}/databases`} className={btn.secondary}>
+        Databases
+      </Link>
       <Link href={`/projects/${project}/${service}/logs`} className={btn.secondary}>
         View logs
       </Link>

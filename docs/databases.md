@@ -1,7 +1,7 @@
 # Databases for projects
 
-Status: design, first slice in code (`packages/db/src/postgres-admin.ts`, table
-`project_databases`). Not wired to the UI, the worker or the network yet.
+Status: implemented for create, back up and delete. Restore and password rotation
+are not built yet (see the end).
 
 ## Decision
 
@@ -37,35 +37,61 @@ database only when compliance demands it. Two things we must handle ourselves:
 ## Model
 
 - A row in `project_databases` per database: project, name (`main`), database
-  name (`<slug>_<name>`), role (`<database>_app`), encrypted password, state.
-- Names are normalised to `[a-z0-9_]` and refused if longer than 63 characters.
+  name (`<slug>_<name>`), role (`<database>_app`), encrypted password, state
+  (`provisioning`, `ready`, `failed`, `deleting`) and the last error.
+- Names are normalised to `[a-z0-9_]` and refused if longer than 63 characters
+  or empty after normalising (`planFor` in `postgres-admin.ts`).
 - The password is 24 random bytes, hex, encrypted with `GUST_MASTER_KEY` like env
-  secrets. It reaches the app as `DATABASE_URL` through the env system, and
-  nowhere else.
+  secrets. It reaches the app as an env secret and nowhere else.
 
-## Flow (planned)
+## Flow
 
-1. Admin creates a database for a project in the UI, or `gust db create`.
-   Web writes the row as `provisioning` and enqueues a job, like a deploy.
-2. The worker runs `createStatements` as the cluster admin, one statement per
-   query. On success the row becomes `ready`; on failure `failed` with the error.
-3. The env system gets `DATABASE_URL` for the project, scope `all`. A new deploy
-   picks it up. Rotation runs `rotateStatements` and updates the env value.
-4. Delete runs `dropStatements`, after confirmation, and writes an audit row.
+1. Admin creates a database in the project's Databases page
+   (`/projects/<slug>/<service>/databases`). `POST /api/projects/[slug]/databases`
+   writes the row as `provisioning`, an audit row `database.create`, and enqueues a
+   `database` job (`enqueueDatabase`).
+2. The worker (`apps/worker/src/databases.ts`, `provisionDatabase`) runs the
+   statements one by one as the cluster admin: role, database owned by the role,
+   `REVOKE ALL … FROM PUBLIC`, `GRANT CONNECT`. Any failure drops what was made
+   and sets the row to `failed` with the error.
+3. On success the worker sets `DATABASE_URL` on the project's first `app` service
+   (`DATABASE_URL_<NAME>` for the others), encrypted, scope `all`, then the row is
+   `ready` and audit `database.ready` is written. The app picks the value up on
+   its next deploy.
+4. Delete (`DELETE /api/projects/[slug]/databases/[id]`) sets `deleting` and
+   enqueues a `drop` job. The worker drops the database and role (`WITH (FORCE)`),
+   removes the env value, deletes the row and writes `database.dropped`. Backups
+   stay on disk.
+5. Backup (`POST …/[id]/backup`) enqueues a `backup` job. The worker runs
+   `pg_dump --format=custom --no-owner --no-acl` into `BACKUP_DIR` (default
+   `apps/worker/backups`, `/backups` in the container) as `<database>-<stamp>.dump`
+   and writes `database.backup` with the file name. The list on the page reads
+   these audit rows.
 
-## Network (planned)
+### Recovery
 
-Today app containers join only `gust_edge`, and Postgres is only on
-`gust_internal`. A project's app that needs a database joins a `gust_data`
-network with Postgres. Apps without a database stay off it.
+Worker start (`recoverDatabases`): rows left `provisioning` get their partial
+objects dropped and become `failed` with "Interrupted: the worker restarted…";
+rows left `deleting` get a new `drop` job.
 
-## Backups (planned)
+## Network
 
-- Nightly and on demand: `pg_dump -Fc` per project database into the backups
-  folder, with the same 14-day retention as `gust backup`.
-- `pg_dumpall --globals-only` for roles, so a restore can recreate them.
-- Restore a project database from its dump into a new database, after asking.
-- Off-server copies stay on the list in `install.md`.
+The engine connects an app container to the `gust_data` network before it starts,
+when the project has a ready database (`dataNetwork` in the deploy spec, set by
+the worker from `GUST_DATA_NETWORK`, default `gust_data`). Postgres sits on
+`gust_internal` and `gust_data`. Apps without a database stay off `gust_data`.
+
+## Env names
+
+- `DATABASE_URL` for the first database of a project (in the order created).
+- `DATABASE_URL_<NAME>` for the others, name upper-cased, `-` turned into `_`.
+
+## Tools
+
+- `PG_DUMP` overrides the `pg_dump` binary (dev on a Mac without the client
+  uses a wrapper that runs it inside the Postgres container).
+- The production image installs `postgresql17-client` (`Dockerfile`). The package
+  name is not verified by a real build yet.
 
 ## Not doing
 
@@ -75,8 +101,11 @@ network with Postgres. Apps without a database stay off it.
 
 ## Next steps
 
-1. Worker job `database.provision` using `createStatements`, with integration
-   tests against a throwaway Postgres.
-2. `POST /api/projects/[slug]/databases` and an audit row per change.
-3. Env wiring and the `gust_data` network in the deploy spec.
-4. Backup job per database, and a restore path.
+1. Restore: `pg_restore` of a chosen dump into a new database, after asking, with
+   a UI confirmation.
+2. Password rotation: `rotateStatements` exists; needs a job, a route and an env
+   update.
+3. Verify the Alpine package name and an engine deploy with `dataNetwork` on a real
+   build.
+4. Nightly backups and `pg_dumpall --globals-only` (still planned; see
+   `install.md` for the backup folder).
