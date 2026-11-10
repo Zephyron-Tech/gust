@@ -10,7 +10,7 @@ import { btn, cx } from '@/components/ui';
 import { useDemo } from '@/lib/demo';
 import { useIndicator } from '@/lib/useIndicator';
 
-const TABS = ['deployments', 'domains', 'environment', 'logs', 'settings'] as const;
+const TABS = ['deployments', 'domains', 'databases', 'environment', 'logs', 'settings'] as const;
 
 export function ServiceTabs({ base, stateful }: { base: string; stateful: boolean }) {
   const path = usePathname();
@@ -59,9 +59,6 @@ export function ProjectActions({
   if (engine && !stateful) {
     return (
       <div className="flex shrink-0 items-center gap-2">
-        <Link href={`/projects/${project}/${service}/databases`} className={btn.secondary}>
-          Databases
-        </Link>
         <Link href={`/projects/${project}/${service}/logs`} className={btn.secondary}>
           View logs
         </Link>
@@ -71,9 +68,6 @@ export function ProjectActions({
   }
   return (
     <div className="flex shrink-0 items-center gap-2">
-      <Link href={`/projects/${project}/${service}/databases`} className={btn.secondary}>
-        Databases
-      </Link>
       <Link href={`/projects/${project}/${service}/logs`} className={btn.secondary}>
         View logs
       </Link>

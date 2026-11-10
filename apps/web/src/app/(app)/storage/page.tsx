@@ -1,6 +1,7 @@
 import { ArrowRight } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
 import { Ago } from '@/components/Ago';
+import { StorageCreate, type StorageTarget } from '@/components/StorageCreate';
 import { btn, cx, PageHead, Panel, Tag } from '@/components/ui';
 import { getProjects } from '@/lib/data';
 import { listAllDatabases, type StorageRow } from '@/lib/databases-db';
@@ -21,10 +22,16 @@ export default async function StoragePage() {
   // A database lives on one service's Databases page: the project's app service, as on the projects list.
   const home = new Map(projects.map((p) => [p.slug, p.services.find((s) => s.type === 'app')?.name ?? p.services[0]?.name]));
   const ready = rows.filter((r) => r.state === 'ready').length;
+  const targets: StorageTarget[] = projects.flatMap((p) => {
+    const service = home.get(p.slug);
+    return service ? [{ slug: p.slug, service }] : [];
+  });
 
   return (
     <div className="view-in space-y-8">
       <PageHead title="Storage" sub={`${rows.length} databases · ${ready} ready`} />
+
+      <StorageCreate targets={targets} />
 
       {rows.length === 0 ? (
         <Panel className="px-6 py-10 text-center">

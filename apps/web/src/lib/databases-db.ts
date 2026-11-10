@@ -114,13 +114,15 @@ export async function listAllDatabases(): Promise<StorageRow[]> {
     .innerJoin(projects, eq(projects.id, projectDatabases.projectId))
     .orderBy(projects.slug, projectDatabases.createdAt);
 
+  // Last backup per database: the audit row names the database in its detail.
+  const dbName = sql<string>`${auditEvents.detail}->>'database'`;
   const backups = await db
-    .select({ target: auditEvents.target, last: sql<string | null>`max(${auditEvents.at})` })
+    .select({ target: auditEvents.target, database: dbName, last: sql<string | null>`max(${auditEvents.at})` })
     .from(auditEvents)
     .where(eq(auditEvents.action, 'database.backup'))
-    .groupBy(auditEvents.target);
+    .groupBy(auditEvents.target, dbName);
   // Raw SQL aggregates come back as text, not as Date.
-  const last = new Map(backups.map((b) => [b.target, b.last ? new Date(b.last) : null]));
+  const last = new Map(backups.map((b) => [`${b.target}|${b.database}`, b.last ? new Date(b.last) : null]));
 
-  return rows.map((r) => ({ ...r, lastBackup: last.get(`project:${r.slug}`) ?? null }));
+  return rows.map((r) => ({ ...r, lastBackup: last.get(`project:${r.slug}|${r.database}`) ?? null }));
 }
