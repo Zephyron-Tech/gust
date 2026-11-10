@@ -8,27 +8,16 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { requireUser } from '@/lib/auth';
+import { listProjectDatabases } from '@/lib/databases-db';
 
 type Ctx = { params: Promise<{ slug: string }> };
 
-// Databases a project owns on the shared cluster. Passwords are never returned.
+// Databases a project owns on the shared cluster, and its recent backups. Passwords are never returned.
 export async function GET(req: Request, { params }: Ctx) {
   const u = await requireUser(req);
   if (u instanceof Response) return u;
   const { slug } = await params;
-  const rows = await db
-    .select({
-      id: projectDatabases.id,
-      name: projectDatabases.name,
-      database: projectDatabases.database,
-      state: projectDatabases.state,
-      error: projectDatabases.error,
-      createdAt: projectDatabases.createdAt,
-    })
-    .from(projectDatabases)
-    .innerJoin(projects, eq(projects.id, projectDatabases.projectId))
-    .where(eq(projects.slug, slug));
-  return Response.json(rows);
+  return Response.json(await listProjectDatabases(slug));
 }
 
 const body = z.object({ name: z.string().min(1).max(40) });
@@ -74,6 +63,15 @@ export async function POST(req: Request, { params }: Ctx) {
     if (code === '23505') return Response.json({ error: 'A database with this name already exists' }, { status: 409 });
     throw e;
   }
-  await enqueueDatabase(id);
+  try {
+    await enqueueDatabase(id, 'provision');
+  } catch {
+    // Without the job the row would wait forever; mark it so the user can delete and try again.
+    await db
+      .update(projectDatabases)
+      .set({ state: 'failed', error: 'Could not queue the job. Delete it and create it again.' })
+      .where(eq(projectDatabases.id, id));
+    return Response.json({ error: 'Could not reach the worker queue. Try again.' }, { status: 503 });
+  }
   return Response.json({ id, name, database: plan.database, state: 'provisioning' }, { status: 201 });
 }
