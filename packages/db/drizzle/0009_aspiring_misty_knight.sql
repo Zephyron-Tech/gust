@@ -1,0 +1,1 @@
+ALTER TABLE "services" ADD COLUMN "stopped" boolean DEFAULT false NOT NULL;

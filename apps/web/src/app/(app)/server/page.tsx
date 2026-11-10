@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Chart } from '@/components/Chart';
+import { DockerCleanup } from '@/components/DockerCleanup';
 import { Segmented } from '@/components/Segmented';
 import { Code, cx, PageHead, Panel, Table, Td } from '@/components/ui';
 import { NOT_SET } from '@/lib/integrations';
@@ -33,6 +34,7 @@ export default function ServerPage() {
       <Summary data={data} />
       <Charts data={data} />
       <Containers data={data} />
+      <DockerCleanup />
     </div>
   );
 }

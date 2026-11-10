@@ -55,7 +55,10 @@ export async function getProjects(): Promise<UiProject[]> {
       previewBranches: p.previewBranches,
       // Sample projects have no real deploys yet; they read as live.
       health: p.engine
-        ? health(deps.slice(0, 3).map((d) => d.state))
+        ? // Every app stopped by hand reads as a stopped project; otherwise the newest deploys decide.
+          mine.length > 0 && mine.every((s) => s.stopped)
+          ? 'stopped'
+          : health(deps.slice(0, 3).map((d) => d.state))
         : p.slug === 'moodtracker'
           ? 'failed'
           : p.slug === 'clearway'
@@ -71,7 +74,7 @@ export async function getProjects(): Promise<UiProject[]> {
         domains: s.domains,
         cpu: s.cpu,
         memoryMb: s.memoryMb,
-        health: 'live' as const,
+        health: (s.stopped ? 'stopped' : 'live') as 'live' | 'stopped',
       })),
     };
   });

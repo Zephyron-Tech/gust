@@ -84,6 +84,9 @@ export async function startDeploy(input: {
     rollbackOf: input.rollbackOf ?? null,
   });
 
+  // A deploy to production brings a stopped service back, so the worker restores it from now on.
+  if (!branch) await db.update(services).set({ stopped: false }).where(eq(services.id, svc.id));
+
   await db.insert(auditEvents).values({
     actor: input.actor,
     action: branch ? 'deploy.preview' : input.push ? 'deploy.push' : input.rollbackOf ? 'deploy.rollback' : 'deploy.start',

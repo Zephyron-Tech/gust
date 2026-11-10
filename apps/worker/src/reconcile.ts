@@ -23,7 +23,7 @@ export async function reconcile(log: (line: string) => void) {
     .from(deployments)
     .innerJoin(services, eq(deployments.serviceId, services.id))
     .innerJoin(projects, eq(services.projectId, projects.id))
-    .where(and(eq(deployments.state, 'live'), eq(projects.engine, true)));
+    .where(and(eq(deployments.state, 'live'), eq(projects.engine, true), eq(services.stopped, false)));
 
   for (const { d, s, p } of live) {
     if (runningDeployments.has(d.id)) continue;

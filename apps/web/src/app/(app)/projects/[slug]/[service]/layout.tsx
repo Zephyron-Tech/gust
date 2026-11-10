@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 
 import { Beacon } from '@/components/Beacon';
+import { ProjectPower } from '@/components/PowerControls';
 import { cx } from '@/components/ui';
 import { getProject } from '@/lib/data';
 import { EngineNotice, ProjectActions, ServiceTabs } from './nav';
@@ -36,13 +37,17 @@ export default async function ServiceLayout({
             {project.previewBranches?.length ? ` · previews ${project.previewBranches.join(', ')}` : ''}
           </p>
         </div>
-        <ProjectActions
-          project={project.slug}
-          service={svc.name}
-          stateful={svc.type === 'stateful'}
-          engine={project.engine}
-          image={svc.image}
-        />
+        <div className="flex shrink-0 items-center gap-2">
+          <ProjectPower project={project.slug} allStopped={project.services.every((s) => s.health === 'stopped')} />
+          <ProjectActions
+            project={project.slug}
+            service={svc.name}
+            stateful={svc.type === 'stateful'}
+            engine={project.engine}
+            image={svc.image}
+            stopped={svc.health === 'stopped'}
+          />
+        </div>
       </div>
       <div className="flex gap-2.5">
         {project.services.map((s) => (

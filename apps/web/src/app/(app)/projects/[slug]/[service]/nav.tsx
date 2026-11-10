@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import { ServicePower } from '@/components/PowerControls';
 import { btn, cx } from '@/components/ui';
 import { useDemo } from '@/lib/demo';
 import { useIndicator } from '@/lib/useIndicator';
@@ -48,12 +49,14 @@ export function ProjectActions({
   stateful,
   engine,
   image,
+  stopped,
 }: {
   project: string;
   service: string;
   stateful: boolean;
   engine?: boolean;
   image: string;
+  stopped: boolean;
 }) {
   const { deploy, busy, notify } = useDemo();
   if (engine && !stateful) {
@@ -62,6 +65,7 @@ export function ProjectActions({
         <Link href={`/projects/${project}/${service}/logs`} className={btn.secondary}>
           View logs
         </Link>
+        {!stateful && <ServicePower project={project} service={service} stopped={stopped} />}
         <DeployDialog project={project} service={service} image={image} />
       </div>
     );
@@ -80,9 +84,12 @@ export function ProjectActions({
           Restart
         </button>
       ) : (
-        <button type="button" className={btn.primary} disabled={busy(project, service)} onClick={() => deploy(project, service)}>
-          <Rocket /> Redeploy
-        </button>
+        <>
+          <ServicePower project={project} service={service} stopped={stopped} />
+          <button type="button" className={btn.primary} disabled={busy(project, service)} onClick={() => deploy(project, service)}>
+            <Rocket /> Redeploy
+          </button>
+        </>
       )}
     </div>
   );

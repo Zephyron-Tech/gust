@@ -5,11 +5,12 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { bearerAuth } from 'hono/bearer-auth';
 import { streamSSE } from 'hono/streaming';
-
+import { prune, usage } from './cleanup';
 import { deploy } from './deploy';
 import { docker } from './docker';
 import { listObserved, restartObserved, STACK_NAME } from './observed';
 import { traefikConfig } from './routing';
+import { stopService } from './service-control';
 
 const token = process.env.ENGINE_TOKEN;
 if (!token) throw new Error('ENGINE_TOKEN is not set');
@@ -62,6 +63,20 @@ app.post('/v1/observed/:project/restart', async (c) => {
   const containers = await restartObserved(project);
   if (!containers) return c.json({ error: 'Not an observed stack' }, 404);
   return c.json({ ok: true, containers });
+});
+
+// Stops a service by hand: every running container of it, production and previews.
+app.post('/v1/services/:project/:service/stop', async (c) => {
+  const { project, service } = c.req.param();
+  if (!/^[a-z0-9-]+$/.test(project) || !/^[a-z0-9-]+$/.test(service)) return c.json({ error: 'Invalid name' }, 400);
+  return c.json({ ok: true, containers: await stopService(project, service) });
+});
+
+// Host disk: what cleanup would remove, and the cleanup itself.
+app.get('/v1/cleanup', async (c) => c.json(await usage()));
+app.post('/v1/cleanup', async (c) => {
+  const body = (await c.req.json().catch(() => null)) as { images?: unknown; containers?: unknown } | null;
+  return c.json(await prune({ images: body?.images === true, containers: body?.containers === true }));
 });
 
 // Containers Gust manages, with their project, service and deployment.
