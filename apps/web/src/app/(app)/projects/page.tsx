@@ -12,8 +12,18 @@ export const metadata = { title: 'Projects' };
 
 export const dynamic = 'force-dynamic';
 
-export default async function ProjectsPage() {
-  const [projects, stats] = await Promise.all([getProjects(), projectStats()]);
+const SORTS = [
+  { key: 'activity', label: 'Recent activity' },
+  { key: 'name', label: 'Name, A–Z' },
+] as const;
+
+export default async function ProjectsPage({ searchParams }: { searchParams: Promise<{ sort?: string }> }) {
+  const [all, stats, { sort }] = await Promise.all([getProjects(), projectStats(), searchParams]);
+  const mode = sort === 'name' ? 'name' : 'activity';
+  // Most recent deploy first, or alphabetical. Ties keep the server's order.
+  const projects = [...all].sort((a, b) =>
+    mode === 'name' ? a.slug.localeCompare(b.slug) : Date.parse(b.lastDeploy) - Date.parse(a.lastDeploy),
+  );
   const services = projects.reduce((n, p) => n + p.services.length, 0);
   const median = stats.medianDeploySec === null ? NOT_SET : `${Math.round(stats.medianDeploySec)} s`;
   return (
@@ -59,6 +69,25 @@ export default async function ProjectsPage() {
           </Link>
         </Panel>
       )}
+
+      <nav aria-label="Sort projects" className="-mb-4 flex items-center gap-1 text-[13.5px]">
+        <span className="mr-2 text-fg-3">Sort by</span>
+        {SORTS.map((o) => (
+          <Link
+            key={o.key}
+            href={o.key === 'activity' ? '/projects' : `/projects?sort=${o.key}`}
+            aria-current={mode === o.key ? 'page' : undefined}
+            scroll={false}
+            className={
+              mode === o.key
+                ? 'rounded-full bg-bg-3 px-3 py-1.5 font-medium text-fg'
+                : 'rounded-full px-3 py-1.5 text-fg-2 transition-colors hover:bg-bg-3 hover:text-fg'
+            }
+          >
+            {o.label}
+          </Link>
+        ))}
+      </nav>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {projects.map((p, i) => (
