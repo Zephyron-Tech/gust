@@ -18,6 +18,16 @@ cd "$GUST_DIR"
 # Reads one value from .env without sourcing it.
 envval() { sed -n "s/^$1=//p" .env | head -n1 | sed -e 's/^"//' -e 's/"$//'; }
 
+# Secrets added after the first install. A server installed before Redis
+# gets its password here, on the next update or up.
+ensure_env() {
+  if ! grep -q '^REDIS_PASSWORD=' .env; then
+    printf '\n# Password of the shared Redis service (docs/databases.md).\nREDIS_PASSWORD=%s\n' \
+      "$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 40)" >> .env
+    echo "Added REDIS_PASSWORD to .env."
+  fi
+}
+
 dc() { docker compose --project-directory "$GUST_DIR" "$@"; }
 
 image() { envval GUST_IMAGE || true; }
@@ -202,6 +212,7 @@ case "$cmd" in
     img="$(image)"
     docker pull "${img:-ghcr.io/zephyron-tech/gust:latest}"
     sync_files
+    ensure_env
     dc up -d --remove-orphans
     echo "Gust updated."
     ;;
@@ -209,6 +220,7 @@ case "$cmd" in
     dc restart "$@"
     ;;
   up)
+    ensure_env
     dc up -d --remove-orphans
     ;;
   project)

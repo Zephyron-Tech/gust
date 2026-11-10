@@ -122,6 +122,10 @@ shared Redis service (`redis:7-alpine`, `gust_internal` and `gust_data`, dev por
   `UNLINK` in batches. Other databases' keys are not touched.
 - The app gets `REDIS_URL=redis://<role>:<password>@redis:6379`.
 - `REDIS_ADMIN_URL` (worker) is the admin connection. Dev default: `redis://:gust-dev-redis@127.0.0.1:6380`.
+  On the server, `infra/prod/compose.yml` builds it from `REDIS_PASSWORD` in `/opt/gust/.env`
+  (service `redis`, `redis:7-alpine`, append-only file in the `redis` volume). Compose refuses to
+  start without the password, so Redis is never open. `install.sh` writes the password; an existing
+  server gets it from `gust update` (or `gust up`), which adds it to `.env` once.
 
 Weaker than Postgres: one Redis serves every project, so isolation is by key prefix
 and ACL, not by a separate server or role per database.

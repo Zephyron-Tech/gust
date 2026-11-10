@@ -129,6 +129,7 @@ master="$(existing GUST_MASTER_KEY)"
 engine="$(existing ENGINE_TOKEN)"
 ci="$(existing REGISTRY_CI_PASSWORD)"
 pull="$(existing REGISTRY_PULL_PASSWORD)"
+redis="$(existing REDIS_PASSWORD)"
 bg="$(existing BREAK_GLASS_PASSWORD)"
 umask 077
 cat > "$GUST_DIR/.env" <<EOF
@@ -146,6 +147,8 @@ ENGINE_TOKEN=${engine:-$(randpw 40)}
 
 REGISTRY_CI_PASSWORD=${ci:-$(randpw 32)}
 REGISTRY_PULL_PASSWORD=${pull:-$(randpw 32)}
+
+REDIS_PASSWORD=${redis:-$(randpw 40)}
 
 AUTHENTIK_ISSUER=$AUTHENTIK_ISSUER
 AUTHENTIK_CLIENT_ID=${AUTHENTIK_CLIENT_ID:-}
