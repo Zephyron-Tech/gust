@@ -5,6 +5,7 @@ import { ArrowsClockwise, Eye, EyeSlash, LockSimple, PencilSimple, Plus, Trash }
 import { use, useCallback, useEffect, useState } from 'react';
 
 import { EnvBadge } from '@/components/EnvBadge';
+import { Select } from '@/components/Select';
 import { btn, cx, Table, Td } from '@/components/ui';
 import { authClient } from '@/lib/auth-client';
 import { useDemo } from '@/lib/demo';
@@ -23,19 +24,10 @@ const scopeOrder: Record<EnvScope, number> = { all: 0, production: 1, preview: 2
 
 const field =
   'h-9 w-full rounded-[10px] border border-line bg-bg px-3 font-mono text-[13px] outline-none transition-colors focus:border-accent';
-const select = 'h-9 rounded-[10px] border border-line bg-bg px-2.5 text-[14px] text-fg outline-none transition-colors focus:border-accent';
 const linkBtn = 'inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[14px] font-medium transition-colors duration-150';
 
 function ScopeSelect({ value, onChange, label }: { value: EnvScope; onChange: (s: EnvScope) => void; label: string }) {
-  return (
-    <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value as EnvScope)} className={select}>
-      {SCOPES.map((s) => (
-        <option key={s.value} value={s.value}>
-          {s.label}
-        </option>
-      ))}
-    </select>
-  );
+  return <Select label={label} value={value} onValueChange={(v) => onChange(v as EnvScope)} options={SCOPES} className="h-9 w-auto" />;
 }
 
 export default function EnvironmentPage({ params }: { params: Promise<{ slug: string; service: string }> }) {

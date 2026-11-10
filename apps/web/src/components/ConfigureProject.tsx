@@ -4,7 +4,7 @@ import type { EnvScope } from '@gust/contracts';
 import { CaretRight, Check, Plus, Trash, Warning } from '@phosphor-icons/react/ssr';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useState } from 'react';
-
+import { Select } from '@/components/Select';
 import { parseDotenv } from '@/lib/dotenv';
 import { slugFromRepo } from '@/lib/github-repo-logic';
 import { btn, cx, Panel } from './ui';
@@ -23,8 +23,6 @@ type Errors = Record<string, string>;
 
 const field =
   'h-9 w-full rounded-[10px] border border-line bg-bg px-3 font-mono text-[13.5px] outline-none transition-colors focus:border-accent aria-[invalid=true]:border-err';
-const select =
-  'h-9 w-full rounded-[10px] border border-line bg-bg px-2.5 text-[14px] text-fg outline-none transition-colors focus:border-accent';
 const label = 'mb-1.5 block text-[13.5px] text-fg-2';
 const hint = 'mt-1 block text-[13px] text-fg-3';
 const SCOPES: { value: EnvScope; label: string }[] = [
@@ -120,17 +118,17 @@ export function ConfigureProject({ repo, gustDomain }: { repo: ConfigureRepo; gu
             />
             {err('slug') ?? (host && <span className={hint}>Production: https://{host}</span>)}
           </label>
-          <label className="block">
+          <div className="block">
             <span className={label}>Production branch</span>
-            <select value={branch} onChange={(e) => setBranch(e.target.value)} className={select}>
-              {repo.branches.map((b) => (
-                <option key={b} value={b}>
-                  {b}
-                </option>
-              ))}
-            </select>
+            <Select
+              label="Production branch"
+              value={branch}
+              onValueChange={setBranch}
+              options={repo.branches.map((b) => ({ value: b, label: b }))}
+              className="h-10"
+            />
             {err('branch') ?? <span className={hint}>Pushes here deploy to production.</span>}
-          </label>
+          </div>
         </div>
 
         {!gustDomain && (
@@ -287,18 +285,13 @@ export function ConfigureProject({ repo, gustDomain }: { repo: ConfigureRepo; gu
                   className={field}
                   spellCheck={false}
                 />
-                <select
+                <Select
                   value={r.scope}
-                  onChange={(e) => setEnv((rows) => rows.map((x, j) => (j === i ? { ...x, scope: e.target.value as EnvScope } : x)))}
-                  aria-label={`Environment of ${r.key || 'variable'}`}
-                  className={cx(select, 'w-auto')}
-                >
-                  {SCOPES.map((s) => (
-                    <option key={s.value} value={s.value}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
+                  onValueChange={(v) => setEnv((rows) => rows.map((x, j) => (j === i ? { ...x, scope: v as EnvScope } : x)))}
+                  label={`Environment of ${r.key || 'variable'}`}
+                  options={SCOPES}
+                  className="h-10 w-auto"
+                />
                 <label className="flex items-center gap-1.5 text-[13.5px] text-fg-2">
                   <input
                     type="checkbox"

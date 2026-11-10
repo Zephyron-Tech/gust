@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 
 import { Ago } from '@/components/Ago';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { Select } from '@/components/Select';
 import { btn, cx, Panel } from '@/components/ui';
 import { authClient } from '@/lib/auth-client';
 import type { BackupRow, DatabaseKind, DatabaseRow } from '@/lib/databases-db';
@@ -158,13 +159,18 @@ export function DatabasesPanel({ slug, initial }: { slug: string; initial: { dat
 
         {admin ? (
           <form onSubmit={create} className="mt-5 flex flex-wrap items-end gap-3">
-            <label className="w-[160px] space-y-1.5">
+            <div className="w-[160px] space-y-1.5">
               <span className="text-[13.5px] text-fg-2">Type</span>
-              <select className={field} value={kind} onChange={(e) => setKind(e.target.value as DatabaseKind)}>
-                <option value="postgres">Postgres</option>
-                <option value="redis">Redis</option>
-              </select>
-            </label>
+              <Select
+                label="Type"
+                value={kind}
+                onValueChange={(v) => setKind(v as DatabaseKind)}
+                options={[
+                  { value: 'postgres', label: 'Postgres' },
+                  { value: 'redis', label: 'Redis' },
+                ]}
+              />
+            </div>
             <label className="min-w-[220px] flex-1 space-y-1.5">
               <span className="text-[13.5px] text-fg-2">Name</span>
               <input

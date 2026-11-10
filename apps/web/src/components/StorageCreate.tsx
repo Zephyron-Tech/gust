@@ -4,7 +4,7 @@ import { Plus } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-
+import { Select } from '@/components/Select';
 import { btn, Panel } from '@/components/ui';
 import { authClient } from '@/lib/auth-client';
 import { useDemo } from '@/lib/demo';
@@ -64,23 +64,27 @@ export function StorageCreate({ targets }: { targets: StorageTarget[] }) {
   return (
     <Panel className="p-5">
       <form onSubmit={create} className="flex flex-wrap items-end gap-3">
-        <label className="min-w-[200px] flex-1 space-y-1.5">
+        <div className="min-w-[200px] flex-1 space-y-1.5">
           <span className="text-[13.5px] text-fg-2">Project</span>
-          <select className={field} value={project} onChange={(e) => setProject(e.target.value)}>
-            {targets.map((t) => (
-              <option key={t.slug} value={t.slug}>
-                {t.slug}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="w-[150px] space-y-1.5">
+          <Select
+            label="Project"
+            value={project}
+            onValueChange={setProject}
+            options={targets.map((t) => ({ value: t.slug, label: t.slug }))}
+          />
+        </div>
+        <div className="w-[150px] space-y-1.5">
           <span className="text-[13.5px] text-fg-2">Type</span>
-          <select className={field} value={kind} onChange={(e) => setKind(e.target.value as 'postgres' | 'redis')}>
-            <option value="postgres">Postgres</option>
-            <option value="redis">Redis</option>
-          </select>
-        </label>
+          <Select
+            label="Type"
+            value={kind}
+            onValueChange={(v) => setKind(v as 'postgres' | 'redis')}
+            options={[
+              { value: 'postgres', label: 'Postgres' },
+              { value: 'redis', label: 'Redis' },
+            ]}
+          />
+        </div>
         <label className="min-w-[200px] flex-1 space-y-1.5">
           <span className="text-[13.5px] text-fg-2">Name</span>
           <input

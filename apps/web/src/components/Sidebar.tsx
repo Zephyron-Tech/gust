@@ -76,12 +76,16 @@ export function Sidebar() {
 
   // Collapsed on wide screens: the same icon rail as on narrow ones. Remembered per browser.
   const [collapsed, setCollapsed] = useState(false);
+  // The width only animates after the saved state is applied; otherwise every page load
+  // would slide the sidebar from expanded to collapsed.
+  const [restored, setRestored] = useState(false);
   useEffect(() => {
     try {
       setCollapsed(localStorage.getItem('gust.sidebar') === 'collapsed');
     } catch {
       // Storage can be blocked; the sidebar then stays expanded.
     }
+    setRestored(true);
   }, []);
   const toggle = () => {
     const next = !collapsed;
@@ -98,8 +102,10 @@ export function Sidebar() {
   return (
     <aside
       className={cx(
-        'sticky top-0 flex h-svh w-[68px] shrink-0 flex-col border-r border-line bg-bg-2 px-2.5 pt-5 pb-4 transition-[width] duration-200 ease-[var(--ease-out)] lg:px-3.5',
+        'sticky top-0 flex h-svh w-[68px] shrink-0 flex-col border-r border-line bg-bg-2 px-2.5 pt-5 pb-4 lg:px-3.5',
         !collapsed && 'lg:w-[260px]',
+        // Same length and curve as the nav highlight (useIndicator), so both finish together.
+        restored && 'transition-[width] duration-[280ms] ease-[var(--ease-out)]',
       )}
     >
       <Link
