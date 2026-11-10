@@ -1,8 +1,9 @@
 import type { Icon } from '@phosphor-icons/react';
-import { ArrowRight, DownloadSimple, GitBranch, ListBullets, Plus, RocketLaunch, SquaresFour } from '@phosphor-icons/react/ssr';
+import { ArrowRight, DownloadSimple, GitBranch, Plus, RocketLaunch } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
 import { Beacon } from '@/components/Beacon';
 import { ProjectIcon } from '@/components/ProjectIcon';
+import { ProjectsToolbar } from '@/components/ProjectsToolbar';
 import { btn, cx, PageHead, Panel, Tag } from '@/components/ui';
 import { getProjects } from '@/lib/data';
 import { ago } from '@/lib/format';
@@ -19,25 +20,10 @@ const FIRST_STEPS: [Icon, string, string][] = [
   [RocketLaunch, 'Push', 'Pushes to the production branch deploy; other branches get their own preview.'],
 ];
 
-const SORTS = [
-  { key: 'activity', label: 'Recent activity' },
-  { key: 'name', label: 'Name, A–Z' },
-] as const;
-
 export default async function ProjectsPage({ searchParams }: { searchParams: Promise<{ sort?: string; view?: string }> }) {
   const [all, stats, { sort, view: viewParam }] = await Promise.all([getProjects(), projectStats(), searchParams]);
   const mode = sort === 'name' ? 'name' : 'activity';
   const view = viewParam === 'list' ? 'list' : 'grid';
-  // Links keep the other choice: sort stays when the view changes, and the reverse.
-  const hrefFor = (next: { sort?: string; view?: string }) => {
-    const q = new URLSearchParams();
-    const sortValue = next.sort ?? mode;
-    const viewValue = next.view ?? view;
-    if (sortValue !== 'activity') q.set('sort', sortValue);
-    if (viewValue !== 'grid') q.set('view', viewValue);
-    const qs = q.toString();
-    return qs ? `/projects?${qs}` : '/projects';
-  };
   // Most recent deploy first, or alphabetical. Ties keep the server's order.
   const projects = [...all].sort((a, b) =>
     mode === 'name' ? a.slug.localeCompare(b.slug) : Date.parse(b.lastDeploy) - Date.parse(a.lastDeploy),
@@ -102,45 +88,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
         </Panel>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 text-[13.5px]">
-        <nav aria-label="Sort projects" className="flex items-center gap-1">
-          <span className="mr-2 text-fg-3">Sort by</span>
-          {SORTS.map((o) => (
-            <Link
-              key={o.key}
-              href={hrefFor({ sort: o.key })}
-              aria-current={mode === o.key ? 'page' : undefined}
-              scroll={false}
-              className={
-                mode === o.key
-                  ? 'rounded-full bg-bg-3 px-3 py-1.5 font-medium text-fg'
-                  : 'rounded-full px-3 py-1.5 text-fg-2 transition-colors hover:bg-bg-3 hover:text-fg'
-              }
-            >
-              {o.label}
-            </Link>
-          ))}
-        </nav>
-        <nav aria-label="View" className="flex items-center gap-1 rounded-full border border-line p-0.5">
-          {[
-            { key: 'grid', label: 'Grid', I: SquaresFour },
-            { key: 'list', label: 'List', I: ListBullets },
-          ].map(({ key, label, I }) => (
-            <Link
-              key={key}
-              href={hrefFor({ view: key })}
-              aria-current={view === key ? 'page' : undefined}
-              scroll={false}
-              className={cx(
-                'inline-flex items-center gap-1.5 rounded-full px-3 py-1 transition-colors',
-                view === key ? 'bg-bg-3 font-medium text-fg' : 'text-fg-2 hover:text-fg',
-              )}
-            >
-              <I size={15} aria-hidden /> {label}
-            </Link>
-          ))}
-        </nav>
-      </div>
+      <ProjectsToolbar sort={mode} view={view} />
 
       {view === 'list' && (
         <Panel className="overflow-hidden">
