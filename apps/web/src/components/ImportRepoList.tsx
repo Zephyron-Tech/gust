@@ -11,7 +11,7 @@ import {
 } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { languageLogo } from '@/lib/languages';
 import { Ago } from './Ago';
@@ -144,6 +144,34 @@ export function ImportRepoList({ owners }: { owners: string[] }) {
 
   const total = repos?.length ?? 0;
 
+  // Keys: "/" finds a repository, Esc clears the search, and the arrows move between the row actions.
+  const searchRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const t = e.target as HTMLElement | null;
+      const typing = t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || !!t?.isContentEditable;
+      if (e.key === '/' && !typing && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        searchRef.current?.focus();
+        return;
+      }
+      if (e.key === 'Escape' && t === searchRef.current && q) {
+        setQ('');
+        return;
+      }
+      const actions = [...document.querySelectorAll<HTMLElement>('[data-row-action]')];
+      if (actions.length === 0) return;
+      const at = actions.indexOf(t as HTMLElement);
+      if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && (at !== -1 || t === searchRef.current)) {
+        e.preventDefault();
+        const next = t === searchRef.current ? (e.key === 'ArrowDown' ? 0 : actions.length - 1) : at + (e.key === 'ArrowDown' ? 1 : -1);
+        actions[Math.min(actions.length - 1, Math.max(0, next))]?.focus();
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [q]);
+
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
@@ -151,13 +179,17 @@ export function ImportRepoList({ owners }: { owners: string[] }) {
           <span className="sr-only">Search repositories</span>
           <MagnifyingGlass size={17} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-fg-3" />
           <input
+            ref={searchRef}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder={`Search ${owners.join(', ')}…`}
-            className={cx(field, 'pl-9')}
+            className={cx(field, 'pl-9 pr-10')}
             autoComplete="off"
             spellCheck={false}
           />
+          <kbd className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 rounded-md border border-line bg-bg-3 px-1.5 py-0.5 font-mono text-[12px] text-fg-3">
+            /
+          </kbd>
         </label>
         <button type="button" onClick={() => load(true)} disabled={loading} className={btn.secondary} aria-label="Reload from GitHub">
           <ArrowClockwise className={loading ? 'animate-spin' : undefined} />
@@ -213,7 +245,7 @@ export function ImportRepoList({ owners }: { owners: string[] }) {
                 repo={r}
                 first={i === 0}
                 action={
-                  <Link href={`/projects/new/${r.fullName}`} className={btn.primary}>
+                  <Link href={`/projects/new/${r.fullName}`} className={btn.primary} data-row-action>
                     <DownloadSimple weight="bold" /> Import
                   </Link>
                 }
@@ -239,6 +271,7 @@ export function ImportRepoList({ owners }: { owners: string[] }) {
                       <Link
                         href={`/projects/${r.imported.slug}${r.imported.service ? `/${r.imported.service}/deployments` : ''}`}
                         className={cx(btn.secondary, 'group/open')}
+                        data-row-action
                       >
                         Open {r.imported.slug}
                         <ArrowRight className="transition-[translate] duration-200 ease-[var(--ease-out)] group-hover/open:translate-x-0.5" />
