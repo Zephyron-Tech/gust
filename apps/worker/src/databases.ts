@@ -3,14 +3,16 @@
 // @gust/db/postgres-admin and runs as the cluster admin, one at a time.
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readdir, unlink } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 import { auditEvents, db, envVars, pool, projectDatabases, projects, services } from '@gust/db';
-import { connectionUrl, createStatements, type DbPlan, dropStatements } from '@gust/db/postgres-admin';
+import { connectionUrl, createStatements, type DbPlan, dropStatements, randomPassword, rotateStatements } from '@gust/db/postgres-admin';
 import { enqueueDatabase } from '@gust/db/queue';
 import { decryptSecret, encryptSecret } from '@gust/db/secrets';
 import { and, eq, inArray } from 'drizzle-orm';
+
+import { expiredDumps, isInside, restoreArgs } from './backup-files';
 
 type Log = (line: string) => void;
 
@@ -111,51 +113,150 @@ export async function dropDatabase(id: string, log: Log) {
   }
 }
 
+/** Where dumps go: BACKUP_DIR in the container, apps/worker/backups in development. */
+export const backupDir = () => process.env.BACKUP_DIR ?? resolve(process.cwd(), 'backups');
+
+/** Host, port, user and password of the cluster admin, from DATABASE_URL. */
+function clusterTarget() {
+  const url = new URL(process.env.DATABASE_URL ?? 'postgres://gust:gust@127.0.0.1:5434/gust');
+  return {
+    host: url.hostname,
+    port: url.port || '5432',
+    username: decodeURIComponent(url.username),
+    password: decodeURIComponent(url.password),
+  };
+}
+
+/** Runs a Postgres client tool with the cluster's credentials and returns its exit code and last stderr lines. */
+function runTool(bin: string, args: string[], password: string): Promise<{ code: number; err: string }> {
+  return new Promise((resolveRun, reject) => {
+    const child = spawn(bin, args, {
+      env: { ...process.env, PGPASSWORD: password },
+      stdio: ['ignore', 'ignore', 'pipe'],
+    });
+    let err = '';
+    child.stderr.on('data', (c) => (err += c));
+    child.on('error', reject);
+    child.on('close', (code) => resolveRun({ code: code ?? 1, err: err.trim().split('\n').slice(-3).join(' ') }));
+  });
+}
+
 /** A dump of one database in custom format, into BACKUP_DIR, and a record in the audit log. */
 export async function backupDatabase(id: string, log: Log) {
   const [row] = await db.select().from(projectDatabases).where(eq(projectDatabases.id, id));
   if (row?.state !== 'ready') return;
-  const dir = process.env.BACKUP_DIR ?? resolve(process.cwd(), 'backups');
+  const dir = backupDir();
   await mkdir(dir, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const file = `${dir}/${row.database}-${stamp}.dump`;
+  const t = clusterTarget();
 
-  const url = new URL(process.env.DATABASE_URL ?? 'postgres://gust:gust@127.0.0.1:5434/gust');
-  const code = await new Promise<number>((resolve, reject) => {
-    const child = spawn(
-      process.env.PG_DUMP ?? 'pg_dump',
-      [
-        '--format=custom',
-        '--no-owner',
-        '--no-acl',
-        '--host',
-        url.hostname,
-        '--port',
-        url.port || '5432',
-        '--username',
-        decodeURIComponent(url.username),
-        '--dbname',
-        row.database,
-        '--file',
-        file,
-      ],
-      { env: { ...process.env, PGPASSWORD: decodeURIComponent(url.password) }, stdio: ['ignore', 'ignore', 'pipe'] },
-    );
-    let err = '';
-    child.stderr.on('data', (c) => (err += c));
-    child.on('error', reject);
-    child.on('close', (c) => {
-      if (c !== 0) log(err.trim().split('\n').slice(-2).join(' '));
-      resolve(c ?? 1);
-    });
-  });
-  if (code !== 0) throw new Error(`pg_dump exited with ${code}`);
+  const { code, err } = await runTool(
+    process.env.PG_DUMP ?? 'pg_dump',
+    [
+      '--format=custom',
+      '--no-owner',
+      '--no-acl',
+      '--host',
+      t.host,
+      '--port',
+      t.port,
+      '--username',
+      t.username,
+      '--dbname',
+      row.database,
+      '--file',
+      file,
+    ],
+    t.password,
+  );
+  if (code !== 0) {
+    log(`database ${row.database} backup failed: ${err}`);
+    throw new Error(`pg_dump exited with ${code}`);
+  }
   await audit('gust-worker', 'database.backup', `project:${await projectSlugOf(row.projectId)}`, {
     name: row.name,
     database: row.database,
     file,
   });
   log(`database ${row.database} backed up to ${file}`);
+}
+
+/** Every ready database gets a dump, then dumps past BACKUP_KEEP_DAYS (default 14) are removed. Runs nightly. */
+export async function backupAll(log: Log) {
+  const ready = await db.select({ id: projectDatabases.id }).from(projectDatabases).where(eq(projectDatabases.state, 'ready'));
+  for (const row of ready) {
+    await backupDatabase(row.id, log).catch((e) => log(`nightly backup of ${row.id} failed: ${(e as Error).message}`));
+  }
+  const dir = backupDir();
+  const names = await readdir(dir).catch(() => [] as string[]);
+  const keepDays = Number(process.env.BACKUP_KEEP_DAYS ?? 14);
+  for (const name of expiredDumps(names, new Date(), keepDays)) {
+    await unlink(`${dir}/${name}`);
+    log(`removed dump ${name} (older than ${keepDays} days)`);
+  }
+}
+
+/**
+ * Restores a dump into a new database: creates it like provisionDatabase, then
+ * pg_restore as the new role, so the objects belong to the app and not to the admin.
+ * `file` must be a dump in BACKUP_DIR; the web app only passes files from the audit log.
+ */
+export async function restoreDatabase(id: string, file: string, log: Log) {
+  const [row] = await db.select().from(projectDatabases).where(eq(projectDatabases.id, id));
+  if (row?.state !== 'provisioning') return;
+  if (!isInside(backupDir(), file)) {
+    await db
+      .update(projectDatabases)
+      .set({ state: 'failed', error: 'The dump is not in the backup folder.' })
+      .where(eq(projectDatabases.id, id));
+    log(`restore of ${row.database} refused: ${file} is outside the backup folder`);
+    return;
+  }
+  await provisionDatabase(id, log);
+  const [made] = await db.select().from(projectDatabases).where(eq(projectDatabases.id, id));
+  if (made?.state !== 'ready') return;
+
+  const t = clusterTarget();
+  const { code, err } = await runTool(
+    process.env.PG_RESTORE ?? 'pg_restore',
+    restoreArgs({ ...t, database: made.database, role: made.role, file }),
+    t.password,
+  );
+  if (code !== 0) {
+    // Partial data may be in the database; the user sees the error and deletes it.
+    await db
+      .update(projectDatabases)
+      .set({ state: 'failed', error: `Restore finished with errors: ${err}` })
+      .where(eq(projectDatabases.id, id));
+    log(`restore of ${made.database} finished with errors: ${err}`);
+    return;
+  }
+  await audit('gust-worker', 'database.restore', `project:${await projectSlugOf(made.projectId)}`, {
+    name: made.name,
+    database: made.database,
+    from: file,
+  });
+  log(`database ${made.database} restored from ${file}`);
+}
+
+/** New password for the database's role. The app gets the new URL on its next deploy; the old password stops working at once. */
+export async function rotateDatabase(id: string, log: Log) {
+  const [row] = await db.select().from(projectDatabases).where(eq(projectDatabases.id, id));
+  if (row?.state !== 'ready') return;
+  const plan = planOf(row);
+  const password = randomPassword();
+  for (const sql of rotateStatements(plan, password)) await pool.query(sql);
+  await db
+    .update(projectDatabases)
+    .set({ passwordEncrypted: encryptSecret(password) })
+    .where(eq(projectDatabases.id, id));
+  await setAppEnv(row.projectId, envKeyFor(row.name), connectionUrl(plan, password));
+  await audit('gust-worker', 'database.rotate', `project:${await projectSlugOf(row.projectId)}`, {
+    name: row.name,
+    database: row.database,
+  });
+  log(`database ${row.database} password rotated; redeploy the app to pick up the new ${envKeyFor(row.name)}`);
 }
 
 /**

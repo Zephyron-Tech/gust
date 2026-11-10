@@ -3,7 +3,7 @@
 import { type DatabaseJob, type DeployJob, QUEUES } from '@gust/db/queue';
 import { PgBoss } from 'pg-boss';
 
-import { backupDatabase, dropDatabase, provisionDatabase, recoverDatabases } from './databases';
+import { backupAll, backupDatabase, dropDatabase, provisionDatabase, recoverDatabases, restoreDatabase, rotateDatabase } from './databases';
 import { runDeploy } from './deploy';
 import { checkDomains } from './domains';
 import { failCrashed, failInterrupted, reconcile } from './reconcile';
@@ -38,9 +38,31 @@ await boss.work<DeployJob>(QUEUES.deploy, { batchSize: 1, localConcurrency: 4, p
 // Project databases: one statement at a time, see databases.ts.
 await boss.work<DatabaseJob>(QUEUES.database, { batchSize: 1, localConcurrency: 2, pollingIntervalSeconds: 0.5 }, async ([job]) => {
   if (!job) return;
-  const { databaseId, action } = job.data;
-  const run = action === 'drop' ? dropDatabase : action === 'backup' ? backupDatabase : provisionDatabase;
-  await run(databaseId, log).catch((e) => log(`database ${databaseId} ${action} crashed: ${(e as Error).message}`));
+  const { databaseId, action, file } = job.data;
+  const run = (): Promise<void> => {
+    switch (action) {
+      case 'drop':
+        return dropDatabase(databaseId, log);
+      case 'backup':
+        return backupDatabase(databaseId, log);
+      case 'rotate':
+        return rotateDatabase(databaseId, log);
+      case 'restore':
+        return restoreDatabase(databaseId, file ?? '', log);
+      default:
+        return provisionDatabase(databaseId, log);
+    }
+  };
+  await run().catch((e) => log(`database ${databaseId} ${action} crashed: ${(e as Error).message}`));
+});
+
+// Nightly dumps of every ready database, then retention. Cron and time zone are set in env.
+await boss.createQueue(QUEUES.nightly, { retryLimit: 0, expireInSeconds: 60 * 60 });
+await boss.schedule(QUEUES.nightly, process.env.BACKUP_CRON ?? '0 3 * * *', null, { tz: process.env.BACKUP_TZ ?? 'Europe/Prague' });
+await boss.work(QUEUES.nightly, { batchSize: 1, pollingIntervalSeconds: 5 }, async () => {
+  log('nightly database backup started');
+  await backupAll(log).catch((e) => log(`nightly database backup crashed: ${(e as Error).message}`));
+  log('nightly database backup finished');
 });
 
 const every = Number(process.env.RECONCILE_EVERY_S ?? 20) * 1000;

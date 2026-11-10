@@ -10,7 +10,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm --filter @gust/web build
 
 FROM node:24-alpine
-# postgresql17-client: pg_dump for the worker's per-database backups; must match postgres:17.
+# postgresql17-client: pg_dump and pg_restore for the worker's per-database backups; must match postgres:17 (v3.22 and v3.23 ship it).
 RUN apk add --no-cache tini postgresql17-client && corepack enable
 WORKDIR /gust
 COPY --from=build /gust /gust
