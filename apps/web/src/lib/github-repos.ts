@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { detectFrameworks } from './frameworks';
 // Reads repositories from GitHub's public API for the import flow. The web
 // container holds no GitHub App key, and the app only sees public
 // repositories anyway. Without a token GitHub allows 60 requests an hour, so
@@ -84,6 +85,8 @@ export type RepoSummary = {
   pushedAt: string | null;
   language: string | null;
   url: string;
+  /** Frameworks named in the default branch's package.json. Empty when there is none or it cannot be read. */
+  frameworks: string[];
 };
 
 const summary = (r: GhRepo): RepoSummary => ({
@@ -94,7 +97,22 @@ const summary = (r: GhRepo): RepoSummary => ({
   pushedAt: r.pushed_at,
   language: r.language,
   url: r.html_url,
+  frameworks: [],
 });
+
+// package.json comes from raw.githubusercontent.com, so it costs no API quota; cached so a list view does not refetch it.
+const FRAMEWORK_TTL_MS = 60 * 60_000;
+const frameworkCache = new Map<string, { at: number; value: string[] }>();
+
+async function frameworksOf(fullName: string, ref: string, fresh: boolean): Promise<string[]> {
+  const key = `${fullName}@${ref}`;
+  const hit = frameworkCache.get(key);
+  if (hit && !fresh && Date.now() - hit.at < FRAMEWORK_TTL_MS) return hit.value;
+  const text = await raw(fullName, ref, 'package.json');
+  const value = text ? detectFrameworks(text) : [];
+  frameworkCache.set(key, { at: Date.now(), value });
+  return value;
+}
 
 /** Public, not archived repositories of the allowed owners, most recently pushed first. */
 export async function listRepos(fresh = false): Promise<RepoSummary[]> {
@@ -103,11 +121,11 @@ export async function listRepos(fresh = false): Promise<RepoSummary[]> {
       api<GhRepo[]>(`/orgs/${encodeURIComponent(owner)}/repos?type=public&sort=pushed&per_page=100`, 5 * 60_000, fresh),
     ),
   );
-  return lists
+  const repos = lists
     .flat()
     .filter((r) => !r.archived && !r.private)
-    .map(summary)
-    .sort((a, b) => (b.pushedAt ?? '').localeCompare(a.pushedAt ?? ''));
+    .sort((a, b) => (b.pushed_at ?? '').localeCompare(a.pushed_at ?? ''));
+  return Promise.all(repos.map(async (r) => ({ ...summary(r), frameworks: await frameworksOf(r.full_name, r.default_branch, fresh) })));
 }
 
 export type RepoDetail = RepoSummary & {
@@ -146,6 +164,7 @@ export async function repoDetail(fullName: string, fresh = false): Promise<RepoD
   const names = branches.map((b) => b.name);
   return {
     ...summary(repo),
+    frameworks: await frameworksOf(fullName, ref, fresh),
     // The default branch first, the rest by name.
     branches: [ref, ...names.filter((n) => n !== ref).sort()],
     dockerfile: dockerText === null ? { found: false, port: null, healthPath: null } : { found: true, ...readDockerfile(dockerText) },

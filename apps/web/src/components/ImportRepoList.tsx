@@ -25,6 +25,7 @@ type Repo = {
   pushedAt: string | null;
   language: string | null;
   url: string;
+  frameworks: string[];
   imported: { slug: string; service: string | null } | null;
 };
 
@@ -81,6 +82,15 @@ function RepoRow({ repo, first, action }: { repo: Repo; first: boolean; action: 
           )}
           {repo.description && <span className="truncate">· {repo.description}</span>}
         </p>
+        {repo.frameworks.length > 0 && (
+          <p className="mt-2 flex flex-wrap gap-1.5">
+            {repo.frameworks.map((f) => (
+              <span key={f} className="rounded-md border border-line bg-bg-3 px-2 py-0.5 text-[12px] leading-none text-fg-2">
+                {f}
+              </span>
+            ))}
+          </p>
+        )}
       </div>
       {action}
     </div>
