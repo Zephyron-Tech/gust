@@ -1,6 +1,6 @@
 'use client';
 
-import { Database, DownloadSimple, Plus, Trash } from '@phosphor-icons/react/ssr';
+import { ArrowCounterClockwise, Database, DownloadSimple, Key, Plus, Trash } from '@phosphor-icons/react/ssr';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -31,9 +31,19 @@ export function DatabasesPanel({ slug, initial }: { slug: string; initial: { dat
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [removing, setRemoving] = useState<DatabaseRow | null>(null);
+  const [rotating, setRotating] = useState<DatabaseRow | null>(null);
+  const [restoring, setRestoring] = useState<{ file: string; name: string } | null>(null);
 
   const { databases, backups } = initial;
   const moving = databases.some((d) => d.state === 'provisioning' || d.state === 'deleting');
+  // Same rule as planFor on the server: lowercase, runs of other characters become one underscore.
+  const restoredDb = (name: string) =>
+    `${slug}_${
+      name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '') || '…'
+    }`;
 
   // Re-reads the server while a create or delete is still running.
   useEffect(() => {
@@ -87,6 +97,41 @@ export function DatabasesPanel({ slug, initial }: { slug: string; initial: { dat
     router.refresh();
     // The worker writes the audit row after the dump; refresh again once it is likely done.
     window.setTimeout(() => router.refresh(), 4000);
+  }
+
+  async function rotate(d: DatabaseRow) {
+    setBusy(d.id);
+    const res = await fetch(`/api/projects/${slug}/databases/${d.id}/rotate`, { method: 'POST' }).catch(() => null);
+    setBusy(null);
+    setRotating(null);
+    if (!res?.ok) {
+      notify('Rotation not started', 'Gust did not accept the request. Try again.', 'err');
+      return;
+    }
+    notify(`Rotating the password of ${d.database}`, 'Redeploy the app once it is done, so it gets the new DATABASE_URL.');
+    router.refresh();
+  }
+
+  async function restore(file: string, name: string) {
+    setError(null);
+    setBusy('restore');
+    const res = await fetch(`/api/projects/${slug}/databases/restore`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ file, name }),
+    }).catch(() => null);
+    setBusy(null);
+    const body = (await res?.json().catch(() => null)) as { error?: string; database?: string } | null;
+    if (!res?.ok) {
+      setError(body?.error ?? 'Could not reach Gust. Nothing was restored. Try again.');
+      return;
+    }
+    setRestoring(null);
+    notify(
+      `Restoring into ${body?.database ?? 'a new database'}`,
+      'The worker creates it and loads the dump. It appears as Ready when done.',
+    );
+    router.refresh();
   }
 
   return (
@@ -162,6 +207,11 @@ export function DatabasesPanel({ slug, initial }: { slug: string; initial: { dat
                       <DownloadSimple /> Back up
                     </button>
                   )}
+                  {d.state === 'ready' && (
+                    <button type="button" className={btn.secondary} disabled={busy !== null} onClick={() => setRotating(d)}>
+                      <Key /> Rotate password
+                    </button>
+                  )}
                   {d.state !== 'provisioning' && d.state !== 'deleting' && (
                     <button type="button" className={btn.ghost} disabled={busy !== null} onClick={() => setRemoving(d)}>
                       <Trash /> Delete
@@ -183,16 +233,76 @@ export function DatabasesPanel({ slug, initial }: { slug: string; initial: { dat
         ) : (
           <ul className="mt-4 divide-y divide-line">
             {backups.map((b, i) => (
-              <li key={`${b.file}-${i}`} className="flex flex-wrap items-center justify-between gap-3 py-3 text-[14px]">
-                <span className="font-mono text-[13px] text-fg-2">{b.file || b.database}</span>
-                <span className="text-fg-3">
-                  <Ago iso={new Date(b.at).toISOString()} />
-                </span>
+              <li key={`${b.file}-${i}`} className="py-3 text-[14px]">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span className="font-mono text-[13px] text-fg-2">{b.file || b.database}</span>
+                  <span className="flex items-center gap-3 text-fg-3">
+                    <Ago iso={new Date(b.at).toISOString()} />
+                    {admin && b.file && (
+                      <button
+                        type="button"
+                        className={btn.ghost}
+                        disabled={busy !== null}
+                        onClick={() => setRestoring({ file: b.file, name: `${b.name || 'main'}-restored` })}
+                      >
+                        <ArrowCounterClockwise /> Restore
+                      </button>
+                    )}
+                  </span>
+                </div>
+                {admin && restoring?.file === b.file && (
+                  <form
+                    className="mt-3 flex flex-wrap items-end gap-3"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void restore(restoring.file, restoring.name);
+                    }}
+                  >
+                    <label className="min-w-[200px] flex-1 space-y-1.5">
+                      <span className="text-[13.5px] text-fg-2">New database name</span>
+                      <input
+                        className={field}
+                        value={restoring.name}
+                        onChange={(e) => setRestoring({ ...restoring, name: e.target.value })}
+                        maxLength={40}
+                        required
+                      />
+                    </label>
+                    <button type="submit" className={btn.primary} disabled={busy !== null || restoring.name.trim() === ''}>
+                      {busy === 'restore' ? 'Sending…' : 'Restore to new database'}
+                    </button>
+                    <button type="button" className={btn.ghost} onClick={() => setRestoring(null)}>
+                      Cancel
+                    </button>
+                    <p className="w-full text-[13px] text-fg-3">
+                      Creates <span className="font-mono">{restoredDb(restoring.name || '…')}</span>. The current database is not touched.
+                    </p>
+                  </form>
+                )}
               </li>
             ))}
           </ul>
         )}
       </Panel>
+
+      <ConfirmDialog
+        open={rotating !== null}
+        onOpenChange={(next) => {
+          if (!next) setRotating(null);
+        }}
+        title={`Rotate the password of ${rotating?.database ?? 'the database'}?`}
+        description="A new password replaces the old one at once, so the running app stops connecting until you redeploy it. It then gets the new DATABASE_URL."
+        actions={
+          <>
+            <button type="button" className={btn.ghost} onClick={() => setRotating(null)}>
+              Cancel
+            </button>
+            <button type="button" className={btn.primary} disabled={busy !== null} onClick={() => rotating && void rotate(rotating)}>
+              Rotate password
+            </button>
+          </>
+        }
+      />
 
       <ConfirmDialog
         open={removing !== null}

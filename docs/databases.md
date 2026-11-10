@@ -1,7 +1,8 @@
 # Databases for projects
 
-Status: implemented for create, back up and delete. Restore and password rotation
-are not built yet (see the end).
+Status: implemented: create, back up, nightly backups with retention, restore into a
+new database, password rotation, delete. Verified on the dev stack (see Next steps for
+what is not verified).
 
 ## Decision
 
@@ -68,11 +69,30 @@ database only when compliance demands it. Two things we must handle ourselves:
    and writes `database.backup` with the file name. The list on the page reads
    these audit rows.
 
+6. Restore (`POST …/databases/restore`, body `{file, name}`). The route takes the
+   file name from the list, looks it up in this project's `database.backup` audit rows
+   and passes the full path to the job, so a client never names an arbitrary path. It
+   creates a new database (same as create), then the worker runs `pg_restore --no-owner
+   --no-acl --role <app role>`, so the objects belong to the app role. The current
+   database is never touched. Audit `database.restore`. A failing restore marks the new
+   database `failed` with the pg_restore message; the user deletes it.
+7. Rotate (`POST …/[id]/rotate`). The worker sets a new random password with
+   `ALTER ROLE … PASSWORD`, stores it encrypted and rewrites `DATABASE_URL` on the app.
+   The old password stops working at once, so the running app fails new connections
+   until it is redeployed. Audit `database.rotate`.
+8. Nightly (queue `database-backup-nightly`, cron `BACKUP_CRON`, default `0 3 * * *`,
+   time zone `BACKUP_TZ`, default `Europe/Prague`). Dumps every ready database, then
+   removes dumps older than `BACKUP_KEEP_DAYS` (default 14). Only files named
+   `<database>-<stamp>.dump` are ever removed.
+
 ### Recovery
 
 Worker start (`recoverDatabases`): rows left `provisioning` get their partial
 objects dropped and become `failed` with "Interrupted: the worker restarted…";
-rows left `deleting` get a new `drop` job.
+rows left `deleting` get a new `drop` job. A restore cut off by a crash is in the
+same state as a half-made database: it is `provisioning`, so it is dropped and
+marked failed. Restores finished but not yet marked `ready` are not an issue, since
+the state changes only after pg_restore returns.
 
 ## Network
 
@@ -86,12 +106,15 @@ the worker from `GUST_DATA_NETWORK`, default `gust_data`). Postgres sits on
 - `DATABASE_URL` for the first database of a project (in the order created).
 - `DATABASE_URL_<NAME>` for the others, name upper-cased, `-` turned into `_`.
 
-## Tools
+## Tools and settings
 
-- `PG_DUMP` overrides the `pg_dump` binary (dev on a Mac without the client
-  uses a wrapper that runs it inside the Postgres container).
-- The production image installs `postgresql17-client` (`Dockerfile`). The package
-  name is not verified by a real build yet.
+- `PG_DUMP`, `PG_RESTORE` override the client binaries (dev on a Mac without the
+  client uses wrappers that run them in the Postgres container).
+- `BACKUP_DIR`, `BACKUP_CRON`, `BACKUP_TZ`, `BACKUP_KEEP_DAYS` as above.
+- The production image installs `postgresql17-client` (`Dockerfile`), which has
+  `pg_dump` and `pg_restore`. Checked: the package exists in Alpine v3.22 and v3.23
+  (pkgs.alpinelinux.org); the Postgres server and `pg_dump` in `postgres:17-alpine`
+  both report 17.11.
 
 ## Not doing
 
@@ -101,11 +124,7 @@ the worker from `GUST_DATA_NETWORK`, default `gust_data`). Postgres sits on
 
 ## Next steps
 
-1. Restore: `pg_restore` of a chosen dump into a new database, after asking, with
-   a UI confirmation.
-2. Password rotation: `rotateStatements` exists; needs a job, a route and an env
-   update.
-3. Verify the Alpine package name and an engine deploy with `dataNetwork` on a real
-   build.
-4. Nightly backups and `pg_dumpall --globals-only` (still planned; see
-   `install.md` for the backup folder).
+1. Engine deploy with `dataNetwork` on a real run: the dev engine was not running
+   during the check, so the network connect in `apps/engine` is not exercised yet.
+2. A real `docker build` of the image (registry pulls timed out in the dev sandbox).
+3. Restore into the same database (overwrite) is deliberately not offered.
