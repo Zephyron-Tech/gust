@@ -227,16 +227,16 @@ html {
   }
 }
 
-/* A live project's corner glow breathes slowly. Reduced motion stops it through the global rule. */
+/* A live project's corner light breathes slowly. Reduced motion stops it through the global rule. */
 @keyframes state-breathe {
   0%,
   100% {
-    opacity: 0.22;
+    opacity: 0.7;
   }
   50% {
-    opacity: 0.42;
+    opacity: 1;
   }
 }
 .state-breathe {
-  animation: state-breathe 4.5s ease-in-out infinite;
+  animation: state-breathe 5s ease-in-out infinite;
 }
