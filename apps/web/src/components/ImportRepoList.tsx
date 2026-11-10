@@ -1,28 +1,19 @@
 'use client';
 
-import type { Icon } from '@phosphor-icons/react';
 import {
   ArrowClockwise,
   ArrowRight,
   ArrowSquareOut,
-  CheckCircle,
   DownloadSimple,
-  FileCode,
-  FileCss,
-  FileHtml,
-  FileJs,
-  FilePy,
-  FileRs,
-  FileTs,
-  FileVue,
   GitBranch,
   GithubLogo,
   MagnifyingGlass,
 } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 
+import { languageLogo } from '@/lib/languages';
 import { Ago } from './Ago';
 import { btn, cx, Panel } from './ui';
 
@@ -37,30 +28,71 @@ type Repo = {
   imported: { slug: string; service: string | null } | null;
 };
 
-// The repository's main language as an icon; anything else gets the GitHub mark.
-const languageIcon: Record<string, Icon> = {
-  TypeScript: FileTs,
-  JavaScript: FileJs,
-  Python: FilePy,
-  Rust: FileRs,
-  Vue: FileVue,
-  HTML: FileHtml,
-  CSS: FileCss,
-  SCSS: FileCss,
-  Go: FileCode,
-  PHP: FileCode,
-  Shell: FileCode,
-};
-
-function RepoIcon({ language, imported }: { language: string | null; imported: boolean }) {
-  const I = (language && languageIcon[language]) || GithubLogo;
+/** The language's colour logo; the GitHub mark where there is none. */
+function RepoIcon({ language }: { language: string | null }) {
+  const logo = languageLogo(language);
   return (
-    <span className="relative grid size-10 shrink-0 place-items-center rounded-[10px] border border-line bg-bg-3 text-fg-2">
-      <I size={21} aria-hidden />
-      {imported && (
-        <CheckCircle size={17} weight="fill" aria-hidden className="pop-in absolute -right-1.5 -bottom-1.5 rounded-full bg-bg-2 text-ok" />
+    // Logos are drawn for a light page: they sit on a light tile, so the dark marks stay visible.
+    <span className="grid size-10 shrink-0 place-items-center rounded-[10px] border border-line bg-fg/95">
+      {logo ? (
+        // biome-ignore lint/performance/noImgElement: a small static brand logo, sized by its tile
+        <img src={logo} alt="" width={22} height={22} loading="lazy" decoding="async" className="size-[22px]" />
+      ) : (
+        <GithubLogo size={21} aria-hidden className="text-bg" />
       )}
     </span>
+  );
+}
+
+function RepoRow({ repo, first, action }: { repo: Repo; first: boolean; action: ReactNode }) {
+  return (
+    <div
+      className={cx(
+        'grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 px-5 py-4 transition-colors duration-150 hover:bg-bg-3/40',
+        !first && 'border-t border-line',
+      )}
+    >
+      <RepoIcon language={repo.language} />
+      <div className="min-w-0">
+        <p className="flex items-baseline gap-2">
+          <a
+            href={repo.url}
+            target="_blank"
+            rel="noreferrer"
+            className="group/name inline-flex min-w-0 items-baseline gap-1 text-[15px] font-medium hover:text-accent"
+          >
+            <span className="truncate">{repo.name}</span>
+            <ArrowSquareOut
+              size={13}
+              aria-label="Open on GitHub"
+              className="shrink-0 self-center text-fg-3 opacity-0 transition-opacity duration-150 group-hover/name:opacity-100 group-focus-visible/name:opacity-100"
+            />
+          </a>
+        </p>
+        <p className="flex items-center gap-2 truncate text-[13px] text-fg-3">
+          <span className="inline-flex shrink-0 items-center gap-1">
+            <GitBranch size={13} /> {repo.defaultBranch}
+          </span>
+          {repo.language && <span className="shrink-0">· {repo.language}</span>}
+          {repo.pushedAt && (
+            <span className="shrink-0">
+              · <Ago iso={repo.pushedAt} />
+            </span>
+          )}
+          {repo.description && <span className="truncate">· {repo.description}</span>}
+        </p>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function SectionHead({ id, title, count }: { id: string; title: string; count: number }) {
+  return (
+    <h2 id={id} className="mb-3 flex items-baseline justify-between gap-3 px-1">
+      <span className="font-display text-[16px] font-semibold tracking-tight">{title}</span>
+      <span className="text-[13px] text-fg-3 tabular-nums">{count}</span>
+    </h2>
   );
 }
 
@@ -92,15 +124,18 @@ export function ImportRepoList({ owners }: { owners: string[] }) {
     void load();
   }, [load]);
 
-  const list = useMemo(() => {
+  // The search narrows both columns. Repositories already in Gust sit apart, so the ones to import stay first.
+  const { available, inGust } = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return (repos ?? []).filter(
-      (r) => !needle || r.fullName.toLowerCase().includes(needle) || r.description?.toLowerCase().includes(needle),
-    );
+    const match = (r: Repo) => !needle || r.fullName.toLowerCase().includes(needle) || r.description?.toLowerCase().includes(needle);
+    const all = (repos ?? []).filter(match);
+    return { available: all.filter((r) => !r.imported), inGust: all.filter((r) => r.imported) };
   }, [repos, q]);
 
+  const total = repos?.length ?? 0;
+
   return (
-    <div className="max-w-3xl space-y-4">
+    <div className="space-y-5">
       <div className="flex items-center gap-3">
         <label className="relative flex-1">
           <span className="sr-only">Search repositories</span>
@@ -121,98 +156,94 @@ export function ImportRepoList({ owners }: { owners: string[] }) {
 
       {repos !== null && !error && (
         <p className="text-[13.5px] text-fg-3 tabular-nums">
-          {list.length} {list.length === 1 ? 'repository' : 'repositories'}
-          {q.trim() ? ` of ${repos.length}` : ''} · {repos.filter((r) => r.imported).length} already in Gust
+          {available.length + inGust.length} of {total} {total === 1 ? 'repository' : 'repositories'}
+          {q.trim() ? ' match' : ''}
         </p>
       )}
 
-      <Panel className="overflow-hidden">
-        {error && (
-          <div className="space-y-1 px-5 py-6 text-[14.5px]">
-            <p className="text-err">{error}</p>
-            <p className="text-fg-3">You can still enter the repository by hand below.</p>
-            <button type="button" onClick={() => load(true)} disabled={loading} className={cx(btn.secondary, 'mt-3')}>
-              <ArrowClockwise className={loading ? 'animate-spin' : undefined} /> Try again
-            </button>
-          </div>
-        )}
-        {!error && repos === null && (
-          <div role="status" aria-busy="true" aria-label="Loading repositories from GitHub">
-            {[62, 44, 70, 52, 38].map((w, i) => (
-              <div key={w} className={cx('flex items-center gap-4 px-5 py-4', i > 0 && 'border-t border-line')}>
-                <span className="skeleton size-10 shrink-0 rounded-[10px]" />
-                <span className="flex-1 space-y-2">
-                  <span className="skeleton block h-3.5" style={{ width: `${w * 0.5}%` }} />
-                  <span className="skeleton block h-3" style={{ width: `${w}%` }} />
-                </span>
-                <span className="skeleton h-9 w-[92px] rounded-[10px]" />
+      <div className="grid gap-8 lg:grid-cols-2 lg:items-start lg:gap-6">
+        <section aria-labelledby="import-available">
+          <SectionHead id="import-available" title="Available to import" count={available.length} />
+          <Panel className="overflow-hidden">
+            {error && (
+              <div className="space-y-1 px-5 py-6 text-[14.5px]">
+                <p className="text-err">{error}</p>
+                <p className="text-fg-3">You can still enter the repository by hand below.</p>
+                <button type="button" onClick={() => load(true)} disabled={loading} className={cx(btn.secondary, 'mt-3')}>
+                  <ArrowClockwise className={loading ? 'animate-spin' : undefined} /> Try again
+                </button>
               </div>
+            )}
+            {!error && repos === null && (
+              <div role="status" aria-busy="true" aria-label="Loading repositories from GitHub">
+                {[62, 44, 70, 52, 38].map((w, i) => (
+                  <div key={w} className={cx('flex items-center gap-4 px-5 py-4', i > 0 && 'border-t border-line')}>
+                    <span className="skeleton size-10 shrink-0 rounded-[10px]" />
+                    <span className="flex-1 space-y-2">
+                      <span className="skeleton block h-3.5" style={{ width: `${w * 0.5}%` }} />
+                      <span className="skeleton block h-3" style={{ width: `${w}%` }} />
+                    </span>
+                    <span className="skeleton h-9 w-[92px] rounded-[10px]" />
+                  </div>
+                ))}
+              </div>
+            )}
+            {!error && repos !== null && available.length === 0 && (
+              <p className="px-5 py-10 text-center text-fg-3">
+                {q
+                  ? 'No repository to import matches.'
+                  : total === 0
+                    ? 'No public repositories found.'
+                    : 'Every repository is already in Gust.'}
+              </p>
+            )}
+            {available.map((r, i) => (
+              <RepoRow
+                key={r.fullName}
+                repo={r}
+                first={i === 0}
+                action={
+                  <Link href={`/projects/new/${r.fullName}`} className={btn.primary}>
+                    <DownloadSimple weight="bold" /> Import
+                  </Link>
+                }
+              />
             ))}
-          </div>
-        )}
-        {!error && repos !== null && list.length === 0 && (
-          <p className="px-5 py-10 text-center text-fg-3">{q ? 'No repository matches.' : 'No public repositories found.'}</p>
-        )}
-        {list.map((r, i) => (
-          <div
-            key={r.fullName}
-            className={cx(
-              'grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 px-5 py-4 transition-colors duration-150 hover:bg-bg-3/40',
-              i > 0 && 'border-t border-line',
-            )}
-          >
-            <RepoIcon language={r.language} imported={!!r.imported} />
-            <div className="min-w-0">
-              <p className="flex items-baseline gap-2">
-                <a
-                  href={r.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="group/name inline-flex min-w-0 items-baseline gap-1 text-[15px] font-medium hover:text-accent"
-                >
-                  <span className="truncate">{r.name}</span>
-                  <ArrowSquareOut
-                    size={13}
-                    aria-label="Open on GitHub"
-                    className="shrink-0 self-center text-fg-3 opacity-0 transition-opacity duration-150 group-hover/name:opacity-100 group-focus-visible/name:opacity-100"
+          </Panel>
+        </section>
+
+        {repos !== null && !error && (
+          <section aria-labelledby="import-in-gust">
+            <SectionHead id="import-in-gust" title="Already in Gust" count={inGust.length} />
+            <Panel className="overflow-hidden">
+              {inGust.length === 0 && (
+                <p className="px-5 py-10 text-center text-fg-3">{q ? 'No imported repository matches.' : 'Nothing imported yet.'}</p>
+              )}
+              {inGust.map((r, i) =>
+                r.imported ? (
+                  <RepoRow
+                    key={r.fullName}
+                    repo={r}
+                    first={i === 0}
+                    action={
+                      <Link
+                        href={`/projects/${r.imported.slug}${r.imported.service ? `/${r.imported.service}/deployments` : ''}`}
+                        className={cx(btn.secondary, 'group/open')}
+                      >
+                        Open {r.imported.slug}
+                        <ArrowRight className="transition-[translate] duration-200 ease-[var(--ease-out)] group-hover/open:translate-x-0.5" />
+                      </Link>
+                    }
                   />
-                </a>
-                {r.imported && (
-                  <span className="shrink-0 rounded-full bg-ok/14 px-2 py-0.5 text-[12px] leading-none font-medium text-ok">Imported</span>
-                )}
-                {r.pushedAt && (
-                  <span className="shrink-0 text-[13px] text-fg-3">
-                    · <Ago iso={r.pushedAt} />
-                  </span>
-                )}
-              </p>
-              <p className="flex items-center gap-2 truncate text-[13px] text-fg-3">
-                <span className="inline-flex items-center gap-1">
-                  <GitBranch size={13} /> {r.defaultBranch}
-                </span>
-                {r.language && <span>· {r.language}</span>}
-                {r.description && <span className="truncate">· {r.description}</span>}
-              </p>
-            </div>
-            {r.imported ? (
-              <Link
-                href={`/projects/${r.imported.slug}${r.imported.service ? `/${r.imported.service}/deployments` : ''}`}
-                className={cx(btn.secondary, 'group/open')}
-              >
-                Open {r.imported.slug}
-                <ArrowRight className="transition-[translate] duration-200 ease-[var(--ease-out)] group-hover/open:translate-x-0.5" />
-              </Link>
-            ) : (
-              <Link href={`/projects/new/${r.fullName}`} className={btn.primary}>
-                <DownloadSimple weight="bold" /> Import
-              </Link>
-            )}
-          </div>
-        ))}
-      </Panel>
+                ) : null,
+              )}
+            </Panel>
+          </section>
+        )}
+      </div>
 
       <form
-        className="flex items-end gap-3"
+        className="flex items-end gap-3 lg:max-w-xl"
         onSubmit={(e) => {
           e.preventDefault();
           const name = manual
