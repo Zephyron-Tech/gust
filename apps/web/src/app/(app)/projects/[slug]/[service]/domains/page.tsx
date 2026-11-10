@@ -78,8 +78,13 @@ export default function DomainsPage({ params }: { params: Promise<{ slug: string
   async function add(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    const res = await fetch(base, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ host }) });
+    const res = await fetch(base, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ host }),
+    }).catch(() => null);
     setSaving(false);
+    if (!res) return notify('Domain not added', 'Could not reach Gust. Nothing was changed. Try again.', 'err');
     const body = (await res.json().catch(() => ({}))) as { host?: string; error?: string };
     if (!res.ok) return notify('Domain not added', body.error ?? 'Try again.', 'err');
     notify(`${body.host} added`, 'Add the DNS record below. Gust takes it live as soon as it resolves here.');
@@ -94,9 +99,10 @@ export default function DomainsPage({ params }: { params: Promise<{ slug: string
       return;
     }
     setConfirm(null);
-    const res = await fetch(`${base}/${encodeURIComponent(h)}`, { method: 'DELETE' });
-    if (!res.ok) return notify('Could not remove', 'Only admins can remove domains.', 'err');
-    const body = (await res.json()) as { deploymentId: string | null };
+    const res = await fetch(`${base}/${encodeURIComponent(h)}`, { method: 'DELETE' }).catch(() => null);
+    if (!res) return notify('Could not remove', 'Could not reach Gust. Nothing was changed. Try again.', 'err');
+    const body = (await res.json().catch(() => ({}))) as { deploymentId?: string | null; error?: string };
+    if (!res.ok) return notify('Could not remove', body.error ?? 'Try again in a moment.', 'err');
     notify(`${h} removed`, body.deploymentId ? 'A production redeploy takes it off the router.' : undefined);
     void load();
   }

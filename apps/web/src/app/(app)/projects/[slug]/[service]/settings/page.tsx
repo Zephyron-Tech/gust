@@ -7,7 +7,7 @@ import { Panel } from '@/components/ui';
 import { getProject } from '@/lib/data';
 
 // Values that are literal code are set in monospace; the rest reads as prose.
-const codeKeys = new Set(['Image', 'Health path', 'Networks', 'Volume', 'Repository']);
+const codeKeys = new Set(['Image', 'Health path', 'Network', 'Volume', 'Repository']);
 
 export default async function ServiceSettingsPage({ params }: { params: Promise<{ slug: string; service: string }> }) {
   const { slug, service } = await params;
@@ -15,15 +15,16 @@ export default async function ServiceSettingsPage({ params }: { params: Promise<
   const s = project?.services.find((x) => x.name === service);
   if (!project || !s) notFound();
 
+  // The registry's public name, as images are tagged; unset in local development.
+  const registry = process.env.REGISTRY_DOMAIN;
   const rows: [string, string][] = [
     ['Repository', project.repo],
-    ['Image', s.type === 'stateful' ? s.image : `registry.gust.zephyron.tech/${s.image}`],
+    ['Image', s.type === 'stateful' || !registry ? s.image : `${registry}/${s.image}`],
     ['Type', s.type === 'app' ? 'app · blue/green without downtime' : 'stateful · one instance, restart on update'],
     ...(s.port ? ([['Port', String(s.port)]] as [string, string][]) : []),
     ...(s.healthPath ? ([['Health path', s.healthPath]] as [string, string][]) : []),
     ['Limits', `${s.cpu} CPU · ${s.memoryMb} MB`],
-    ['Keep images', '5'],
-    ['Networks', s.type === 'app' ? `gust_edge, gust_proj_${slug}` : `gust_proj_${slug}`],
+    ...(s.type === 'app' ? ([['Network', 'gust_edge']] as [string, string][]) : []),
     ...(s.type === 'stateful'
       ? ([
           ['Volume', `gust_${slug}_${s.name}_data`],

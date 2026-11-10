@@ -118,6 +118,12 @@ export const deployRequest = z.object({
 });
 export type DeployRequest = z.infer<typeof deployRequest>;
 
+/** A health check path: starts with /, URL characters only, no shell or quote characters. */
+export const HEALTH_PATH = /^\/[A-Za-z0-9._~\-/?=&%+:@,]{0,199}$/;
+
+/** A host Traefik may route: DNS labels only. Looser than HOSTNAME, so local names like hello.localhost pass. */
+export const ROUTE_HOST = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/;
+
 /* ── Engine ─────────────────────────────────────────────────────────────
    The worker sends a deploy spec; the engine answers with a stream of events. */
 
@@ -127,8 +133,10 @@ export const deploySpec = z.object({
   service: z.string().regex(/^[a-z0-9-]+$/),
   image: z.string().min(1),
   port: z.number().int().min(1).max(65535),
-  healthPath: z.string().startsWith('/').default('/'),
-  domains: z.array(z.string().min(1)).default([]),
+  // The path goes into a shell health check and the hosts into a Traefik rule,
+  // so both are held to a strict shape here, whatever the caller checked.
+  healthPath: z.string().regex(HEALTH_PATH).default('/'),
+  domains: z.array(z.string().regex(ROUTE_HOST)).default([]),
   env: z.record(z.string(), z.string()).default({}),
   cpu: z.number().positive().default(1),
   memoryMb: z.number().int().positive().default(512),

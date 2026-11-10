@@ -72,7 +72,11 @@ export default function EnvironmentPage({ params }: { params: Promise<{ slug: st
     });
 
   async function send(url: string, method: 'POST' | 'PUT', body: object) {
-    const res = await fetch(url, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const res = await fetch(url, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).catch(() => null);
+    if (!res) {
+      notify('Not saved', 'Could not reach Gust. Nothing was changed. Try again.', 'err');
+      return false;
+    }
     if (!res.ok) {
       const { error } = (await res.json().catch(() => ({}))) as { error?: string };
       notify('Not saved', error ?? 'Check the key and try again.', 'err');
@@ -83,8 +87,13 @@ export default function EnvironmentPage({ params }: { params: Promise<{ slug: st
 
   async function reveal(r: Row) {
     if (shown[r.id] !== undefined) return hide(r.id);
-    const res = await fetch(`${base}/${r.id}/reveal`, { method: 'POST' });
-    if (!res.ok) return notify('Could not reveal', 'Only admins can reveal secrets.', 'err');
+    const res = await fetch(`${base}/${r.id}/reveal`, { method: 'POST' }).catch(() => null);
+    if (!res?.ok)
+      return notify(
+        'Could not reveal',
+        res?.status === 403 ? 'Only admins can reveal secrets.' : 'Could not reach Gust. Try again.',
+        'err',
+      );
     const { value } = (await res.json()) as { value: string };
     setShown((s) => ({ ...s, [r.id]: value }));
     // Hide it again on its own after half a minute.
@@ -97,9 +106,14 @@ export default function EnvironmentPage({ params }: { params: Promise<{ slug: st
       window.setTimeout(() => setConfirm((c) => (c === r.id ? null : c)), 4000);
       return;
     }
-    const res = await fetch(`${base}/${r.id}`, { method: 'DELETE' });
+    const res = await fetch(`${base}/${r.id}`, { method: 'DELETE' }).catch(() => null);
     setConfirm(null);
-    if (!res.ok) return notify('Could not delete', 'Only admins can delete variables.', 'err');
+    if (!res?.ok)
+      return notify(
+        'Could not delete',
+        res?.status === 403 ? 'Only admins can delete variables.' : 'Could not reach Gust. Nothing was changed. Try again.',
+        'err',
+      );
     notify(`${r.key} deleted`);
     void load();
   }

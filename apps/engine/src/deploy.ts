@@ -105,7 +105,13 @@ export async function deploy(spec: DeploySpec, emit: Emit): Promise<{ ok: boolea
       LogConfig: { Type: 'json-file', Config: { 'max-size': '10m', 'max-file': '3' } },
     },
   });
-  await container.start();
+  try {
+    await container.start();
+  } catch (e) {
+    // Created but never started: do not leave it behind under the deployment's name.
+    await container.remove({ force: true }).catch(() => {});
+    throw e;
+  }
   emit({
     phase: 'start',
     state: 'starting',

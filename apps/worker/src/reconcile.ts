@@ -70,3 +70,11 @@ export async function failInterrupted() {
     .set({ state: 'failed', error: 'Interrupted: the worker restarted during this deploy', finishedAt: new Date() })
     .where(inArray(deployments.state, ['pulling', 'starting', 'healthy']));
 }
+
+/** Ends one deployment whose job threw, unless it already reached an end state. */
+export async function failCrashed(id: string) {
+  await db
+    .update(deployments)
+    .set({ state: 'failed', error: 'The worker hit an error during this deploy. See: gust logs worker', finishedAt: new Date() })
+    .where(and(eq(deployments.id, id), inArray(deployments.state, running)));
+}

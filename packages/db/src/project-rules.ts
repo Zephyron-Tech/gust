@@ -5,6 +5,8 @@ export const SLUG = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 export const REPO = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 export const DOMAIN = /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 export const BRANCH = /^[A-Za-z0-9._/-]{1,100}$/;
+/** Same shape the engine accepts (HEALTH_PATH in @gust/contracts): URL characters only. */
+export const HEALTH = /^\/[A-Za-z0-9._~\-/?=&%+:@,]{0,199}$/;
 
 export type NewProject = {
   slug: string;
@@ -51,7 +53,7 @@ export function validateNewProject(raw: Record<string, unknown>): ValidationResu
   if (!Number.isInteger(port) || port < 1 || port > 65535) errors.port = 'Port must be a whole number from 1 to 65535';
 
   const health = text(raw.healthPath);
-  if (health && (!health.startsWith('/') || health.length > 200)) errors.healthPath = 'Health path must start with /';
+  if (health && !HEALTH.test(health)) errors.healthPath = 'Health path must start with / and use URL characters only';
 
   const memory = text(raw.memoryMb) === '' ? 512 : Number(text(raw.memoryMb));
   if (!Number.isInteger(memory) || memory < 64 || memory > 65536) errors.memoryMb = 'Memory must be from 64 to 65536 MB';

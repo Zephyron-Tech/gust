@@ -2,15 +2,16 @@
 
 import { Dialog } from '@base-ui/react/dialog';
 import { Menu } from '@base-ui/react/menu';
-import { projects } from '@gust/contracts/sample';
-import { MagnifyingGlass, Moon, SignOut, Sun } from '@phosphor-icons/react/ssr';
+import type { Icon } from '@phosphor-icons/react';
+import { Cube, Eye, Gear, MagnifyingGlass, Moon, Plus, Pulse, SignOut, SquaresFour, Sun } from '@phosphor-icons/react/ssr';
 import { Command } from 'cmdk';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { authClient } from '@/lib/auth-client';
 import { useDemo } from '@/lib/demo';
-import { Kbd } from './ui';
+import { ProjectIcon } from './ProjectIcon';
+import { Dot, Kbd } from './ui';
 
 function useTheme() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -42,6 +43,9 @@ export function Topbar() {
     .slice(0, 2)
     .toUpperCase();
   const { theme, toggle } = useTheme();
+  // The hint names the key this machine has; ⌘ until the browser says otherwise.
+  const [mac, setMac] = useState(true);
+  useEffect(() => setMac(/Mac|iPhone|iPad/.test(navigator.platform)), []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -55,16 +59,16 @@ export function Topbar() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-line bg-bg px-8">
+    <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-line bg-bg px-4 lg:px-8">
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex h-10 w-[380px] items-center gap-2.5 rounded-[10px] border border-line bg-bg-2 px-3 text-[14px] text-fg-3 transition-[border-color,background-color,color] duration-150 hover:border-fg-3 hover:bg-bg-3/60 hover:text-fg-2"
+        className="flex h-10 w-full max-w-[380px] min-w-0 items-center gap-2.5 rounded-[10px] border border-line bg-bg-2 px-3 text-[14px] text-fg-3 transition-[border-color,background-color,color] duration-150 hover:border-fg-3 hover:bg-bg-3/60 hover:text-fg-2"
       >
         <MagnifyingGlass size={18} />
-        Search projects, deploys, actions
+        <span className="truncate">Search projects and actions</span>
         <span className="ml-auto">
-          <Kbd>⌘K</Kbd>
+          <Kbd>{mac ? '⌘K' : 'Ctrl K'}</Kbd>
         </span>
       </button>
       <div className="ml-auto flex items-center gap-1">
@@ -118,7 +122,7 @@ export function Topbar() {
 
 function CommandPalette({ open, onOpenChange, onTheme }: { open: boolean; onOpenChange: (v: boolean) => void; onTheme: () => void }) {
   const router = useRouter();
-  const { deploy } = useDemo();
+  const { projects } = useDemo();
   const run = (fn: () => void) => {
     onOpenChange(false);
     fn();
@@ -132,7 +136,7 @@ function CommandPalette({ open, onOpenChange, onTheme }: { open: boolean; onOpen
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/40 transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0" />
-        <Dialog.Popup className="fixed top-[18vh] left-1/2 z-50 w-[600px] -translate-x-1/2 overflow-hidden rounded-2xl border border-raised-line bg-raised shadow-pop transition-[scale,opacity] duration-200 ease-[var(--ease-out)] data-ending-style:scale-[0.97] data-ending-style:opacity-0 data-starting-style:scale-[0.97] data-starting-style:opacity-0">
+        <Dialog.Popup className="fixed top-[18vh] left-1/2 z-50 w-[min(600px,calc(100vw-32px))] -translate-x-1/2 overflow-hidden rounded-2xl border border-raised-line bg-raised shadow-pop transition-[scale,opacity] duration-200 ease-[var(--ease-out)] data-ending-style:scale-[0.97] data-ending-style:opacity-0 data-starting-style:scale-[0.97] data-starting-style:opacity-0">
           <Dialog.Title className="sr-only">Command menu</Dialog.Title>
           <Command loop>
             <div className="flex items-center gap-2.5 border-b border-raised-line px-4">
@@ -146,36 +150,51 @@ function CommandPalette({ open, onOpenChange, onTheme }: { open: boolean; onOpen
             <Command.List className="max-h-[360px] overflow-y-auto p-1.5">
               <Command.Empty className="px-3 py-6 text-center text-fg-3">Nothing found.</Command.Empty>
               <Command.Group heading="Go to" className={group}>
-                {[
-                  ['Projects', '/projects'],
-                  ['Server', '/server'],
-                  ['Observed stacks', '/observed'],
-                  ['Registry', '/registry'],
-                  ['Settings', '/settings'],
-                ].map(([l, h]) => (
-                  <Command.Item key={h} className={item} onSelect={() => run(() => router.push(h as string))}>
+                {(
+                  [
+                    ['Projects', '/projects', SquaresFour],
+                    ['Server', '/server', Pulse],
+                    ['Observed stacks', '/observed', Eye],
+                    ['Registry', '/registry', Cube],
+                    ['Settings', '/settings', Gear],
+                  ] as [string, string, Icon][]
+                ).map(([l, h, I]) => (
+                  <Command.Item key={h} className={item} onSelect={() => run(() => router.push(h))}>
+                    <I size={18} className="text-fg-3" />
                     {l}
                   </Command.Item>
                 ))}
               </Command.Group>
-              <Command.Group heading="Projects" className={group}>
-                {projects.map((p) => (
-                  <Command.Item
-                    key={p.slug}
-                    value={`project ${p.slug}`}
-                    className={item}
-                    onSelect={() => run(() => router.push(`/projects/${p.slug}/${p.services[0]?.name}/deployments`))}
-                  >
-                    {p.slug}
-                    <span className="ml-auto text-[13px] text-fg-3">{p.domain}</span>
-                  </Command.Item>
-                ))}
-              </Command.Group>
+              {projects && projects.length > 0 && (
+                <Command.Group heading="Projects" className={group}>
+                  {projects.map((p) => (
+                    <Command.Item
+                      key={p.slug}
+                      value={`project ${p.slug} ${p.domain}`}
+                      className={item}
+                      onSelect={() => run(() => router.push(p.href))}
+                    >
+                      <ProjectIcon slug={p.slug} size="sm" />
+                      {p.slug}
+                      <span className="ml-auto flex min-w-0 items-center gap-2.5 text-[13px] text-fg-3">
+                        <span className="truncate">{p.domain}</span>
+                        <Dot health={p.health} />
+                      </span>
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              )}
               <Command.Group heading="Actions" className={group}>
-                <Command.Item className={item} onSelect={() => run(() => deploy('smart-targets', 'api'))}>
-                  Redeploy smart-targets/api
+                <Command.Item
+                  className={item}
+                  value="new project import repository"
+                  onSelect={() => run(() => router.push('/projects/new'))}
+                >
+                  <Plus size={18} className="text-fg-3" />
+                  Import a repository
                 </Command.Item>
-                <Command.Item className={item} onSelect={() => run(onTheme)}>
+                <Command.Item className={item} value="toggle light dark theme" onSelect={() => run(onTheme)}>
+                  <Moon size={18} className="text-fg-3" />
                   Toggle light and dark theme
                 </Command.Item>
               </Command.Group>

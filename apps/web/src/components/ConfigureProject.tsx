@@ -234,7 +234,7 @@ export function ConfigureProject({ repo, gustDomain }: { repo: ConfigureRepo; gu
                 className={field}
                 aria-invalid={!!errors.healthPath}
               />
-              {err('healthPath') ?? <span className={hint}>Empty: Docker's own health check.</span>}
+              {err('healthPath') ?? <span className={hint}>Empty: Gust checks /.</span>}
             </label>
             <label className="block">
               <span className={label}>Memory (MB)</span>

@@ -15,7 +15,7 @@ import { parseArgs } from 'node:util';
 import { and, asc, eq } from 'drizzle-orm';
 
 import { auditEvents, db, pool, projects, services } from './index';
-import { DOMAIN, REPO, SLUG } from './project-rules';
+import { DOMAIN, HEALTH, REPO, SLUG } from './project-rules';
 
 class UsageError extends Error {}
 
@@ -72,7 +72,7 @@ function serviceFields() {
   const cpu = values.cpu === undefined ? undefined : Number(values.cpu);
   if (cpu !== undefined && !(cpu > 0 && cpu <= 64)) throw new UsageError('CPU must be a number above 0');
   const health = values.health;
-  if (health !== undefined && !health.startsWith('/')) throw new UsageError('Health path must start with /');
+  if (health !== undefined && !HEALTH.test(health)) throw new UsageError('Health path must start with / and use URL characters only');
   return {
     port: int(values.port, 'Port', 1, 65535),
     domains: values.domain === undefined ? undefined : domains(values.domain),

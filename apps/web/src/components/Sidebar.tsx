@@ -6,10 +6,12 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useRef, useState } from 'react';
 
+import { useDemo } from '@/lib/demo';
 import { useIndicator } from '@/lib/useIndicator';
 import { useServerMetrics } from '@/lib/useServerMetrics';
 import { useUpdateStatus } from '@/lib/useUpdateStatus';
 import { GustMark } from './GustMark';
+import { ProjectIcon } from './ProjectIcon';
 import { cx, Dot, Meter } from './ui';
 
 const nav: { href: string; label: string; icon: Icon }[] = [
@@ -20,13 +22,16 @@ const nav: { href: string; label: string; icon: Icon }[] = [
   { href: '/settings', label: 'Settings', icon: Gear },
 ];
 
-const pinned = [
-  { slug: 'smart-targets', href: '/projects/smart-targets/api/deployments' },
-  { slug: 'zephyron-web', href: '/projects/zephyron-web/web/deployments' },
-];
+// How many projects the sidebar lists; the Projects page has them all.
+const SHOWN = 7;
 
 export function Sidebar() {
   const path = usePathname();
+  const { projects } = useDemo();
+  // Projects on the engine first (the API's order), and the one that is open always in view.
+  const open = projects?.find((p) => path.startsWith(`/projects/${p.slug}/`) || path === `/projects/${p.slug}`);
+  const top = projects?.slice(0, SHOWN) ?? [];
+  const pinned = open && !top.includes(open) ? [...top.slice(0, SHOWN - 1), open] : top;
   const { data: metrics } = useServerMetrics('1h');
   const snap = metrics?.snapshot ?? null;
   const { status: update } = useUpdateStatus({ autoCheck: true });
@@ -48,10 +53,13 @@ export function Sidebar() {
   const item = 'group flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14.5px] transition-[background-color,color] duration-150';
 
   return (
-    <aside className="sticky top-0 flex h-svh w-[260px] shrink-0 flex-col border-r border-line bg-bg-2 px-3.5 pt-5 pb-4">
-      <Link href="/projects" className="mb-7 flex items-center gap-3 px-2.5 font-display text-[22px] font-semibold tracking-[-0.045em]">
+    <aside className="sticky top-0 flex h-svh w-[68px] shrink-0 flex-col border-r border-line bg-bg-2 px-2.5 pt-5 pb-4 lg:w-[260px] lg:px-3.5">
+      <Link
+        href="/projects"
+        className="mb-7 flex items-center gap-3 px-2 font-display lg:px-2.5 text-[22px] font-semibold tracking-[-0.045em]"
+      >
         <GustMark size={30} />
-        gust
+        <span className="max-lg:sr-only">gust</span>
       </Link>
       <nav ref={navRef} aria-label="Main" className="relative flex flex-col gap-0.5" onMouseLeave={() => setHovering(false)}>
         <span
@@ -75,10 +83,10 @@ export function Sidebar() {
               aria-current={on ? 'page' : undefined}
               className={cx('relative', item, on ? 'text-fg' : 'text-fg-2 hover:text-fg')}
             >
-              <I size={20} weight={on ? 'fill' : 'regular'} />
-              {label}
+              <I size={20} weight={on ? 'fill' : 'regular'} className="shrink-0" />
+              <span className="max-lg:sr-only">{label}</span>
               {href === '/settings' && updateAvailable && (
-                <span className="pop-in ml-auto grid size-5 place-items-center rounded-full bg-accent text-[11.5px] font-semibold text-accent-ink">
+                <span className="pop-in ml-auto grid size-5 place-items-center max-lg:absolute max-lg:-top-0.5 max-lg:-right-0.5 rounded-full bg-accent text-[11.5px] font-semibold text-accent-ink">
                   1<span className="sr-only"> update available</span>
                 </span>
               )}
@@ -86,11 +94,18 @@ export function Sidebar() {
           );
         })}
       </nav>
-      <p className="mt-7 mb-2 px-3 text-[12.5px] font-medium text-fg-3">Pinned</p>
+      <p className="mt-7 mb-2 flex items-baseline justify-between px-3 text-[12.5px] font-medium text-fg-3 max-lg:hidden">
+        Your projects
+        {projects && projects.length > pinned.length && (
+          <Link href="/projects" className="font-normal transition-colors hover:text-fg-2">
+            all {projects.length}
+          </Link>
+        )}
+      </p>
       <nav
         ref={pinnedRef}
-        aria-label="Pinned projects"
-        className="relative flex flex-col gap-0.5"
+        aria-label="Your projects"
+        className="relative flex min-h-0 flex-col gap-0.5 overflow-y-auto max-lg:hidden"
         onMouseLeave={() => setPinnedHovering(false)}
       >
         <span
@@ -107,17 +122,31 @@ export function Sidebar() {
               setPinnedHovered(p.slug);
               setPinnedHovering(true);
             }}
-            className={cx('relative', item, path.startsWith(`/projects/${p.slug}`) ? 'bg-bg-3 text-fg' : 'text-fg-2 hover:text-fg')}
+            aria-current={p === open ? 'page' : undefined}
+            className={cx('relative py-2', item, p === open ? 'bg-bg-3 text-fg' : 'text-fg-2 hover:text-fg')}
           >
-            <Dot health="live" />
-            {p.slug}
+            <ProjectIcon slug={p.slug} size="sm" />
+            <span className="min-w-0 flex-1 truncate">{p.slug}</span>
+            <Dot health={p.health} />
           </Link>
         ))}
+        {projects === null &&
+          [68, 52, 60].map((w) => (
+            <span key={w} className="flex items-center gap-3 px-3 py-2">
+              <span className="skeleton size-6 rounded-md" />
+              <span className="skeleton h-3" style={{ width: `${w}%` }} />
+            </span>
+          ))}
+        {projects?.length === 0 && (
+          <Link href="/projects/new" className={cx(item, 'text-fg-3 hover:text-fg')}>
+            Import your first repository
+          </Link>
+        )}
       </nav>
 
       <Link
         href="/server"
-        className="mt-auto grid gap-2.5 rounded-xl bg-bg-3/60 px-3.5 py-3.5 text-[13px] text-fg-3 transition-colors hover:text-fg-2"
+        className="mt-auto grid shrink-0 gap-2.5 rounded-xl bg-bg-3/60 px-3.5 py-3.5 text-[13px] text-fg-3 transition-colors hover:text-fg-2 max-lg:hidden"
       >
         <span className="flex justify-between">
           <span className="font-medium text-fg-2">{metrics?.facts?.os ?? '-'}</span>

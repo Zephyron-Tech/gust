@@ -6,6 +6,7 @@ import { eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { requireUser } from '@/lib/auth';
+import { getProjects } from '@/lib/data';
 import { ownerAllowed } from '@/lib/github-repo-logic';
 
 export const dynamic = 'force-dynamic';
@@ -26,12 +27,24 @@ const id = (prefix: string) => `${prefix}_${crypto.randomUUID().replace(/-/g, ''
 // Creates a project with its first service from an imported repository. It
 // is served on <slug>.<GUST_DOMAIN> right away; a custom domain, when given,
 // waits for its DNS like one added in the Domains tab. Admins only.
-// Slug and engine flag of every project, for the UI to tell real deploys from sample ones.
+// Every project in short, for the sidebar, the command menu and to tell real
+// deploys from sample ones: its health and the page its name links to.
 export async function GET(req: Request) {
   const u = await requireUser(req);
   if (u instanceof Response) return u;
-  const rows = await db.select({ slug: projects.slug, engine: projects.engine }).from(projects);
-  return Response.json(rows);
+  const list = await getProjects();
+  return Response.json(
+    list.map((p) => {
+      const first = p.services.find((s) => s.type === 'app') ?? p.services[0];
+      return {
+        slug: p.slug,
+        engine: p.engine === true,
+        health: p.health,
+        domain: p.domain,
+        href: first ? `/projects/${p.slug}/${first.name}/${first.type === 'stateful' ? 'settings' : 'deployments'}` : `/projects/${p.slug}`,
+      };
+    }),
+  );
 }
 
 export async function POST(req: Request) {

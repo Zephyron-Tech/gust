@@ -180,3 +180,22 @@ html {
 .fade-in {
   animation: fade-in 200ms ease-out both;
 }
+
+/* A placeholder for content that is on its way: a slow sweep, not a blink. */
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+.skeleton {
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--g-bg-3) 25%, var(--g-line) 37%, var(--g-bg-3) 63%) 0 0 / 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+/* Hover motion only where there is a real pointer; a tap must not leave a card lifted. */
+@media (hover: none) {
+  .hover-lift:hover {
+    translate: none;
+  }
+}

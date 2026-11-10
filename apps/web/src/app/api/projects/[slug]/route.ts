@@ -100,6 +100,8 @@ export async function DELETE(req: Request, { params }: Ctx) {
   for (const c of containers) {
     const res = await engineFetch(`/v1/containers/${c.id}`, { method: 'DELETE' }).catch(() => null);
     if (!res?.ok) {
+      // Back on the engine, so the project keeps working (and being restored) until the delete is tried again.
+      if (project.engine) await db.update(projects).set({ engine: true }).where(eq(projects.id, project.id));
       return Response.json(
         { error: 'Could not remove a container. The project is kept, so the same request can run again.' },
         { status: 502 },

@@ -93,33 +93,41 @@ export async function runDeploy(id: string) {
   const decoder = new TextDecoder();
   let buf = '';
   let ok = false;
-  for await (const chunk of res.body) {
-    buf += decoder.decode(chunk, { stream: true });
-    for (let i = buf.indexOf('\n\n'); i >= 0; i = buf.indexOf('\n\n')) {
-      const frame = buf.slice(0, i);
-      buf = buf.slice(i + 2);
-      const event = /^event: (.*)$/m.exec(frame)?.[1];
-      const data = /^data: (.*)$/m.exec(frame)?.[1];
-      if (!data) continue;
-      const e = JSON.parse(data);
-      if (event === 'deploy') {
-        await log(e.phase, e.line, new Date(e.ts));
-        const patch: Partial<typeof deployments.$inferInsert> = {};
-        if (e.state) patch.state = e.state;
-        if (e.containerId) patch.containerId = e.containerId;
-        if (e.phase === 'fail') patch.error = e.line;
-        if (Object.keys(patch).length) await db.update(deployments).set(patch).where(eq(deployments.id, id));
+  try {
+    for await (const chunk of res.body) {
+      buf += decoder.decode(chunk, { stream: true });
+      for (let i = buf.indexOf('\n\n'); i >= 0; i = buf.indexOf('\n\n')) {
+        const frame = buf.slice(0, i);
+        buf = buf.slice(i + 2);
+        const event = /^event: (.*)$/m.exec(frame)?.[1];
+        const data = /^data: (.*)$/m.exec(frame)?.[1];
+        if (!data) continue;
+        const e = JSON.parse(data);
+        if (event === 'deploy') {
+          await log(e.phase, e.line, new Date(e.ts));
+          const patch: Partial<typeof deployments.$inferInsert> = {};
+          if (e.state) patch.state = e.state;
+          if (e.containerId) patch.containerId = e.containerId;
+          if (e.phase === 'fail') patch.error = e.line;
+          if (Object.keys(patch).length) await db.update(deployments).set(patch).where(eq(deployments.id, id));
+        }
+        if (event === 'done') ok = Boolean(e.ok);
       }
-      if (event === 'done') ok = Boolean(e.ok);
     }
+  } catch (e) {
+    // The engine went away mid-deploy (restart, crash). Without this the row
+    // would stay "starting" until the worker itself restarts.
+    return fail(`Lost the engine during the deploy: ${(e as Error).message.split('\n')[0]?.slice(0, 200)}`);
   }
 
   const now = new Date();
   if (!ok) {
-    await db.update(deployments).set({ state: 'failed', finishedAt: now }).where(eq(deployments.id, id));
     const [last] = await db.select({ error: deployments.error }).from(deployments).where(eq(deployments.id, id));
-    await report('failure', last?.error);
-    await notifyDiscord(deployFailedText(p.slug, svc.name, d.tag, last?.error));
+    // The engine names the reason in a fail event; a stream that ended without one still needs a reason to show.
+    const error = last?.error ?? 'The engine ended the deploy without a result. See: gust logs engine';
+    await db.update(deployments).set({ state: 'failed', error, finishedAt: now }).where(eq(deployments.id, id));
+    await report('failure', error);
+    await notifyDiscord(deployFailedText(p.slug, svc.name, d.tag, error));
     return;
   }
   await db.transaction(async (tx) => {

@@ -100,7 +100,7 @@ function DeployDialog({ project, service, image }: { project: string; service: s
     if (!open) return;
     setTags(null);
     fetch(`/api/registry/tags?repo=${encodeURIComponent(image)}`)
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : { tags: [] }))
       .then((b: { tags?: string[] }) => {
         const list = b.tags ?? [];
         setTags(list);
@@ -123,10 +123,18 @@ function DeployDialog({ project, service, image }: { project: string; service: s
           <Dialog.Description className="mt-1 text-[14px] text-fg-3">
             Pick an image from the registry. The engine starts it next to the running one and switches over without dropping requests.
           </Dialog.Description>
-          <fieldset className="mt-5 space-y-1.5" aria-label="Image tag">
-            {tags === null && <p className="py-3 text-[14px] text-fg-3">Loading tags from the registry…</p>}
+          <fieldset className="mt-5 max-h-[46vh] space-y-1.5 overflow-y-auto" aria-label="Image tag">
+            {tags === null && (
+              <div role="status" aria-busy="true" aria-label="Loading tags from the registry" className="space-y-1.5">
+                <span className="skeleton block h-[46px] rounded-xl" />
+                <span className="skeleton block h-[46px] rounded-xl" />
+              </div>
+            )}
             {tags?.length === 0 && (
-              <p className="py-3 text-[14px] text-fg-3">No tags for {image}. Run `pnpm infra:demo` to push the demo images.</p>
+              <p className="py-3 text-[14px] text-fg-3">
+                No images of <span className="font-mono text-[13px]">{image}</span> in the registry yet. The first push from GitHub Actions
+                builds one.
+              </p>
             )}
             {tags?.map((t) => (
               <label
@@ -174,8 +182,18 @@ export function EngineNotice() {
   if (engineUp !== false) return null;
   return (
     <p className="fade-in rounded-2xl border border-warn/35 bg-warn/10 px-5 py-3.5 text-[14.5px]">
-      The engine is not answering. Start it with <span className="font-mono text-[13px]">pnpm dev:engine</span> and the dev stack with{' '}
-      <span className="font-mono text-[13px]">pnpm infra:up</span>.
+      The engine is not answering, so deploys and live logs wait. Running apps keep serving.{' '}
+      {process.env.NODE_ENV === 'production' ? (
+        <>
+          On the server run <span className="font-mono text-[13px]">gust status</span>, then{' '}
+          <span className="font-mono text-[13px]">gust logs engine</span>.
+        </>
+      ) : (
+        <>
+          Start it with <span className="font-mono text-[13px]">pnpm dev:engine</span> and the dev stack with{' '}
+          <span className="font-mono text-[13px]">pnpm infra:up</span>.
+        </>
+      )}
     </p>
   );
 }

@@ -4,6 +4,7 @@ import {
   branchLabel,
   deployment,
   deployRequest,
+  deploySpec,
   deployTarget,
   environmentOf,
   HOSTNAME,
@@ -121,5 +122,25 @@ describe('HOSTNAME', () => {
   it('rejects wildcards, capitals, ports and bad dashes', () => {
     for (const h of ['*.zephyron.tech', 'Zephyron.tech', 'app.zephyron.tech:443', '-app.x.cz', 'app-.x.cz', 'localhost', 'http://a.cz'])
       expect(HOSTNAME.test(h)).toBe(false);
+  });
+});
+
+describe('deploySpec', () => {
+  const spec = { deploymentId: 'dpl_abc123', project: 'demo', service: 'hello', image: 'localhost:5050/demo/hello:v1', port: 3000 };
+
+  it('accepts ordinary health paths and hosts, local ones too', () => {
+    for (const healthPath of ['/', '/healthz', '/api/health?probe=1&deep=true'])
+      expect(deploySpec.safeParse({ ...spec, healthPath }).success).toBe(true);
+    expect(deploySpec.safeParse({ ...spec, domains: ['hello.localhost', 'app.example.cz'] }).success).toBe(true);
+  });
+
+  it('refuses a health path that could carry a shell command', () => {
+    for (const healthPath of ['/; rm -rf /', '/$(id)', '/`id`', '/a b', "/'", '/a|b', 'healthz'])
+      expect(deploySpec.safeParse({ ...spec, healthPath }).success).toBe(false);
+  });
+
+  it('refuses a host that could break out of a Traefik rule', () => {
+    for (const host of ['a.cz`) || PathPrefix(`/', '*.example.cz', 'App.cz', 'a.cz:80', ''])
+      expect(deploySpec.safeParse({ ...spec, domains: [host] }).success).toBe(false);
   });
 });

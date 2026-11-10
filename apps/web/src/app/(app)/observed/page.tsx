@@ -11,6 +11,10 @@ export default function ObservedPage() {
   return (
     <div className="view-in space-y-7">
       <PageHead title="Observed stacks" sub="Docker Compose projects in /opt/docker. Gust shows them and can restart them, nothing else." />
+      <p className="rounded-2xl border border-line bg-bg-2 px-5 py-3.5 text-[14px] text-fg-2">
+        <span className="mr-2 rounded-md bg-bg-3 px-2 py-1 text-[12.5px] leading-none font-medium">sample</span>
+        This page is not connected to the server yet. The stacks below are example data, and Restart changes nothing.
+      </p>
       <Table head={['Stack', 'Domain', 'Containers', 'Memory', 'Status', '']}>
         {observed.map((o) => (
           <tr key={o.name}>
@@ -34,7 +38,7 @@ export default function ObservedPage() {
               <button
                 type="button"
                 className={btn.secondary}
-                onClick={() => notify(`${o.name} restarted`, 'All containers of the stack are healthy again.')}
+                onClick={() => notify('Sample data', `${o.name} is an example; nothing was restarted.`)}
               >
                 Restart
               </button>

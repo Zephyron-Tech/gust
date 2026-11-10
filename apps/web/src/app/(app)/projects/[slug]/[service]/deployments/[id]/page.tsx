@@ -1,7 +1,7 @@
 'use client';
 
 import { type Deployment, environmentOf, RUNNING_STATES } from '@gust/contracts';
-import { ArrowCounterClockwise, Check, X } from '@phosphor-icons/react/ssr';
+import { ArrowCounterClockwise, ArrowSquareOut, Check, X } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
 import { use, useEffect, useRef } from 'react';
 import { Ago } from '@/components/Ago';
@@ -24,8 +24,11 @@ export default function DeploymentPage({ params }: { params: Promise<{ slug: str
   const real = isEngine(slug);
   const detail = useDeploymentDetail(id, real);
   const listed = deployments.find((x) => x.id === id);
-  // Real deploys: the polled row with its log; the list entry keeps the state fresh afterwards.
-  const d = real ? (detail ? { ...detail, state: listed?.state ?? detail.state } : listed) : listed;
+  // Real deploys: the polled row with its log. Once it has ended, the list entry
+  // keeps the state fresh (live becomes superseded); while the list still says
+  // "running" it is the older of the two, so the row's own state wins.
+  const listedState = listed && !RUNNING_STATES.includes(listed.state) ? listed.state : undefined;
+  const d = real ? (detail ? { ...detail, state: listedState ?? detail.state } : listed) : listed;
   const logRef = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
   const lines = d?.logs.length ?? 0;
@@ -38,16 +41,35 @@ export default function DeploymentPage({ params }: { params: Promise<{ slug: str
 
   if (!d) {
     return (
-      <p className="text-fg-2">
-        {real ? 'Loading this deployment…' : 'This deployment is not in the sample data.'}{' '}
-        <Link className="text-accent" href={`/projects/${slug}/${service}/deployments`}>
+      <div className="fade-in space-y-6 [animation-delay:200ms]">
+        {real ? (
+          <div role="status" aria-busy="true" aria-label="Loading this deployment" className="space-y-6">
+            <span className="skeleton block h-8 w-2/5" />
+            <span className="skeleton block h-[74px] rounded-2xl" />
+            <span className="skeleton block h-[460px] rounded-2xl" />
+          </div>
+        ) : (
+          <p className="text-fg-2">This deployment is not in the sample data.</p>
+        )}
+        <Link className="text-[14px] text-accent" href={`/projects/${slug}/${service}/deployments`}>
           Back to deployments
         </Link>
-      </p>
+      </div>
     );
   }
 
   const pi = phase(d);
+  // What the failure note may promise: an older deploy of the same environment that still serves.
+  const env = environmentOf(d);
+  const previousLive = deployments.some(
+    (x) =>
+      x.project === slug &&
+      x.service === service &&
+      x.id !== d.id &&
+      x.state === 'live' &&
+      environmentOf(x).kind === env.kind &&
+      (env.kind === 'production' || x.branch === d.branch),
+  );
   const running = RUNNING_STATES.includes(d.state);
 
   return (
@@ -67,7 +89,7 @@ export default function DeploymentPage({ params }: { params: Promise<{ slug: str
         <div className="flex shrink-0 items-center gap-2">
           {d.previewUrl && (
             <a href={d.previewUrl} target="_blank" rel="noreferrer" className={btn.secondary}>
-              Open preview
+              Open preview <ArrowSquareOut />
             </a>
           )}
           {/* Rollbacks stay on production; a preview is replaced by the next push to its branch. */}
@@ -112,7 +134,12 @@ export default function DeploymentPage({ params }: { params: Promise<{ slug: str
 
       {d.error && (
         <p className="fade-in rounded-2xl border border-err/35 bg-err/10 px-5 py-3.5 text-[14.5px]">
-          {d.error}. The previous deployment is still live.
+          {d.error.replace(/\.+$/, '')}.{' '}
+          {previousLive
+            ? 'The previous deployment is still live.'
+            : environmentOf(d).kind === 'production'
+              ? 'Nothing was live before this deploy, so the service is not serving yet.'
+              : 'This preview has no earlier deploy to fall back on.'}
         </p>
       )}
 
@@ -137,6 +164,7 @@ export default function DeploymentPage({ params }: { params: Promise<{ slug: str
             </div>
           );
         })}
+        {d.logs.length === 0 && !running && <p className="text-[#5d5c74]">No log lines were recorded for this deployment.</p>}
         {running && <span className="inline-block h-3.5 w-[7px] animate-pulse bg-[#8b80ff] align-[-2px]" />}
       </div>
     </div>

@@ -5,7 +5,7 @@ import { PgBoss } from 'pg-boss';
 
 import { runDeploy } from './deploy';
 import { checkDomains } from './domains';
-import { failInterrupted, reconcile } from './reconcile';
+import { failCrashed, failInterrupted, reconcile } from './reconcile';
 
 const log = (line: string) => console.log(`${new Date().toISOString()} ${line}`);
 
@@ -21,8 +21,15 @@ await failInterrupted();
 await boss.work<DeployJob>(QUEUES.deploy, { batchSize: 1, localConcurrency: 4, pollingIntervalSeconds: 0.5 }, async ([job]) => {
   if (!job) return;
   log(`deploy ${job.data.deploymentId}`);
-  await runDeploy(job.data.deploymentId);
-  log(`deploy ${job.data.deploymentId} done`);
+  try {
+    await runDeploy(job.data.deploymentId);
+    log(`deploy ${job.data.deploymentId} done`);
+  } catch (e) {
+    // Anything runDeploy did not handle itself (database gone for a moment, a
+    // bug): the deployment must still end, or its service stays "busy" forever.
+    log(`deploy ${job.data.deploymentId} crashed: ${(e as Error).message}`);
+    await failCrashed(job.data.deploymentId).catch((err) => log(`could not mark it failed: ${(err as Error).message}`));
+  }
 });
 
 const every = Number(process.env.RECONCILE_EVERY_S ?? 20) * 1000;

@@ -62,6 +62,13 @@ describe('validateNewProject', () => {
     expect(r.ok && r.value.healthPath).toBe('/healthz');
   });
 
+  it('rejects a health path with shell or quote characters', () => {
+    for (const healthPath of ['/; reboot', '/$(id)', '/a b', '/"x"']) {
+      const r = validateNewProject({ ...valid, healthPath });
+      expect(!r.ok && r.errors.healthPath).toBeTruthy();
+    }
+  });
+
   it('rejects memory and cpu outside the limits', () => {
     const r = validateNewProject({ ...valid, memoryMb: '10', cpu: '0' });
     expect(!r.ok && Object.keys(r.errors).sort()).toEqual(['cpu', 'memoryMb']);

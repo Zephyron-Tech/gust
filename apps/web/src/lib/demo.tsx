@@ -5,7 +5,7 @@
 // store polls the rows while the tab is visible. Everything else is sample
 // data played through the same states in the browser.
 import { Toast } from '@base-ui/react/toast';
-import { type Deployment, type DeployState, environmentOf, RUNNING_STATES } from '@gust/contracts';
+import { type Deployment, type DeployState, environmentOf, type Health, RUNNING_STATES } from '@gust/contracts';
 import { nextCommits, projects, deployments as seed } from '@gust/contracts/sample';
 import { usePathname, useRouter } from 'next/navigation';
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -37,6 +37,9 @@ export function useDeploymentDetail(id: string, enabled: boolean) {
 
 export type UiDeployment = Deployment & { containerId?: string; engine?: boolean };
 
+/** A project as the sidebar and the command menu list it. */
+export type ProjectLink = { slug: string; engine: boolean; health: Health; domain: string; href: string };
+
 // Before the server's answer arrives, the sample data decides.
 const sampleIsEngine = (project: string) => projects.some((p) => p.slug === project && p.engine);
 
@@ -48,6 +51,8 @@ interface Demo {
   deploy: (project: string, service: string, rollbackOf?: Deployment, tag?: string, branch?: string | null) => void;
   /** Whether a project deploys through the engine, from the database. */
   isEngine: (project: string) => boolean;
+  /** Every project, from the database; null until the first answer. */
+  projects: ProjectLink[] | null;
   /** null while loading, false when the engine does not answer. */
   engineUp: boolean | null;
   failNext: boolean;
@@ -67,10 +72,13 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const [sim, setDeployments] = useState<UiDeployment[]>(seed);
   const [real, setReal] = useState<UiDeployment[]>([]);
   const [engineUp, setEngineUp] = useState<boolean | null>(null);
-  const [engineSlugs, setEngineSlugs] = useState<Set<string> | null>(null);
+  const [projectList, setProjectList] = useState<ProjectLink[] | null>(null);
+  const engineSlugs = useMemo(() => (projectList ? new Set(projectList.filter((p) => p.engine).map((p) => p.slug)) : null), [projectList]);
   const pathname = usePathname();
   const deployments = useMemo(() => [...real, ...sim], [real, sim]);
   const watching = useRef(new Set<string>());
+  // Asks for the deployment list now; set by the polling effect below.
+  const refresh = useRef<() => void>(() => {});
   const [failNext, setFailNext] = useState(false);
   const timers = useRef<number[]>([]);
   const seq = useRef(0);
@@ -93,8 +101,8 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     fetch('/api/projects')
       .then((r) => (r.ok ? r.json() : null))
-      .then((list: { slug: string; engine: boolean }[] | null) => {
-        if (list) setEngineSlugs(new Set(list.filter((p) => p.engine).map((p) => p.slug)));
+      .then((list: ProjectLink[] | null) => {
+        if (Array.isArray(list)) setProjectList(list);
       })
       .catch(() => null);
   }, [pathname]);
@@ -114,11 +122,11 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let off = false;
     const load = async () => {
-      if (document.hidden) return;
+      if (document.hidden) return null;
       const list = (await fetch('/api/deployments')
         .then((r) => (r.ok ? r.json() : []))
         .catch(() => [])) as UiDeployment[];
-      if (off) return;
+      if (off) return null;
       setReal(list);
       for (const d of list) {
         if (!watching.current.has(d.id) || RUNNING_STATES.includes(d.state)) continue;
@@ -128,14 +136,35 @@ export function DemoProvider({ children }: { children: ReactNode }) {
             `${d.project}/${d.service} is live`,
             `${d.trigger === 'rollback' ? 'Rolled back to' : 'Deployed'} ${d.sha} in ${d.duration ?? '?'}.`,
           );
-        else notify('Deploy failed', `${d.project}/${d.service}: ${d.error ?? 'see the log'}. The previous version keeps serving.`, 'err');
+        else notify('Deploy failed', `${d.project}/${d.service}: ${(d.error ?? 'see the log').replace(/\.+$/, '')}.`, 'err');
       }
+      return list;
     };
-    void load();
-    const id = window.setInterval(load, 1200);
+    // Quick while a deploy moves, slow when nothing does: an idle tab should
+    // not ask the database every second all day.
+    let timer = 0;
+    const loop = async () => {
+      const list = await load();
+      if (off) return;
+      const moving = list?.some((d) => RUNNING_STATES.includes(d.state)) || watching.current.size > 0;
+      timer = window.setTimeout(loop, moving ? 1200 : 5000);
+    };
+    void loop();
+    // Back on the tab: catch up at once instead of waiting out the slow timer.
+    const onVisible = () => {
+      if (document.hidden) return;
+      clearTimeout(timer);
+      void loop();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    refresh.current = () => {
+      clearTimeout(timer);
+      void loop();
+    };
     return () => {
       off = true;
-      clearInterval(id);
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [notify]);
 
@@ -248,12 +277,13 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       return;
     }
     watching.current.add(body.id);
+    refresh.current();
     router.push(`/projects/${project}/${service}/deployments/${body.id}`);
   }
 
   const value = useMemo(
-    () => ({ deployments, busy, deploy, isEngine, engineUp, failNext, setFailNext, notify }),
-    [deployments, busy, deploy, isEngine, engineUp, failNext, notify],
+    () => ({ deployments, busy, deploy, isEngine, projects: projectList, engineUp, failNext, setFailNext, notify }),
+    [deployments, busy, deploy, isEngine, projectList, engineUp, failNext, notify],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

@@ -34,8 +34,19 @@ app.post('/v1/deployments', async (c) => {
   const parsed = deploySpec.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) return c.json({ error: parsed.error.issues }, 400);
   return streamSSE(c, async (stream) => {
-    const result = await deploy(parsed.data, (e) => {
+    const emit = (e: Parameters<Parameters<typeof deploy>[1]>[0]) => {
       void stream.writeSSE({ event: 'deploy', data: JSON.stringify({ ts: new Date().toISOString(), ...e }) });
+    };
+    // A Docker error mid-deploy (bad image config, no memory) must reach the
+    // deployment's log as the reason, not end the stream without a word.
+    const result = await deploy(parsed.data, emit).catch((e: Error) => {
+      console.error(`${new Date().toISOString()} deploy ${parsed.data.deploymentId}: ${e.message}`);
+      emit({
+        phase: 'fail',
+        state: 'failed',
+        line: `The engine could not start the container: ${e.message.split('\n')[0]?.slice(0, 300)}`,
+      });
+      return { ok: false };
     });
     await stream.writeSSE({ event: 'done', data: JSON.stringify(result) });
   });
@@ -58,30 +69,43 @@ app.get('/v1/containers', async (c) => {
   );
 });
 
+/**
+ * The container behind an id, only when Gust manages it. The engine's token
+ * must never reach other containers on the host (Postgres, Traefik, the
+ * registry): their logs hold secrets and stopping them takes Gust down.
+ */
+async function managed(id: string) {
+  if (!/^[a-f0-9]{12,64}$/.test(id)) return null;
+  const container = docker.getContainer(id);
+  const info = await container.inspect().catch(() => null);
+  return info?.Config.Labels?.[LABEL.managed] === 'true' ? container : null;
+}
+
 app.post('/v1/containers/:id/stop', async (c) => {
-  await docker.getContainer(c.req.param('id')).stop({ t: 15 });
+  const container = await managed(c.req.param('id'));
+  if (!container) return c.json({ error: 'Not a container Gust manages' }, 404);
+  await container.stop({ t: 15 });
   return c.json({ ok: true });
 });
 
 // Removes a container, stopping it first if it runs. Volumes stay: stateful data
 // is kept until someone removes it on purpose.
 app.delete('/v1/containers/:id', async (c) => {
-  await docker.getContainer(c.req.param('id')).remove({ force: true, v: false });
+  const container = await managed(c.req.param('id'));
+  if (!container) return c.json({ error: 'Not a container Gust manages' }, 404);
+  await container.remove({ force: true, v: false });
   return c.json({ ok: true });
 });
 
 // Live logs of a container as SSE. Docker multiplexes stdout and stderr into
 // frames with an 8-byte header; demux splits them back into lines.
-app.get('/v1/containers/:id/logs', (c) =>
-  streamSSE(c, async (stream) => {
-    const container = docker.getContainer(c.req.param('id'));
-    const raw = await container.logs({
-      follow: true,
-      stdout: true,
-      stderr: true,
-      tail: Number(c.req.query('tail') ?? 200),
-      timestamps: true,
-    });
+app.get('/v1/containers/:id/logs', async (c) => {
+  const container = await managed(c.req.param('id'));
+  if (!container) return c.json({ error: 'Not a container Gust manages' }, 404);
+  const asked = Number(c.req.query('tail') ?? 200);
+  const tail = Number.isInteger(asked) ? Math.min(Math.max(asked, 0), 2000) : 200;
+  return streamSSE(c, async (stream) => {
+    const raw = await container.logs({ follow: true, stdout: true, stderr: true, tail, timestamps: true });
     const { PassThrough } = await import('node:stream');
     const out = new PassThrough();
     docker.modem.demuxStream(raw, out, out);
@@ -99,8 +123,14 @@ app.get('/v1/containers/:id/logs', (c) =>
       });
       raw.on('end', () => resolve());
     });
-  }),
-);
+  });
+});
+
+// Docker errors carry request details; the caller gets a short reason, the log the rest.
+app.onError((err, c) => {
+  console.error(`${new Date().toISOString()} ${c.req.method} ${c.req.path}: ${err.message}`);
+  return c.json({ error: 'The engine could not do this. See the engine log.' }, 500);
+});
 
 const port = Number(process.env.PORT ?? 4100);
 serve({ fetch: app.fetch, port, hostname: process.env.HOST ?? '127.0.0.1' }, () => {
