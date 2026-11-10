@@ -6,7 +6,16 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!**/.next", "!**/dist", "!packages/brand/png", "!.claude", "!skills-lock.json", "!packages/brand/svg", "!packages/db/drizzle"]
+    "includes": [
+      "**",
+      "!**/.next",
+      "!**/dist",
+      "!packages/brand/png",
+      "!.claude",
+      "!skills-lock.json",
+      "!packages/brand/svg",
+      "!packages/db/drizzle"
+    ]
   },
   "formatter": {
     "enabled": true,
