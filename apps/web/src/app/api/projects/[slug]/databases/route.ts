@@ -19,7 +19,7 @@ export async function GET(req: Request, { params }: Ctx) {
   return Response.json(await listProjectDatabases(slug));
 }
 
-const body = z.object({ name: z.string().min(1).max(40) });
+const body = z.object({ name: z.string().min(1).max(40), kind: z.enum(['postgres', 'redis']).default('postgres') });
 
 // Admins only. Creates the row and queues the job; the worker creates the database.
 export async function POST(req: Request, { params }: Ctx) {
@@ -33,7 +33,14 @@ export async function POST(req: Request, { params }: Ctx) {
 
   let row: { id: string; name: string; database: string };
   try {
-    row = await insertDatabaseRow({ projectId: project.id, slug, name: parsed.data.name, actor: u.email, action: 'database.create' });
+    row = await insertDatabaseRow({
+      projectId: project.id,
+      slug,
+      name: parsed.data.name,
+      kind: parsed.data.kind,
+      actor: u.email,
+      action: 'database.create',
+    });
   } catch (e) {
     if (e instanceof DuplicateDatabase) return Response.json({ error: e.message }, { status: 409 });
     if (e instanceof Error && !(e as { code?: string }).code) return Response.json({ error: e.message }, { status: 400 });
@@ -46,5 +53,8 @@ export async function POST(req: Request, { params }: Ctx) {
     await markFailed(row.id, 'Could not queue the job. Delete it and create it again.');
     return Response.json({ error: 'Could not reach the worker queue. Try again.' }, { status: 503 });
   }
-  return Response.json({ id: row.id, name: row.name, database: row.database, state: 'provisioning' }, { status: 201 });
+  return Response.json(
+    { id: row.id, name: row.name, database: row.database, kind: parsed.data.kind, state: 'provisioning' },
+    { status: 201 },
+  );
 }

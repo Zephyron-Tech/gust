@@ -19,6 +19,8 @@ export const deployTrigger = pgEnum('deploy_trigger', ['push', 'rollback', 'manu
 export const envScope = pgEnum('env_scope', ['all', 'production', 'preview']);
 /** A custom production domain on its way to serving: DNS first, then a deploy, then HTTPS. */
 export const databaseState = pgEnum('database_state', ['provisioning', 'ready', 'failed', 'deleting']);
+/** What a project database is: a Postgres database or a Redis keyspace with its own ACL user. */
+export const databaseKind = pgEnum('database_kind', ['postgres', 'redis']);
 
 export const domainState = pgEnum('domain_state', ['pending_dns', 'applying', 'live', 'error']);
 
@@ -172,6 +174,7 @@ export const projectDatabases = pgTable(
     role: text('role').notNull().unique(),
     /** AES-256-GCM, same format as env secrets. The plain password is never stored. */
     passwordEncrypted: text('password_encrypted').notNull(),
+    kind: databaseKind('kind').notNull().default('postgres'),
     state: databaseState('state').notNull().default('provisioning'),
     error: text('error'),
     createdAt: createdAt(),

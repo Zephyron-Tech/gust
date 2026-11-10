@@ -9,7 +9,8 @@
     "./queue": "./src/queue.ts",
     "./secrets": "./src/secrets.ts",
     "./project-rules": "./src/project-rules.ts",
-    "./postgres-admin": "./src/postgres-admin.ts"
+    "./postgres-admin": "./src/postgres-admin.ts",
+    "./redis-admin": "./src/redis-admin.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",

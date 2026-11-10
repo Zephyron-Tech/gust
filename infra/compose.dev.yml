@@ -81,6 +81,22 @@ services:
       timeout: 3s
       retries: 10
 
+  # Redis for project databases. Gust's worker logs in as the admin (requirepass)
+  # and makes one ACL user per database, limited to its key prefix.
+  # ACL users live in memory: a restart drops them. Fine on dev; prod needs an aclfile.
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: [redis-server, --requirepass, gust-dev-redis]
+    networks: [gust_internal, gust_data]
+    ports:
+      - 127.0.0.1:6380:6379
+    healthcheck:
+      test: [CMD-SHELL, "redis-cli -a gust-dev-redis --no-auth-warning ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   # OCI registry. Docker treats localhost registries as trusted, so
   # `docker push localhost:5050/demo/hello:v1` works without TLS in dev.
   zot:

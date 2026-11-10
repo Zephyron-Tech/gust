@@ -14,7 +14,8 @@
     "@gust/db": "workspace:*",
     "drizzle-orm": "0.45.4",
     "jose": "6.2.15",
-    "pg-boss": "12.38.0"
+    "pg-boss": "12.38.0",
+    "redis": "6.2.1"
   },
   "devDependencies": {
     "@types/node": "24.19.2",

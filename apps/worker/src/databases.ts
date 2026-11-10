@@ -1,4 +1,4 @@
-// Project databases on the shared Postgres cluster: create, delete, back up, and
+// Project databases on the shared Postgres cluster and Redis: create, delete, back up, and
 // recover what a restart interrupted. Every SQL statement comes from
 // @gust/db/postgres-admin and runs as the cluster admin, one at a time.
 import { spawn } from 'node:child_process';
@@ -9,15 +9,20 @@ import { resolve } from 'node:path';
 import { auditEvents, db, envVars, pool, projectDatabases, projects, services } from '@gust/db';
 import { connectionUrl, createStatements, type DbPlan, dropStatements, randomPassword, rotateStatements } from '@gust/db/postgres-admin';
 import { enqueueDatabase } from '@gust/db/queue';
+import { redisConnectionUrl } from '@gust/db/redis-admin';
 import { decryptSecret, encryptSecret } from '@gust/db/secrets';
 import { and, eq, inArray } from 'drizzle-orm';
 
 import { expiredDumps, isInside, restoreArgs } from './backup-files';
+import { deleteRedisKeys, deleteRedisUser, setRedisUser } from './redis';
 
 type Log = (line: string) => void;
 
-/** The env variable an app gets for a database: `DATABASE_URL` for `main`, else `DATABASE_URL_<NAME>`. */
-export const envKeyFor = (name: string) => (name === 'main' ? 'DATABASE_URL' : `DATABASE_URL_${name.toUpperCase()}`);
+/** The env variable an app gets for a database: `DATABASE_URL` (Redis: `REDIS_URL`) for `main`, else with `_<NAME>` added. */
+export const envKeyFor = (name: string, kind: 'postgres' | 'redis' = 'postgres') => {
+  const base = kind === 'redis' ? 'REDIS_URL' : 'DATABASE_URL';
+  return name === 'main' ? base : `${base}_${name.toUpperCase()}`;
+};
 
 const planOf = (row: { database: string; role: string }): DbPlan => ({ database: row.database, role: row.role });
 
@@ -63,6 +68,30 @@ export async function provisionDatabase(id: string, log: Log) {
   if (row?.state !== 'provisioning') return;
   const plan = planOf(row);
   const password = decryptSecret(row.passwordEncrypted);
+
+  if (row.kind === 'redis') {
+    try {
+      await setRedisUser(plan, password);
+    } catch (e) {
+      const message = (e as Error).message;
+      await db.update(projectDatabases).set({ state: 'failed', error: message }).where(eq(projectDatabases.id, id));
+      log(`redis database ${plan.database} failed: ${message}`);
+      return;
+    }
+    await setAppEnv(row.projectId, envKeyFor(row.name, row.kind), redisConnectionUrl(plan, password));
+    await db.update(projectDatabases).set({ state: 'ready', error: null }).where(eq(projectDatabases.id, id));
+    await audit('gust-worker', 'database.ready', `project:${await projectSlugOf(row.projectId)}`, {
+      name: row.name,
+      database: row.database,
+      kind: 'redis',
+      env: envKeyFor(row.name, row.kind),
+    });
+    log(
+      `redis database ${plan.database} ready; ${envKeyFor(row.name, row.kind)} set on the app services (takes effect on the next deploy)`,
+    );
+    return;
+  }
+
   const statements = createStatements(plan, password);
 
   // Count what succeeded: 1 means the role exists, 2 or more means the database does too.
@@ -83,14 +112,14 @@ export async function provisionDatabase(id: string, log: Log) {
   }
 
   // Apps reach Postgres by its service name on the data network.
-  await setAppEnv(row.projectId, envKeyFor(row.name), connectionUrl(plan, password));
+  await setAppEnv(row.projectId, envKeyFor(row.name, row.kind), connectionUrl(plan, password));
   await db.update(projectDatabases).set({ state: 'ready', error: null }).where(eq(projectDatabases.id, id));
   await audit('gust-worker', 'database.ready', `project:${await projectSlugOf(row.projectId)}`, {
     name: row.name,
     database: row.database,
-    env: envKeyFor(row.name),
+    env: envKeyFor(row.name, row.kind),
   });
-  log(`database ${plan.database} ready; ${envKeyFor(row.name)} set on the app services (takes effect on the next deploy)`);
+  log(`database ${plan.database} ready; ${envKeyFor(row.name, row.kind)} set on the app services (takes effect on the next deploy)`);
 }
 
 /** Removes the database, its role, and the env variable that pointed at it. */
@@ -98,8 +127,14 @@ export async function dropDatabase(id: string, log: Log) {
   const [row] = await db.select().from(projectDatabases).where(eq(projectDatabases.id, id));
   if (row?.state !== 'deleting') return;
   try {
-    for (const sql of dropStatements(planOf(row))) await pool.query(sql);
-    await setAppEnv(row.projectId, envKeyFor(row.name), null);
+    if (row.kind === 'redis') {
+      // The user goes first, so nothing can write while the keys are removed.
+      await deleteRedisUser(planOf(row));
+      await deleteRedisKeys(planOf(row));
+    } else {
+      for (const sql of dropStatements(planOf(row))) await pool.query(sql);
+    }
+    await setAppEnv(row.projectId, envKeyFor(row.name, row.kind), null);
     await db.delete(projectDatabases).where(eq(projectDatabases.id, id));
     await audit('gust-worker', 'database.dropped', `project:${await projectSlugOf(row.projectId)}`, {
       name: row.name,
@@ -145,6 +180,10 @@ function runTool(bin: string, args: string[], password: string): Promise<{ code:
 export async function backupDatabase(id: string, log: Log) {
   const [row] = await db.select().from(projectDatabases).where(eq(projectDatabases.id, id));
   if (row?.state !== 'ready') return;
+  if (row.kind === 'redis') {
+    log(`redis database ${row.database} has no backup yet; skipped`);
+    return;
+  }
   const dir = backupDir();
   await mkdir(dir, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -205,6 +244,14 @@ export async function backupAll(log: Log) {
 export async function restoreDatabase(id: string, file: string, log: Log) {
   const [row] = await db.select().from(projectDatabases).where(eq(projectDatabases.id, id));
   if (row?.state !== 'provisioning') return;
+  if (row.kind === 'redis') {
+    await db
+      .update(projectDatabases)
+      .set({ state: 'failed', error: 'Restore is not supported for Redis databases.' })
+      .where(eq(projectDatabases.id, id));
+    log(`restore of ${row.database} refused: Redis databases have no dumps`);
+    return;
+  }
   if (!isInside(backupDir(), file)) {
     await db
       .update(projectDatabases)
@@ -246,17 +293,22 @@ export async function rotateDatabase(id: string, log: Log) {
   if (row?.state !== 'ready') return;
   const plan = planOf(row);
   const password = randomPassword();
-  for (const sql of rotateStatements(plan, password)) await pool.query(sql);
+  if (row.kind === 'redis') {
+    await setRedisUser(plan, password);
+  } else {
+    for (const sql of rotateStatements(plan, password)) await pool.query(sql);
+  }
   await db
     .update(projectDatabases)
     .set({ passwordEncrypted: encryptSecret(password) })
     .where(eq(projectDatabases.id, id));
-  await setAppEnv(row.projectId, envKeyFor(row.name), connectionUrl(plan, password));
+  const url = row.kind === 'redis' ? redisConnectionUrl(plan, password) : connectionUrl(plan, password);
+  await setAppEnv(row.projectId, envKeyFor(row.name, row.kind), url);
   await audit('gust-worker', 'database.rotate', `project:${await projectSlugOf(row.projectId)}`, {
     name: row.name,
     database: row.database,
   });
-  log(`database ${row.database} password rotated; redeploy the app to pick up the new ${envKeyFor(row.name)}`);
+  log(`database ${row.database} password rotated; redeploy the app to pick up the new ${envKeyFor(row.name, row.kind)}`);
 }
 
 /**
@@ -271,7 +323,11 @@ export async function recoverDatabases(log: Log) {
     .where(inArray(projectDatabases.state, ['provisioning', 'deleting']));
   for (const row of rows) {
     if (row.state === 'provisioning') {
-      for (const sql of dropStatements(planOf(row))) await pool.query(sql).catch(() => {});
+      if (row.kind === 'redis') {
+        await deleteRedisUser(planOf(row)).catch(() => {});
+      } else {
+        for (const sql of dropStatements(planOf(row))) await pool.query(sql).catch(() => {});
+      }
       await db
         .update(projectDatabases)
         .set({ state: 'failed', error: 'Interrupted: the worker restarted before it finished. Delete it and create it again.' })

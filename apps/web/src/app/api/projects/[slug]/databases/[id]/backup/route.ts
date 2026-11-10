@@ -14,12 +14,13 @@ export async function POST(req: Request, { params }: Ctx) {
   if (u instanceof Response) return u;
   const { slug, id } = await params;
   const [row] = await db
-    .select({ state: projectDatabases.state })
+    .select({ state: projectDatabases.state, kind: projectDatabases.kind })
     .from(projectDatabases)
     .innerJoin(projects, eq(projects.id, projectDatabases.projectId))
     .where(and(eq(projects.slug, slug), eq(projectDatabases.id, id)));
   if (!row) return Response.json({ error: 'Not found' }, { status: 404 });
   if (row.state !== 'ready') return Response.json({ error: 'Only a ready database can be backed up' }, { status: 409 });
+  if (row.kind === 'redis') return Response.json({ error: 'Redis databases have no backups yet' }, { status: 409 });
   try {
     await enqueueDatabase(id, 'backup');
   } catch {

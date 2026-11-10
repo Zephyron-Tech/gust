@@ -8,7 +8,7 @@ import { Ago } from '@/components/Ago';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { btn, cx, Panel } from '@/components/ui';
 import { authClient } from '@/lib/auth-client';
-import type { BackupRow, DatabaseRow } from '@/lib/databases-db';
+import type { BackupRow, DatabaseKind, DatabaseRow } from '@/lib/databases-db';
 import { useDemo } from '@/lib/demo';
 
 const field =
@@ -21,13 +21,14 @@ const WORD: Record<DatabaseRow['state'], { label: string; ink: string }> = {
   deleting: { label: 'Deleting', ink: 'text-warn' },
 };
 
-/** Postgres databases of one project on the shared cluster: create, back up, delete. */
+/** Databases of one project on the shared Postgres cluster or Redis: create, back up (Postgres), delete. */
 export function DatabasesPanel({ slug, initial }: { slug: string; initial: { databases: DatabaseRow[]; backups: BackupRow[] } }) {
   const router = useRouter();
   const { notify } = useDemo();
   const { data: session } = authClient.useSession();
   const admin = (session?.user as { role?: string } | undefined)?.role === 'admin';
   const [name, setName] = useState('');
+  const [kind, setKind] = useState<DatabaseKind>('postgres');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [removing, setRemoving] = useState<DatabaseRow | null>(null);
@@ -59,7 +60,7 @@ export function DatabasesPanel({ slug, initial }: { slug: string; initial: { dat
     const res = await fetch(`/api/projects/${slug}/databases`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, kind }),
     }).catch(() => null);
     setBusy(null);
     const body = (await res?.json().catch(() => null)) as { error?: string; database?: string } | null;
@@ -68,7 +69,10 @@ export function DatabasesPanel({ slug, initial }: { slug: string; initial: { dat
       return;
     }
     setName('');
-    notify(`Creating ${body?.database ?? 'database'}`, 'The worker makes the database and its login, then sets DATABASE_URL on the app.');
+    notify(
+      `Creating ${body?.database ?? 'database'}`,
+      `The worker makes the ${kind === 'redis' ? 'Redis user' : 'database and its login'}, then sets ${kind === 'redis' ? 'REDIS_URL' : 'DATABASE_URL'} on the app.`,
+    );
     router.refresh();
   }
 
@@ -145,14 +149,22 @@ export function DatabasesPanel({ slug, initial }: { slug: string; initial: { dat
             <h2 className="font-display text-[17px]">Databases</h2>
             <p className="mt-1 text-[14px] text-fg-3">
               Each database gets its own login and nothing else can reach it. The connection string is set on the app as{' '}
-              <span className="font-mono text-[13px]">DATABASE_URL</span> (the first one) or{' '}
-              <span className="font-mono text-[13px]">DATABASE_URL_&lt;NAME&gt;</span>. Redeploy the app to pick it up.
+              <span className="font-mono text-[13px]">DATABASE_URL</span> (Postgres) or{' '}
+              <span className="font-mono text-[13px]">REDIS_URL</span> (Redis), with{' '}
+              <span className="font-mono text-[13px]">_&lt;NAME&gt;</span> added for any but the first. Redeploy the app to pick it up.
             </p>
           </div>
         </div>
 
         {admin ? (
           <form onSubmit={create} className="mt-5 flex flex-wrap items-end gap-3">
+            <label className="w-[160px] space-y-1.5">
+              <span className="text-[13.5px] text-fg-2">Type</span>
+              <select className={field} value={kind} onChange={(e) => setKind(e.target.value as DatabaseKind)}>
+                <option value="postgres">Postgres</option>
+                <option value="redis">Redis</option>
+              </select>
+            </label>
             <label className="min-w-[220px] flex-1 space-y-1.5">
               <span className="text-[13.5px] text-fg-2">Name</span>
               <input
@@ -169,7 +181,16 @@ export function DatabasesPanel({ slug, initial }: { slug: string; initial: { dat
               <Plus weight="bold" /> {busy === 'create' ? 'Sending…' : 'Create database'}
             </button>
             <p id="db-name-hint" className="w-full text-[13px] text-fg-3">
-              Becomes <span className="font-mono">{slug}_&lt;name&gt;</span> on the cluster. Letters, digits and dashes.
+              {kind === 'redis' ? (
+                <>
+                  Redis keys under <span className="font-mono">{slug}_&lt;name&gt;:</span>, reachable with its own login only. No backups
+                  yet.
+                </>
+              ) : (
+                <>
+                  Becomes <span className="font-mono">{slug}_&lt;name&gt;</span> on the cluster. Letters, digits and dashes.
+                </>
+              )}
             </p>
           </form>
         ) : (
@@ -192,6 +213,7 @@ export function DatabasesPanel({ slug, initial }: { slug: string; initial: { dat
               <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-2">
                   <span className="font-medium">{d.name}</span>
+                  {d.kind === 'redis' && <span className="text-[13px] text-fg-3">Redis</span>}
                   <span className={cx('text-[13px]', WORD[d.state].ink)}>{WORD[d.state].label}</span>
                 </p>
                 <p className="truncate font-mono text-[13px] text-fg-3">{d.database}</p>
@@ -202,7 +224,7 @@ export function DatabasesPanel({ slug, initial }: { slug: string; initial: { dat
               </span>
               {admin && (
                 <div className="flex gap-2">
-                  {d.state === 'ready' && (
+                  {d.state === 'ready' && d.kind === 'postgres' && (
                     <button type="button" className={btn.secondary} disabled={busy !== null} onClick={() => void backup(d)}>
                       <DownloadSimple /> Back up
                     </button>

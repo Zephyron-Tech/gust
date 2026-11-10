@@ -5,10 +5,13 @@ import { normalizeName, planFor, randomPassword } from '@gust/db/postgres-admin'
 import { encryptSecret } from '@gust/db/secrets';
 import { and, desc, eq, sql } from 'drizzle-orm';
 
+export type DatabaseKind = 'postgres' | 'redis';
+
 export type DatabaseRow = {
   id: string;
   name: string;
   database: string;
+  kind: DatabaseKind;
   state: 'provisioning' | 'ready' | 'failed' | 'deleting';
   error: string | null;
   createdAt: Date;
@@ -23,6 +26,7 @@ export async function listProjectDatabases(slug: string): Promise<{ databases: D
       id: projectDatabases.id,
       name: projectDatabases.name,
       database: projectDatabases.database,
+      kind: projectDatabases.kind,
       state: projectDatabases.state,
       error: projectDatabases.error,
       createdAt: projectDatabases.createdAt,
@@ -57,6 +61,7 @@ export async function insertDatabaseRow(opts: {
   projectId: string;
   slug: string;
   name: string;
+  kind?: DatabaseKind;
   actor: string;
   action: 'database.create' | 'database.restore';
   detail?: Record<string, unknown>;
@@ -72,13 +77,14 @@ export async function insertDatabaseRow(opts: {
         name,
         database: plan.database,
         role: plan.role,
+        kind: opts.kind ?? 'postgres',
         passwordEncrypted: encryptSecret(randomPassword()),
       });
       await tx.insert(auditEvents).values({
         actor: opts.actor,
         action: opts.action,
         target: `project:${opts.slug}`,
-        detail: { name, database: plan.database, ...opts.detail },
+        detail: { name, database: plan.database, kind: opts.kind ?? 'postgres', ...opts.detail },
       });
     });
   } catch (e) {

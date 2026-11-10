@@ -57,6 +57,13 @@
       "when": 1794316992387,
       "tag": "0007_awesome_jazinda",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794325078746,
+      "tag": "0008_true_mach_iv",
+      "breakpoints": true
     }
   ]
 }

@@ -103,8 +103,32 @@ the worker from `GUST_DATA_NETWORK`, default `gust_data`). Postgres sits on
 
 ## Env names
 
-- `DATABASE_URL` for the first database of a project (in the order created).
+- `DATABASE_URL` for the first Postgres database of a project (in the order created).
 - `DATABASE_URL_<NAME>` for the others, name upper-cased, `-` turned into `_`.
+- Redis databases use `REDIS_URL` and `REDIS_URL_<NAME>` the same way.
+
+## Redis
+
+A Redis database is a kind of project database (`database_kind` = `redis`), on the
+shared Redis service (`redis:7-alpine`, `gust_internal` and `gust_data`, dev port
+`127.0.0.1:6380`). It has no backups yet: the Back up button and the backup route
+answer 409, and the nightly job skips it.
+
+- Create: `ACL SETUSER <role> on resetpass >password resetkeys ~<database>:* resetchannels nocommands +@all -@dangerous`.
+  The role is `<slug>_<name>_app`, the key prefix `<slug>_<name>:`. The user can
+  read and write only keys under its prefix, and cannot run dangerous commands
+  (FLUSHALL, CONFIG, DEBUG and similar).
+- Rotate: the same `ACL SETUSER` with `resetpass`, so the old password stops at once.
+- Delete: `ACL DELUSER`, then the keys under the prefix are removed with `SCAN` and
+  `UNLINK` in batches. Other databases' keys are not touched.
+- The app gets `REDIS_URL=redis://<role>:<password>@redis:6379`.
+- `REDIS_ADMIN_URL` (worker) is the admin connection. Dev default: `redis://:gust-dev-redis@127.0.0.1:6380`.
+
+Weaker than Postgres: one Redis serves every project, so isolation is by key prefix
+and ACL, not by a separate server or role per database.
+
+ACL users live in memory. A Redis restart drops them, and nothing re-creates them yet.
+Before production, Redis needs an `aclfile` (or a re-create step in recovery).
 
 ## Tools and settings
 
@@ -128,9 +152,14 @@ the worker from `GUST_DATA_NETWORK`, default `gust_data`). Postgres sits on
   resolves `postgres` and opens `postgres:5432`. A container without the network gets
   `ENOTFOUND`. The engine ran against a socket proxy with the production env.
 - The Storage page (`/storage`) lists every project database with its state and last backup.
+- Redis, end to end on the dev stack: a queued database provisions (`REDIS_URL_CACHE`
+  set), its user writes under its prefix and is refused elsewhere and for `FLUSHALL`,
+  rotation leaves one password hash, and delete removes the user, its keys, the row and
+  the env variable.
 
 ## Next steps
 
 1. A real `docker build` of the image: Docker Hub and the Alpine package mirror were
    unreachable from the dev sandbox, so `apk add postgresql17-client` was not run in a build.
 2. Restore into the same database (overwrite) is deliberately not offered.
+3. Redis: an `aclfile` in production so users survive a restart, and backups (no dump of one prefix yet).

@@ -13,3 +13,6 @@ next-env.d.ts
 
 # Database backups (local dumps from the worker)
 apps/worker/backups/
+
+# Vitest JSON reporter output
+.vitest/
