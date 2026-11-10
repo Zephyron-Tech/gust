@@ -50,6 +50,13 @@
       "when": 1794307719817,
       "tag": "0006_project_icons",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794316992387,
+      "tag": "0007_awesome_jazinda",
+      "breakpoints": true
     }
   ]
 }

@@ -18,6 +18,8 @@ export const deployTrigger = pgEnum('deploy_trigger', ['push', 'rollback', 'manu
 /** `all` is production and every preview; a production or preview row with the same key overrides it. */
 export const envScope = pgEnum('env_scope', ['all', 'production', 'preview']);
 /** A custom production domain on its way to serving: DNS first, then a deploy, then HTTPS. */
+export const databaseState = pgEnum('database_state', ['provisioning', 'ready', 'failed', 'deleting']);
+
 export const domainState = pgEnum('domain_state', ['pending_dns', 'applying', 'live', 'error']);
 
 const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
@@ -154,6 +156,27 @@ export const envVars = pgTable(
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex('env_vars_service_key_scope').on(t.serviceId, t.key, t.scope)],
+);
+
+/** A database on the shared Postgres cluster, owned by one project. See docs/databases.md. */
+export const projectDatabases = pgTable(
+  'project_databases',
+  {
+    id: text('id').primaryKey(), // pdb_<database>
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    /** The name the project gives it, e.g. `main`. Unique per project. */
+    name: text('name').notNull(),
+    database: text('database').notNull().unique(),
+    role: text('role').notNull().unique(),
+    /** AES-256-GCM, same format as env secrets. The plain password is never stored. */
+    passwordEncrypted: text('password_encrypted').notNull(),
+    state: databaseState('state').notNull().default('provisioning'),
+    error: text('error'),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('project_databases_project_name').on(t.projectId, t.name)],
 );
 
 export const auditEvents = pgTable(
