@@ -111,8 +111,7 @@ the worker from `GUST_DATA_NETWORK`, default `gust_data`). Postgres sits on
 
 A Redis database is a kind of project database (`database_kind` = `redis`), on the
 shared Redis service (`redis:7-alpine`, `gust_internal` and `gust_data`, dev port
-`127.0.0.1:6380`). It has no backups yet: the Back up button and the backup route
-answer 409, and the nightly job skips it.
+`127.0.0.1:6380`).
 
 - Create: `ACL SETUSER <role> on resetpass >password resetkeys ~<database>:* resetchannels nocommands +@all -@dangerous`.
   The role is `<slug>_<name>_app`, the key prefix `<slug>_<name>:`. The user can
@@ -127,8 +126,14 @@ answer 409, and the nightly job skips it.
 Weaker than Postgres: one Redis serves every project, so isolation is by key prefix
 and ACL, not by a separate server or role per database.
 
-ACL users live in memory. A Redis restart drops them, and nothing re-creates them yet.
-Before production, Redis needs an `aclfile` (or a re-create step in recovery).
+- Backup: every key under the prefix goes into `<database>-<stamp>.redis.ndjson` in
+  BACKUP_DIR, one JSON line per key (name, remaining TTL in ms, DUMP payload in base64),
+  after a header line with the source database. The nightly job and the Back up button
+  both use it, and retention (`BACKUP_KEEP_DAYS`) removes it like a Postgres dump.
+- Restore: into a new database. The worker creates it, then RESTOREs each key under the
+  new prefix. A key outside the source prefix stops the restore.
+- ACL users live in Redis memory. A Redis restart drops them; the worker sets every ready
+  Redis user again from its stored password at start and every 60 s.
 
 ## Tools and settings
 
@@ -156,10 +161,13 @@ Before production, Redis needs an `aclfile` (or a re-create step in recovery).
   set), its user writes under its prefix and is refused elsewhere and for `FLUSHALL`,
   rotation leaves one password hash, and delete removes the user, its keys, the row and
   the env variable.
+- Redis backup and restore: a dump of two keys (one with a TTL) restored into a new
+  database gave the same values and hash fields, kept the TTL, and left a key outside
+  the prefix alone. Deleting the ACL user by hand and restarting the worker set it again.
+  The 60 s interval uses the same function; it was not timed separately.
 
 ## Next steps
 
 1. A real `docker build` of the image: Docker Hub and the Alpine package mirror were
    unreachable from the dev sandbox, so `apk add postgresql17-client` was not run in a build.
 2. Restore into the same database (overwrite) is deliberately not offered.
-3. Redis: an `aclfile` in production so users survive a restart, and backups (no dump of one prefix yet).

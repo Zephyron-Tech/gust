@@ -3,6 +3,7 @@ import 'server-only';
 import { basename } from 'node:path';
 import { auditEvents, db, projects } from '@gust/db';
 import { enqueueDatabase } from '@gust/db/queue';
+import { redisDumpSuffix } from '@gust/db/redis-admin';
 import { and, desc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -46,6 +47,8 @@ export async function POST(req: Request, { params }: Ctx) {
       projectId: project.id,
       slug,
       name: parsed.data.name,
+      // A Redis dump restores into a Redis database; anything else is a Postgres dump.
+      kind: match.endsWith(redisDumpSuffix) ? 'redis' : 'postgres',
       actor: u.email,
       action: 'database.restore',
       detail: { from: parsed.data.file },

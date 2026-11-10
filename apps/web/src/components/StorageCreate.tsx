@@ -22,6 +22,7 @@ export function StorageCreate({ targets }: { targets: StorageTarget[] }) {
   const admin = (session?.user as { role?: string } | undefined)?.role === 'admin';
   const [project, setProject] = useState(targets[0]?.slug ?? '');
   const [name, setName] = useState('');
+  const [kind, setKind] = useState<'postgres' | 'redis'>('postgres');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,7 +35,7 @@ export function StorageCreate({ targets }: { targets: StorageTarget[] }) {
     const res = await fetch(`/api/projects/${project}/databases`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, kind }),
     }).catch(() => null);
     setBusy(false);
     const body = (await res?.json().catch(() => null)) as { error?: string; database?: string } | null;
@@ -43,7 +44,10 @@ export function StorageCreate({ targets }: { targets: StorageTarget[] }) {
       return;
     }
     setName('');
-    notify(`Creating ${body?.database ?? 'database'}`, 'The worker makes the database and its login, then sets DATABASE_URL on the app.');
+    notify(
+      `Creating ${body?.database ?? 'database'}`,
+      `The worker makes the ${kind === 'redis' ? 'Redis user' : 'database and its login'}, then sets ${kind === 'redis' ? 'REDIS_URL' : 'DATABASE_URL'} on the app.`,
+    );
     router.refresh();
   }
 
@@ -70,6 +74,13 @@ export function StorageCreate({ targets }: { targets: StorageTarget[] }) {
             ))}
           </select>
         </label>
+        <label className="w-[150px] space-y-1.5">
+          <span className="text-[13.5px] text-fg-2">Type</span>
+          <select className={field} value={kind} onChange={(e) => setKind(e.target.value as 'postgres' | 'redis')}>
+            <option value="postgres">Postgres</option>
+            <option value="redis">Redis</option>
+          </select>
+        </label>
         <label className="min-w-[200px] flex-1 space-y-1.5">
           <span className="text-[13.5px] text-fg-2">Name</span>
           <input
@@ -87,7 +98,15 @@ export function StorageCreate({ targets }: { targets: StorageTarget[] }) {
         </button>
       </form>
       <p id="storage-db-hint" className="mt-3 text-[13px] text-fg-3">
-        Becomes <span className="font-mono">{project}_&lt;name&gt;</span> on the cluster. Letters, digits and dashes. Manage it on{' '}
+        {kind === 'redis' ? (
+          <>
+            Redis keys under <span className="font-mono">{project}_&lt;name&gt;:</span>, with its own login. Manage it on{' '}
+          </>
+        ) : (
+          <>
+            Becomes <span className="font-mono">{project}_&lt;name&gt;</span> on the cluster. Letters, digits and dashes. Manage it on{' '}
+          </>
+        )}
         {target && (
           <Link href={`/projects/${target.slug}/${target.service}/databases`} className="text-fg-2 underline-offset-2 hover:underline">
             {target.slug} · Databases

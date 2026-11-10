@@ -183,8 +183,8 @@ export function DatabasesPanel({ slug, initial }: { slug: string; initial: { dat
             <p id="db-name-hint" className="w-full text-[13px] text-fg-3">
               {kind === 'redis' ? (
                 <>
-                  Redis keys under <span className="font-mono">{slug}_&lt;name&gt;:</span>, reachable with its own login only. No backups
-                  yet.
+                  Redis keys under <span className="font-mono">{slug}_&lt;name&gt;:</span>, reachable with its own login only. A backup
+                  copies those keys.
                 </>
               ) : (
                 <>
@@ -224,7 +224,7 @@ export function DatabasesPanel({ slug, initial }: { slug: string; initial: { dat
               </span>
               {admin && (
                 <div className="flex gap-2">
-                  {d.state === 'ready' && d.kind === 'postgres' && (
+                  {d.state === 'ready' && (
                     <button type="button" className={btn.secondary} disabled={busy !== null} onClick={() => void backup(d)}>
                       <DownloadSimple /> Back up
                     </button>
@@ -250,7 +250,7 @@ export function DatabasesPanel({ slug, initial }: { slug: string; initial: { dat
         <h2 className="font-display text-[17px]">Backups</h2>
         {backups.length === 0 ? (
           <p className="mt-3 text-[14px] text-fg-3">
-            No backups yet. A backup is a Postgres custom-format dump in the backups folder on the server.
+            No backups yet. A backup is a dump in the backups folder on the server: Postgres as a custom-format dump, Redis as its keys.
           </p>
         ) : (
           <ul className="mt-4 divide-y divide-line">

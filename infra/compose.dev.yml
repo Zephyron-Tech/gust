@@ -83,7 +83,7 @@ services:
 
   # Redis for project databases. Gust's worker logs in as the admin (requirepass)
   # and makes one ACL user per database, limited to its key prefix.
-  # ACL users live in memory: a restart drops them. Fine on dev; prod needs an aclfile.
+  # ACL users live in memory and a restart drops them; the worker sets them again from the database.
   redis:
     image: redis:7-alpine
     restart: unless-stopped

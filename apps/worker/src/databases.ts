@@ -9,12 +9,12 @@ import { resolve } from 'node:path';
 import { auditEvents, db, envVars, pool, projectDatabases, projects, services } from '@gust/db';
 import { connectionUrl, createStatements, type DbPlan, dropStatements, randomPassword, rotateStatements } from '@gust/db/postgres-admin';
 import { enqueueDatabase } from '@gust/db/queue';
-import { redisConnectionUrl } from '@gust/db/redis-admin';
+import { redisConnectionUrl, redisDumpSuffix } from '@gust/db/redis-admin';
 import { decryptSecret, encryptSecret } from '@gust/db/secrets';
 import { and, eq, inArray } from 'drizzle-orm';
 
-import { expiredDumps, isInside, restoreArgs } from './backup-files';
-import { deleteRedisKeys, deleteRedisUser, setRedisUser } from './redis';
+import { dumpName, expiredDumps, isInside, restoreArgs } from './backup-files';
+import { deleteRedisKeys, deleteRedisUser, dumpRedisKeys, restoreRedisKeys, setRedisUser } from './redis';
 
 type Log = (line: string) => void;
 
@@ -180,14 +180,22 @@ function runTool(bin: string, args: string[], password: string): Promise<{ code:
 export async function backupDatabase(id: string, log: Log) {
   const [row] = await db.select().from(projectDatabases).where(eq(projectDatabases.id, id));
   if (row?.state !== 'ready') return;
-  if (row.kind === 'redis') {
-    log(`redis database ${row.database} has no backup yet; skipped`);
-    return;
-  }
   const dir = backupDir();
   await mkdir(dir, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const file = `${dir}/${row.database}-${stamp}.dump`;
+  if (row.kind === 'redis') {
+    const file = `${dir}/${dumpName(row.database, stamp, 'redis')}`;
+    const keys = await dumpRedisKeys(planOf(row), file);
+    await audit('gust-worker', 'database.backup', `project:${await projectSlugOf(row.projectId)}`, {
+      name: row.name,
+      database: row.database,
+      kind: 'redis',
+      file,
+    });
+    log(`redis database ${row.database} backed up (${keys} keys) to ${file}`);
+    return;
+  }
+  const file = `${dir}/${dumpName(row.database, stamp, 'postgres')}`;
   const t = clusterTarget();
 
   const { code, err } = await runTool(
@@ -244,14 +252,6 @@ export async function backupAll(log: Log) {
 export async function restoreDatabase(id: string, file: string, log: Log) {
   const [row] = await db.select().from(projectDatabases).where(eq(projectDatabases.id, id));
   if (row?.state !== 'provisioning') return;
-  if (row.kind === 'redis') {
-    await db
-      .update(projectDatabases)
-      .set({ state: 'failed', error: 'Restore is not supported for Redis databases.' })
-      .where(eq(projectDatabases.id, id));
-    log(`restore of ${row.database} refused: Redis databases have no dumps`);
-    return;
-  }
   if (!isInside(backupDir(), file)) {
     await db
       .update(projectDatabases)
@@ -260,9 +260,38 @@ export async function restoreDatabase(id: string, file: string, log: Log) {
     log(`restore of ${row.database} refused: ${file} is outside the backup folder`);
     return;
   }
+  if (file.endsWith(redisDumpSuffix) !== (row.kind === 'redis')) {
+    await db
+      .update(projectDatabases)
+      .set({ state: 'failed', error: 'The backup and the database are of different kinds.' })
+      .where(eq(projectDatabases.id, id));
+    log(`restore of ${row.database} refused: ${file} is not a ${row.kind} backup`);
+    return;
+  }
   await provisionDatabase(id, log);
   const [made] = await db.select().from(projectDatabases).where(eq(projectDatabases.id, id));
   if (made?.state !== 'ready') return;
+
+  if (made.kind === 'redis') {
+    try {
+      const keys = await restoreRedisKeys(file, planOf(made));
+      await audit('gust-worker', 'database.restore', `project:${await projectSlugOf(made.projectId)}`, {
+        name: made.name,
+        database: made.database,
+        kind: 'redis',
+        from: file,
+      });
+      log(`redis database ${made.database} restored from ${file} (${keys} keys)`);
+    } catch (e) {
+      const message = (e as Error).message;
+      await db
+        .update(projectDatabases)
+        .set({ state: 'failed', error: `Restore failed: ${message}` })
+        .where(eq(projectDatabases.id, id));
+      log(`restore of ${made.database} failed: ${message}`);
+    }
+    return;
+  }
 
   const t = clusterTarget();
   const { code, err } = await runTool(
@@ -309,6 +338,31 @@ export async function rotateDatabase(id: string, log: Log) {
     database: row.database,
   });
   log(`database ${row.database} password rotated; redeploy the app to pick up the new ${envKeyFor(row.name, row.kind)}`);
+}
+
+let redisReconcileFailing = false;
+
+/**
+ * Sets every ready Redis database's ACL user again from its stored password. ACL users
+ * live in Redis memory, so a Redis restart drops them; the database rows are the source
+ * of truth. Logs when it starts or stops failing, not on every run.
+ */
+export async function reconcileRedisUsers(log: Log) {
+  const rows = await db
+    .select()
+    .from(projectDatabases)
+    .where(and(eq(projectDatabases.kind, 'redis'), eq(projectDatabases.state, 'ready')));
+  let failing = false;
+  for (const row of rows) {
+    try {
+      await setRedisUser(planOf(row), decryptSecret(row.passwordEncrypted));
+    } catch (e) {
+      failing = true;
+      if (!redisReconcileFailing) log(`redis users not set again (${(e as Error).message}); will retry`);
+    }
+  }
+  if (redisReconcileFailing && !failing && rows.length > 0) log('redis users set again');
+  redisReconcileFailing = failing;
 }
 
 /**

@@ -41,3 +41,12 @@ describe('dumpTime and expiredDumps', () => {
     expect(expiredDumps([old, fresh, 'backup.tar.gz', 'Bad-2026-01-01T00-00-00-000Z.dump'], now, 14)).toEqual([old]);
   });
 });
+
+describe('redis dump names', () => {
+  it('names a Redis dump with the Redis suffix and keeps it under retention', async () => {
+    const { dumpName, expiredDumps } = await import('./backup-files');
+    const name = dumpName('demo_cache', '2026-01-01T03-00-00-000Z', 'redis');
+    expect(name).toBe('demo_cache-2026-01-01T03-00-00-000Z.redis.ndjson');
+    expect(expiredDumps([name], new Date('2026-06-01T00:00:00Z'), 14)).toEqual([name]);
+  });
+});

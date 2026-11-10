@@ -26,3 +26,15 @@ describe('redis-admin', () => {
     expect(redisConnectionUrl(plan, 'a/b')).toBe('redis://smart_targets_main_app:a%2Fb@redis:6379');
   });
 });
+
+describe('redis dumps', () => {
+  it('moves a key from one prefix to another', async () => {
+    const { redisKeyInto } = await import('./redis-admin');
+    expect(redisKeyInto('demo_cache', 'demo_cache2', 'demo_cache:user:1')).toBe('demo_cache2:user:1');
+  });
+
+  it('refuses a key outside the source prefix', async () => {
+    const { redisKeyInto } = await import('./redis-admin');
+    expect(() => redisKeyInto('demo_cache', 'demo_x', 'demo_other:k')).toThrow();
+  });
+});

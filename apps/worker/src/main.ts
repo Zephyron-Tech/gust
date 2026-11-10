@@ -3,7 +3,16 @@
 import { type DatabaseJob, type DeployJob, QUEUES } from '@gust/db/queue';
 import { PgBoss } from 'pg-boss';
 
-import { backupAll, backupDatabase, dropDatabase, provisionDatabase, recoverDatabases, restoreDatabase, rotateDatabase } from './databases';
+import {
+  backupAll,
+  backupDatabase,
+  dropDatabase,
+  provisionDatabase,
+  reconcileRedisUsers,
+  recoverDatabases,
+  restoreDatabase,
+  rotateDatabase,
+} from './databases';
 import { runDeploy } from './deploy';
 import { checkDomains } from './domains';
 import { failCrashed, failInterrupted, reconcile } from './reconcile';
@@ -16,6 +25,8 @@ await boss.start();
 await boss.createQueue(QUEUES.deploy, { retryLimit: 0, expireInSeconds: 15 * 60 });
 await boss.createQueue(QUEUES.database, { retryLimit: 0, expireInSeconds: 5 * 60 });
 await recoverDatabases(log);
+// Not awaited: a Redis that is down must not hold the worker back; the interval below retries.
+void reconcileRedisUsers(log).catch((e) => log(`redis reconcile failed: ${(e as Error).message}`));
 
 await failInterrupted();
 
@@ -64,6 +75,9 @@ await boss.work(QUEUES.nightly, { batchSize: 1, pollingIntervalSeconds: 5 }, asy
   await backupAll(log).catch((e) => log(`nightly database backup crashed: ${(e as Error).message}`));
   log('nightly database backup finished');
 });
+
+// Redis ACL users come back after a Redis restart without this waiting for a worker restart.
+setInterval(() => reconcileRedisUsers(log).catch((e) => log(`redis reconcile failed: ${(e as Error).message}`)), 60_000);
 
 const every = Number(process.env.RECONCILE_EVERY_S ?? 20) * 1000;
 const tick = () => reconcile(log).catch((e) => log(`reconcile failed: ${(e as Error).message}`));

@@ -37,3 +37,15 @@ export const aclDelUserArgs = (plan: RedisPlan): string[] => ['ACL', 'DELUSER', 
 export function redisConnectionUrl(plan: RedisPlan, password: string, host = 'redis', port = 6379): string {
   return `redis://${encodeURIComponent(plan.role)}:${encodeURIComponent(password)}@${host}:${port}`;
 }
+
+/** Suffix of a Redis backup file. Postgres dumps end in `.dump`; the restore route picks the kind from this. */
+export const redisDumpSuffix = '.redis.ndjson';
+
+/**
+ * Key of a backed-up key in a new database: the source prefix is swapped for the new one.
+ * Throws when the key is not under the source prefix, so a damaged file is not restored into the wrong place.
+ */
+export function redisKeyInto(from: string, to: string, key: string): string {
+  if (!key.startsWith(`${from}:`)) throw new Error(`key ${key} is not under ${from}:`);
+  return `${to}${key.slice(from.length)}`;
+}

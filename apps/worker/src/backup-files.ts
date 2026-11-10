@@ -2,8 +2,15 @@
 // and which old dumps retention removes. No I/O here, so the rules are unit tested.
 import { isAbsolute, relative, resolve } from 'node:path';
 
-/** Name of a dump Gust wrote: `<database>-<ISO stamp with - for : and .>.dump`. */
-export const DUMP_NAME = /^[a-z][a-z0-9_]*-\d{4}-\d{2}-\d{2}T[\d-]+Z\.dump$/;
+import { redisDumpSuffix } from '@gust/db/redis-admin';
+
+/** Name of a dump Gust wrote: `<database>-<ISO stamp with - for : and .>.dump` (Postgres) or `.redis.ndjson` (Redis). */
+export const DUMP_NAME = /^[a-z][a-z0-9_]*-\d{4}-\d{2}-\d{2}T[\d-]+Z(\.dump|\.redis\.ndjson)$/;
+
+/** The backup file name for a database at `stamp` (ISO string with - for : and .). */
+export function dumpName(database: string, stamp: string, kind: 'postgres' | 'redis'): string {
+  return `${database}-${stamp}${kind === 'redis' ? redisDumpSuffix : '.dump'}`;
+}
 
 /** True when `file` resolves to a path inside `dir`. Stops a crafted name from reaching another folder. */
 export function isInside(dir: string, file: string): boolean {
@@ -39,7 +46,7 @@ export function restoreArgs(opts: {
 
 /** The moment a dump was taken, from its name; null when the name has no stamp. */
 export function dumpTime(name: string): number | null {
-  const m = name.match(/-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})-(\d{3})Z\.dump$/);
+  const m = name.match(/-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})-(\d{3})Z(?:\.dump|\.redis\.ndjson)$/);
   if (!m) return null;
   const [, date, h, min, s, ms] = m;
   const at = Date.parse(`${date}T${h}:${min}:${s}.${ms}Z`);
