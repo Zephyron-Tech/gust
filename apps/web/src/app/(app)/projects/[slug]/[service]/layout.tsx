@@ -38,7 +38,10 @@ export default async function ServiceLayout({
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <ProjectPower project={project.slug} allStopped={project.services.every((s) => s.health === 'stopped')} />
+          {/* One app service: the service button already does everything, so no second Stop beside it. */}
+          {project.services.filter((s) => s.type === 'app').length > 1 && (
+            <ProjectPower project={project.slug} allStopped={project.services.every((s) => s.health === 'stopped')} />
+          )}
           <ProjectActions
             project={project.slug}
             service={svc.name}
