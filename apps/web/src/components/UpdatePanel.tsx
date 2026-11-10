@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { btn, cx, Panel } from '@/components/ui';
 import { useUpdateStatus } from '@/lib/useUpdateStatus';
 
@@ -172,32 +173,35 @@ export function UpdatePanel({ rows }: { rows: [string, string][] }) {
         <p className="mt-5 text-[14px] text-fg-3">Only admins can check for or install updates.</p>
       )}
 
-      {confirming && (
-        <div className="mt-4 rounded-xl border border-line bg-bg-2 p-4 text-[14px] text-fg-2">
-          Install the newer Gust image now? Gust backs up the database first. The UI can be unavailable for a short while during the
-          restart.
-          <div className="mt-3 flex gap-2">
+      <ConfirmDialog
+        open={confirming}
+        onOpenChange={(next) => {
+          if (sending === null) setConfirming(next);
+        }}
+        title="Install the update?"
+        description="Install the newer Gust image now? Gust backs up the database first. The UI can be unavailable for a short while during the restart."
+        actions={
+          <>
+            <button type="button" className={btn.ghost} onClick={() => setConfirming(false)} disabled={sending !== null}>
+              Cancel
+            </button>
             <button type="button" className={btn.primary} disabled={sending !== null} onClick={() => void send('install')}>
               {sending === 'install' ? 'Sending…' : 'Install update'}
             </button>
-            <button type="button" className={btn.ghost} onClick={() => setConfirming(false)}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
+          </>
+        }
+      />
 
       {message && (
         <div
           role="status"
           aria-live="polite"
-          className={
+          className={cx(
+            'rise-in mt-4 flex gap-3 rounded-xl border p-3 text-[14px]',
             message.tone === 'err'
-              ? 'mt-4 flex items-start justify-between gap-3 rounded-xl border border-err/30 bg-err/10 p-3 text-[14px] text-err'
-              : message.tone === 'ok'
-                ? 'mt-4 flex items-start justify-between gap-3 rounded-xl border border-line bg-bg-2 p-3 text-[14px] text-fg-2'
-                : 'mt-4 flex items-center gap-3 rounded-xl border border-line bg-bg-2 p-3 text-[14px] text-fg-2'
-          }
+              ? 'items-start justify-between border-err/30 bg-err/10 text-err'
+              : 'items-center border-line bg-bg-2 text-fg-2',
+          )}
         >
           <span className="flex items-center gap-3">
             {message.tone === 'busy' && <span aria-hidden className="pulse-dot inline-block size-2 shrink-0 rounded-full bg-accent" />}
