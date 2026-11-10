@@ -4,9 +4,10 @@ import type { Icon } from '@phosphor-icons/react';
 import { CaretLineLeft, CaretLineRight, Cube, Eye, Gear, Pulse, SquaresFour } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
-
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useDemo } from '@/lib/demo';
+import { readRecent, rememberProject } from '@/lib/recent-projects';
+import { useFlip } from '@/lib/useFlip';
 import { useIndicator } from '@/lib/useIndicator';
 import { useServerMetrics } from '@/lib/useServerMetrics';
 import { useUpdateStatus } from '@/lib/useUpdateStatus';
@@ -23,16 +24,28 @@ const nav: { href: string; label: string; icon: Icon }[] = [
   { href: '/settings', label: 'Settings', icon: Gear },
 ];
 
-// How many projects the sidebar lists; the Projects page has them all.
-const SHOWN = 7;
+// How many recent projects the sidebar lists; the Projects page has them all.
+const RECENT = 3;
 
 export function Sidebar() {
   const path = usePathname();
   const { projects } = useDemo();
   // Projects on the engine first (the API's order), and the one that is open always in view.
   const open = projects?.find((p) => path.startsWith(`/projects/${p.slug}/`) || path === `/projects/${p.slug}`);
-  const top = projects?.slice(0, SHOWN) ?? [];
-  const pinned = open && !top.includes(open) ? [...top.slice(0, SHOWN - 1), open] : top;
+  // The three projects this browser opened last, the open one first. Until something has been opened, the first three.
+  const [recent, setRecent] = useState<string[]>([]);
+  useEffect(() => {
+    setRecent(readRecent());
+  }, []);
+  useEffect(() => {
+    if (open) setRecent(rememberProject(open.slug));
+  }, [open?.slug]);
+  const pinned = useMemo(() => {
+    if (!projects) return [];
+    const bySlug = new Map(projects.map((p) => [p.slug, p]));
+    const order = [...new Set([...recent, ...projects.map((p) => p.slug)])];
+    return order.flatMap((slug) => (bySlug.get(slug) ? [bySlug.get(slug)!] : [])).slice(0, RECENT);
+  }, [projects, recent]);
   const { data: metrics } = useServerMetrics('1h');
   const snap = metrics?.snapshot ?? null;
   const { status: update } = useUpdateStatus({ autoCheck: true });
@@ -50,6 +63,7 @@ export function Sidebar() {
   const [pinnedHovered, setPinnedHovered] = useState<string | null>(null);
   const [pinnedHovering, setPinnedHovering] = useState(false);
   const pinnedRef = useRef<HTMLDivElement>(null);
+  useFlip(pinnedRef, pinned.map((p) => p.slug).join('|'));
   const { style: pinnedHoverStyle } = useIndicator<HTMLDivElement>(pinnedHovered, pinnedRef);
   const item = 'group flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14.5px] transition-[background-color,color] duration-150';
 
@@ -130,7 +144,7 @@ export function Sidebar() {
         })}
       </nav>
       <p className={cx('mt-7 mb-2 flex items-baseline justify-between px-3 text-[12.5px] font-medium text-fg-3', hide)}>
-        Your projects
+        Recent projects
         {projects && projects.length > pinned.length && (
           <Link href="/projects" className="font-normal transition-colors hover:text-fg-2">
             all {projects.length}
@@ -139,7 +153,7 @@ export function Sidebar() {
       </p>
       <nav
         ref={pinnedRef}
-        aria-label="Your projects"
+        aria-label="Recent projects"
         className="relative flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto max-lg:hidden"
         onMouseLeave={() => setPinnedHovering(false)}
       >
@@ -153,6 +167,7 @@ export function Sidebar() {
             key={p.slug}
             href={p.href}
             data-key={p.slug}
+            data-flip={p.slug}
             onMouseEnter={() => {
               setPinnedHovered(p.slug);
               setPinnedHovering(true);
