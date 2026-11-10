@@ -1,10 +1,10 @@
 'use client';
 
 import type { Icon } from '@phosphor-icons/react';
-import { Cube, Eye, Gear, Pulse, SquaresFour } from '@phosphor-icons/react/ssr';
+import { CaretLineLeft, CaretLineRight, Cube, Eye, Gear, Pulse, SquaresFour } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useDemo } from '@/lib/demo';
 import { useIndicator } from '@/lib/useIndicator';
@@ -52,14 +52,43 @@ export function Sidebar() {
   const { style: pinnedHoverStyle } = useIndicator<HTMLDivElement>(pinnedHovered, pinnedRef);
   const item = 'group flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14.5px] transition-[background-color,color] duration-150';
 
+  // Collapsed on wide screens: the same icon rail as on narrow ones. Remembered per browser.
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    try {
+      setCollapsed(localStorage.getItem('gust.sidebar') === 'collapsed');
+    } catch {
+      // Storage can be blocked; the sidebar then stays expanded.
+    }
+  }, []);
+  const toggle = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    try {
+      localStorage.setItem('gust.sidebar', next ? 'collapsed' : 'expanded');
+    } catch {
+      // Not saved; it still works for this visit.
+    }
+  };
+  const textClass = collapsed ? 'sr-only' : 'max-lg:sr-only';
+  const hide = collapsed ? 'hidden' : 'max-lg:hidden';
+
   return (
-    <aside className="sticky top-0 flex h-svh w-[68px] shrink-0 flex-col border-r border-line bg-bg-2 px-2.5 pt-5 pb-4 lg:w-[260px] lg:px-3.5">
+    <aside
+      className={cx(
+        'sticky top-0 flex h-svh w-[68px] shrink-0 flex-col border-r border-line bg-bg-2 px-2.5 pt-5 pb-4 transition-[width] duration-200 ease-[var(--ease-out)] lg:px-3.5',
+        !collapsed && 'lg:w-[260px]',
+      )}
+    >
       <Link
         href="/projects"
-        className="mb-7 flex items-center gap-3 px-2 font-display lg:px-2.5 text-[22px] font-semibold tracking-[-0.045em]"
+        className={cx(
+          'mb-7 flex items-center gap-3 px-2 font-display lg:px-2.5 text-[22px] font-semibold tracking-[-0.045em]',
+          collapsed && 'justify-center px-0 lg:px-0',
+        )}
       >
         <GustMark size={30} />
-        <span className="max-lg:sr-only">gust</span>
+        <span className={textClass}>gust</span>
       </Link>
       <nav ref={navRef} aria-label="Main" className="relative flex flex-col gap-0.5" onMouseLeave={() => setHovering(false)}>
         <span
@@ -84,9 +113,14 @@ export function Sidebar() {
               className={cx('relative', item, on ? 'text-fg' : 'text-fg-2 hover:text-fg')}
             >
               <I size={20} weight={on ? 'fill' : 'regular'} className="shrink-0" />
-              <span className="max-lg:sr-only">{label}</span>
+              <span className={textClass}>{label}</span>
               {href === '/settings' && updateAvailable && (
-                <span className="pop-in ml-auto grid size-5 place-items-center max-lg:absolute max-lg:-top-0.5 max-lg:-right-0.5 rounded-full bg-accent text-[11.5px] font-semibold text-accent-ink">
+                <span
+                  className={cx(
+                    'pop-in grid size-5 place-items-center rounded-full bg-accent text-[11.5px] font-semibold text-accent-ink',
+                    collapsed ? 'absolute -top-0.5 -right-0.5' : 'ml-auto max-lg:absolute max-lg:-top-0.5 max-lg:-right-0.5',
+                  )}
+                >
                   1<span className="sr-only"> update available</span>
                 </span>
               )}
@@ -94,7 +128,7 @@ export function Sidebar() {
           );
         })}
       </nav>
-      <p className="mt-7 mb-2 flex items-baseline justify-between px-3 text-[12.5px] font-medium text-fg-3 max-lg:hidden">
+      <p className={cx('mt-7 mb-2 flex items-baseline justify-between px-3 text-[12.5px] font-medium text-fg-3', hide)}>
         Your projects
         {projects && projects.length > pinned.length && (
           <Link href="/projects" className="font-normal transition-colors hover:text-fg-2">
@@ -105,7 +139,7 @@ export function Sidebar() {
       <nav
         ref={pinnedRef}
         aria-label="Your projects"
-        className="relative flex min-h-0 flex-col gap-0.5 overflow-y-auto max-lg:hidden"
+        className="relative flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto max-lg:hidden"
         onMouseLeave={() => setPinnedHovering(false)}
       >
         <span
@@ -123,18 +157,24 @@ export function Sidebar() {
               setPinnedHovering(true);
             }}
             aria-current={p === open ? 'page' : undefined}
-            className={cx('relative py-2', item, p === open ? 'bg-bg-3 text-fg' : 'text-fg-2 hover:text-fg')}
+            title={collapsed ? p.slug : undefined}
+            className={cx(
+              'relative py-2',
+              item,
+              collapsed && 'justify-center px-0',
+              p === open ? 'bg-bg-3 text-fg' : 'text-fg-2 hover:text-fg',
+            )}
           >
             <ProjectIcon slug={p.slug} src={p.icon} size="sm" />
-            <span className="min-w-0 flex-1 truncate">{p.slug}</span>
-            <Dot health={p.health} />
+            <span className={cx('min-w-0 flex-1 truncate', collapsed && 'sr-only')}>{p.slug}</span>
+            <Dot health={p.health} className={collapsed ? 'absolute top-1.5 right-1.5 size-1.5' : undefined} />
           </Link>
         ))}
         {projects === null &&
           [68, 52, 60].map((w) => (
             <span key={w} className="flex items-center gap-3 px-3 py-2">
               <span className="skeleton size-6 rounded-md" />
-              <span className="skeleton h-3" style={{ width: `${w}%` }} />
+              <span className={cx('skeleton h-3', collapsed && 'hidden')} style={{ width: `${w}%` }} />
             </span>
           ))}
         {projects?.length === 0 && (
@@ -144,9 +184,26 @@ export function Sidebar() {
         )}
       </nav>
 
+      <button
+        type="button"
+        onClick={toggle}
+        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        aria-expanded={!collapsed}
+        className={cx(
+          'mt-auto mb-2 hidden items-center gap-3 rounded-[10px] px-3 py-2 text-[13.5px] text-fg-3 transition-colors hover:bg-bg-3 hover:text-fg-2 lg:flex',
+          collapsed && 'justify-center px-0',
+        )}
+      >
+        {collapsed ? <CaretLineRight size={18} aria-hidden /> : <CaretLineLeft size={18} aria-hidden />}
+        <span className={collapsed ? 'sr-only' : undefined}>Collapse</span>
+      </button>
+
       <Link
         href="/server"
-        className="mt-auto grid shrink-0 gap-2.5 rounded-xl bg-bg-3/60 px-3.5 py-3.5 text-[13px] text-fg-3 transition-colors hover:text-fg-2 max-lg:hidden"
+        className={cx(
+          'grid shrink-0 gap-2.5 rounded-xl bg-bg-3/60 px-3.5 py-3.5 text-[13px] text-fg-3 transition-colors hover:text-fg-2',
+          hide,
+        )}
       >
         <span className="flex justify-between">
           <span className="font-medium text-fg-2">{metrics?.facts?.os ?? '-'}</span>

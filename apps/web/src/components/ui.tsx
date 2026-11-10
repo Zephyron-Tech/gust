@@ -48,13 +48,14 @@ export function Pill({ state }: { state: DeployState }) {
   );
 }
 
-export function Dot({ health }: { health: Health }) {
+export function Dot({ health, className }: { health: Health; className?: string }) {
   return (
     <span
       role="img"
       aria-label={health}
       className={cx(
         'size-2 shrink-0 rounded-full',
+        className,
         health === 'live' && 'bg-ok ring-[3px] ring-ok/20',
         health === 'failed' && 'bg-err ring-[3px] ring-err/20',
         health === 'stopped' && 'bg-fg-3',
