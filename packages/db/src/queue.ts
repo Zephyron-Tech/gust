@@ -2,8 +2,9 @@
 // Postgres. The web app only sends; the worker does the work.
 import { PgBoss } from 'pg-boss';
 
-export const QUEUES = { deploy: 'deploy' } as const;
+export const QUEUES = { deploy: 'deploy', database: 'database' } as const;
 export type DeployJob = { deploymentId: string };
+export type DatabaseJob = { databaseId: string };
 
 const url = () => process.env.DATABASE_URL ?? 'postgres://gust:gust@127.0.0.1:5434/gust';
 
@@ -24,4 +25,10 @@ export function sender(): Promise<PgBoss> {
 export async function enqueueDeploy(deploymentId: string) {
   const boss = await sender();
   return boss.send(QUEUES.deploy, { deploymentId } satisfies DeployJob);
+}
+
+export async function enqueueDatabase(databaseId: string) {
+  const boss = await sender();
+  await boss.createQueue(QUEUES.database, { retryLimit: 0, expireInSeconds: 5 * 60 });
+  return boss.send(QUEUES.database, { databaseId } satisfies DatabaseJob);
 }

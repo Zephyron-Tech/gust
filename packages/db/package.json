@@ -8,7 +8,8 @@
     "./schema": "./src/schema.ts",
     "./queue": "./src/queue.ts",
     "./secrets": "./src/secrets.ts",
-    "./project-rules": "./src/project-rules.ts"
+    "./project-rules": "./src/project-rules.ts",
+    "./postgres-admin": "./src/postgres-admin.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
