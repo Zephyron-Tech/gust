@@ -24,7 +24,7 @@ jobs:
           POSTGRES_USER: gust
           POSTGRES_PASSWORD: gust
           POSTGRES_DB: gust
-        ports: ['5434:5432']
+        ports: ["5434:5432"]
         options: >-
           --health-cmd "pg_isready -U gust"
           --health-interval 5s
