@@ -86,13 +86,16 @@ export const envVar = z.object({
 });
 export type EnvVar = z.infer<typeof envVar>;
 
+/** A container of a Docker Compose stack on the host that Gust does not deploy (Observed page). */
+export const observedContainer = z.object({ name: z.string(), state: z.string(), status: z.string(), memoryMb: z.number().nullable() });
+export type ObservedContainer = z.infer<typeof observedContainer>;
+
+/** A Compose project under the host folder Gust watches. `domain` is the first Host() of its Traefik routers, if any. */
 export const observedStack = z.object({
   name: z.string(),
   path: z.string(),
-  domain: z.string(),
-  memoryMb: z.number(),
-  containers: z.array(z.string()),
-  health,
+  domain: z.string().nullable(),
+  containers: z.array(observedContainer),
 });
 export type ObservedStack = z.infer<typeof observedStack>;
 

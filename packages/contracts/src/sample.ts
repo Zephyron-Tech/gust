@@ -1,6 +1,6 @@
 // Sample data for the UI before the backend exists. Projects, domains and
 // stacks are Zephyron's real ones; commits, people, times and numbers are made up.
-import type { Alert, Deployment, Domain, EnvVar, LogLine, ObservedStack, Project, RegistryRepo } from './index';
+import type { Alert, Deployment, Domain, EnvVar, LogLine, Project, RegistryRepo } from './index';
 
 const MIN = 60_000;
 const ago = (minutes: number) => new Date(Date.now() - minutes * MIN).toISOString();
@@ -205,41 +205,6 @@ export const env: EnvVar[] = [
   { key: 'NODE_ENV', value: 'production', secret: false, scope: 'production' },
   { key: 'PUBLIC_URL', value: 'https://api.targets.zephyron.tech', secret: false, scope: 'production' },
   { key: 'PUBLIC_URL', value: 'https://pr-42.smart-targets.preview.zephyron.tech', secret: false, scope: 'preview' },
-];
-
-export const observed: ObservedStack[] = [
-  {
-    name: 'authentik',
-    path: '/opt/docker/authentik',
-    domain: 'auth.zephyron.tech',
-    memoryMb: 752,
-    containers: ['server', 'worker', 'postgresql', 'redis'],
-    health: 'live',
-  },
-  {
-    name: 'outline',
-    path: '/opt/docker/outline',
-    domain: 'wiki.zephyron.tech',
-    memoryMb: 410,
-    containers: ['outline', 'postgres', 'redis', 'minio'],
-    health: 'live',
-  },
-  {
-    name: 'nextcloud',
-    path: '/opt/docker/nextcloud',
-    domain: 'cloud.zephyron.tech',
-    memoryMb: 205,
-    containers: ['app', 'db', 'redis'],
-    health: 'live',
-  },
-  {
-    name: 'uptime-kuma',
-    path: '/opt/docker/uptime-kuma',
-    domain: 'status.zephyron.tech',
-    memoryMb: 123,
-    containers: ['uptime-kuma'],
-    health: 'live',
-  },
 ];
 
 export const registry: RegistryRepo[] = [

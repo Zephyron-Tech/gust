@@ -8,6 +8,7 @@ import { streamSSE } from 'hono/streaming';
 
 import { deploy } from './deploy';
 import { docker } from './docker';
+import { listObserved, restartObserved, STACK_NAME } from './observed';
 import { traefikConfig } from './routing';
 
 const token = process.env.ENGINE_TOKEN;
@@ -50,6 +51,17 @@ app.post('/v1/deployments', async (c) => {
     });
     await stream.writeSSE({ event: 'done', data: JSON.stringify(result) });
   });
+});
+
+// Compose stacks on the host that Gust only observes (see observed.ts).
+app.get('/v1/observed', async (c) => c.json(await listObserved()));
+
+app.post('/v1/observed/:project/restart', async (c) => {
+  const project = c.req.param('project');
+  if (!STACK_NAME.test(project)) return c.json({ error: 'Not an observed stack' }, 404);
+  const containers = await restartObserved(project);
+  if (!containers) return c.json({ error: 'Not an observed stack' }, 404);
+  return c.json({ ok: true, containers });
 });
 
 // Containers Gust manages, with their project, service and deployment.

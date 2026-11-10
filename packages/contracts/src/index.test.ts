@@ -8,13 +8,12 @@ import {
   deployTarget,
   environmentOf,
   HOSTNAME,
-  observedStack,
   pickEnv,
   previewHost,
   project,
   RUNNING_STATES,
 } from './index';
-import { deployments, observed, projects } from './sample';
+import { deployments, projects } from './sample';
 
 describe('deployRequest', () => {
   it('accepts project/service and a tag', () => {
@@ -34,7 +33,6 @@ describe('sample data', () => {
   it('matches the schemas', () => {
     for (const p of projects) project.parse(p);
     for (const d of deployments) deployment.parse(d);
-    for (const o of observed) observedStack.parse(o);
   });
 
   it('has at most one live deployment per service', () => {
