@@ -10,3 +10,6 @@ coverage
 .DS_Store
 next-env.d.ts
 .dev-oidc
+
+# Database backups (local dumps from the worker)
+apps/worker/backups/

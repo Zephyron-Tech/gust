@@ -142,6 +142,11 @@ export const deploySpec = z.object({
   memoryMb: z.number().int().positive().default(512),
   /** Seconds to wait for the new container to report healthy. */
   healthTimeout: z.number().int().positive().default(60),
+  /** Set when the project has a database: the container also joins this network, where Postgres is. */
+  dataNetwork: z
+    .string()
+    .regex(/^[a-z0-9_]+$/)
+    .optional(),
   /** Set for a preview deploy: its own container and route, apart from production. */
   branch: z
     .string()

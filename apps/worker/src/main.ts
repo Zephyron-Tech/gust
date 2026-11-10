@@ -3,7 +3,7 @@
 import { type DatabaseJob, type DeployJob, QUEUES } from '@gust/db/queue';
 import { PgBoss } from 'pg-boss';
 
-import { provisionDatabase } from './databases';
+import { backupDatabase, dropDatabase, provisionDatabase, recoverDatabases } from './databases';
 import { runDeploy } from './deploy';
 import { checkDomains } from './domains';
 import { failCrashed, failInterrupted, reconcile } from './reconcile';
@@ -15,6 +15,7 @@ boss.on('error', (e) => log(`pg-boss error: ${e.message}`));
 await boss.start();
 await boss.createQueue(QUEUES.deploy, { retryLimit: 0, expireInSeconds: 15 * 60 });
 await boss.createQueue(QUEUES.database, { retryLimit: 0, expireInSeconds: 5 * 60 });
+await recoverDatabases(log);
 
 await failInterrupted();
 
@@ -37,7 +38,9 @@ await boss.work<DeployJob>(QUEUES.deploy, { batchSize: 1, localConcurrency: 4, p
 // Project databases: one statement at a time, see databases.ts.
 await boss.work<DatabaseJob>(QUEUES.database, { batchSize: 1, localConcurrency: 2, pollingIntervalSeconds: 0.5 }, async ([job]) => {
   if (!job) return;
-  await provisionDatabase(job.data.databaseId, log).catch((e) => log(`database ${job.data.databaseId} crashed: ${(e as Error).message}`));
+  const { databaseId, action } = job.data;
+  const run = action === 'drop' ? dropDatabase : action === 'backup' ? backupDatabase : provisionDatabase;
+  await run(databaseId, log).catch((e) => log(`database ${databaseId} ${action} crashed: ${(e as Error).message}`));
 });
 
 const every = Number(process.env.RECONCILE_EVERY_S ?? 20) * 1000;

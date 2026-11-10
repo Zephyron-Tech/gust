@@ -72,7 +72,7 @@ services:
       POSTGRES_DB: gust
     volumes:
       - postgres:/var/lib/postgresql/data
-    networks: [gust_internal]
+    networks: [gust_internal, gust_data]
     ports:
       - 127.0.0.1:5434:5432
     healthcheck:
@@ -98,6 +98,8 @@ networks:
     name: gust_edge
   gust_internal:
     name: gust_internal
+  gust_data:
+    name: gust_data
 
 volumes:
   postgres:

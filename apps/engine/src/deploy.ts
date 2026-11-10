@@ -106,6 +106,8 @@ export async function deploy(spec: DeploySpec, emit: Emit): Promise<{ ok: boolea
     },
   });
   try {
+    // The data network is joined before start, so the app can reach its database from its first request.
+    if (spec.dataNetwork) await docker.getNetwork(spec.dataNetwork).connect({ Container: container.id });
     await container.start();
   } catch (e) {
     // Created but never started: do not leave it behind under the deployment's name.

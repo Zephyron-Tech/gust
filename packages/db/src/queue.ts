@@ -4,7 +4,7 @@ import { PgBoss } from 'pg-boss';
 
 export const QUEUES = { deploy: 'deploy', database: 'database' } as const;
 export type DeployJob = { deploymentId: string };
-export type DatabaseJob = { databaseId: string };
+export type DatabaseJob = { databaseId: string; action: 'provision' | 'drop' | 'backup' };
 
 const url = () => process.env.DATABASE_URL ?? 'postgres://gust:gust@127.0.0.1:5434/gust';
 
@@ -27,8 +27,8 @@ export async function enqueueDeploy(deploymentId: string) {
   return boss.send(QUEUES.deploy, { deploymentId } satisfies DeployJob);
 }
 
-export async function enqueueDatabase(databaseId: string) {
+export async function enqueueDatabase(databaseId: string, action: DatabaseJob['action'] = 'provision') {
   const boss = await sender();
   await boss.createQueue(QUEUES.database, { retryLimit: 0, expireInSeconds: 5 * 60 });
-  return boss.send(QUEUES.database, { databaseId } satisfies DatabaseJob);
+  return boss.send(QUEUES.database, { databaseId, action } satisfies DatabaseJob);
 }

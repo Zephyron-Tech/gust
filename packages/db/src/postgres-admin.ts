@@ -6,6 +6,9 @@ import { randomBytes } from 'node:crypto';
 
 const MAX_IDENT = 63; // Postgres truncates longer identifiers, so refuse them instead.
 
+/** The database and role of one project database. */
+export type DbPlan = { database: string; role: string };
+
 /** A name in the database namespace: lowercase letters, digits and underscores. */
 export function normalizeName(raw: string): string {
   return raw
@@ -16,8 +19,10 @@ export function normalizeName(raw: string): string {
 
 /** The database and role for one database of one project, e.g. `smart_targets_main`. */
 export function planFor(slug: string, name: string): { database: string; role: string } {
+  // A name with nothing left after normalising would make the database just the slug: refuse it.
+  if (!normalizeName(name)) throw new Error('Enter a name with letters or digits');
   const base = normalizeName(`${slug}_${name}`);
-  if (!base || !/^[a-z]/.test(base)) throw new Error(`"${slug}_${name}" has no usable name`);
+  if (!/^[a-z]/.test(base)) throw new Error(`"${slug}_${name}" has no usable name`);
   if (base.length > MAX_IDENT) throw new Error(`"${base}" is longer than ${MAX_IDENT} characters`);
   return { database: base, role: `${base}_app` };
 }

@@ -2,13 +2,16 @@
 // moves the deployment's state along. The only place that changes a
 // deployment after it was queued.
 import { branchLabel, pickEnv, previewHost } from '@gust/contracts';
-import { db, deploymentLogs, deployments, envVars, projects, services } from '@gust/db';
+import { db, deploymentLogs, deployments, envVars, projectDatabases, projects, services } from '@gust/db';
 import { decryptSecret } from '@gust/db/secrets';
 import { and, eq, isNull, ne } from 'drizzle-orm';
 
 import { engineFetch } from './engine';
 import { type CommitState, setCommitStatus } from './github';
 import { deployFailedText, notifyDiscord } from './notify';
+
+// Where Postgres and the project databases' apps meet; see docs/databases.md.
+const DATA_NETWORK = process.env.GUST_DATA_NETWORK ?? 'gust_data';
 
 const publicUrl = () => (process.env.GUST_PUBLIC_URL ?? 'http://localhost:3100').replace(/\/$/, '');
 
@@ -70,6 +73,13 @@ export async function runDeploy(id: string) {
   }
   await log('queue', `${vars.length} env variable${vars.length === 1 ? '' : 's'} (${vars.filter((v) => v.isSecret).length} secret)`);
 
+  // A project with a ready database joins the data network, where Postgres is.
+  const [hasDatabase] = await db
+    .select({ id: projectDatabases.id })
+    .from(projectDatabases)
+    .where(and(eq(projectDatabases.projectId, p.id), eq(projectDatabases.state, 'ready')))
+    .limit(1);
+
   const res = await engineFetch('/v1/deployments', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -86,6 +96,7 @@ export async function runDeploy(id: string) {
       healthTimeout: 30,
       env,
       ...(branch && { branch }),
+      ...(hasDatabase && { dataNetwork: DATA_NETWORK }),
     }),
   }).catch(() => null);
   if (!res?.ok || !res.body) return fail('The engine did not answer. Is it running?');

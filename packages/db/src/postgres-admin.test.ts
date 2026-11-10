@@ -20,6 +20,11 @@ describe('planFor', () => {
     expect(() => planFor('---', '1')).toThrow();
   });
 
+  it('refuses a name that normalises to nothing, instead of naming the database after the slug', () => {
+    expect(() => planFor('demo', '---')).toThrow(/letters or digits/);
+    expect(() => planFor('demo', '  ')).toThrow(/letters or digits/);
+  });
+
   it('refuses a name over the identifier limit instead of letting Postgres truncate it', () => {
     expect(() => planFor('a'.repeat(60), 'main')).toThrow(/longer than 63/);
   });

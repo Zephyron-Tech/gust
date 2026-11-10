@@ -5,6 +5,7 @@
 #   gust_edge      Traefik, the web UI, the registry and every app Gust deploys
 #   gust_internal  Postgres, socket proxy, engine, worker, web, registry
 #   gust_control   Traefik and the engine only (routing config, Traefik API)
+#   gust_data      Postgres and the apps of projects that have a database (docs/databases.md)
 # Traefik never reaches the database or the Docker socket.
 name: gust
 
@@ -89,7 +90,7 @@ services:
       POSTGRES_DB: gust
     volumes:
       - postgres:/var/lib/postgresql/data
-    networks: [gust_internal]
+    networks: [gust_internal, gust_data]
     healthcheck:
       test: [CMD-SHELL, pg_isready -U gust]
       interval: 5s
@@ -182,6 +183,7 @@ services:
     <<: *app
     command: [worker]
     environment:
+      BACKUP_DIR: /backups
       DATABASE_URL: postgres://gust:${POSTGRES_PASSWORD}@postgres:5432/gust
       ENGINE_URL: http://engine:4100
       ENGINE_TOKEN: ${ENGINE_TOKEN}
@@ -196,6 +198,8 @@ services:
       DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
     depends_on:
       migrate: { condition: service_completed_successfully }
+    volumes:
+      - ./backups:/backups
     networks: [gust_internal]
 
 networks:
@@ -205,6 +209,8 @@ networks:
     name: gust_internal
   gust_control:
     name: gust_control
+  gust_data:
+    name: gust_data
 
 volumes:
   postgres:
