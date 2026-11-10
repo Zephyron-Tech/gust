@@ -3,7 +3,7 @@ import 'server-only';
 import { auditEvents, db, projectDatabases, projects } from '@gust/db';
 import { normalizeName, planFor, randomPassword } from '@gust/db/postgres-admin';
 import { encryptSecret } from '@gust/db/secrets';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 
 export type DatabaseRow = {
   id: string;
@@ -87,4 +87,40 @@ export async function insertDatabaseRow(opts: {
     throw e;
   }
   return { id, name, database: plan.database };
+}
+
+export type StorageRow = {
+  slug: string;
+  name: string;
+  database: string;
+  state: DatabaseRow['state'];
+  error: string | null;
+  createdAt: Date;
+  lastBackup: Date | null;
+};
+
+/** Every project's databases, grouped by project and oldest first, for the Storage page. Never includes a password. */
+export async function listAllDatabases(): Promise<StorageRow[]> {
+  const rows = await db
+    .select({
+      slug: projects.slug,
+      name: projectDatabases.name,
+      database: projectDatabases.database,
+      state: projectDatabases.state,
+      error: projectDatabases.error,
+      createdAt: projectDatabases.createdAt,
+    })
+    .from(projectDatabases)
+    .innerJoin(projects, eq(projects.id, projectDatabases.projectId))
+    .orderBy(projects.slug, projectDatabases.createdAt);
+
+  const backups = await db
+    .select({ target: auditEvents.target, last: sql<string | null>`max(${auditEvents.at})` })
+    .from(auditEvents)
+    .where(eq(auditEvents.action, 'database.backup'))
+    .groupBy(auditEvents.target);
+  // Raw SQL aggregates come back as text, not as Date.
+  const last = new Map(backups.map((b) => [b.target, b.last ? new Date(b.last) : null]));
+
+  return rows.map((r) => ({ ...r, lastBackup: last.get(`project:${r.slug}`) ?? null }));
 }

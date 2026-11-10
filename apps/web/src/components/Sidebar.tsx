@@ -1,7 +1,7 @@
 'use client';
 
 import type { Icon } from '@phosphor-icons/react';
-import { CaretLineLeft, CaretLineRight, Cube, Eye, Gear, Pulse, SquaresFour } from '@phosphor-icons/react/ssr';
+import { CaretLineLeft, CaretLineRight, Cube, Database, Eye, Gear, Pulse, SquaresFour } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -11,7 +11,7 @@ import { useFlip } from '@/lib/useFlip';
 import { useIndicator } from '@/lib/useIndicator';
 import { useServerMetrics } from '@/lib/useServerMetrics';
 import { useUpdateStatus } from '@/lib/useUpdateStatus';
-import { Beacon, inkOf } from './Beacon';
+import { Beacon } from './Beacon';
 import { GustMark } from './GustMark';
 import { ProjectIcon } from './ProjectIcon';
 import { cx, Meter } from './ui';
@@ -21,6 +21,7 @@ const nav: { href: string; label: string; icon: Icon }[] = [
   { href: '/server', label: 'Server', icon: Pulse },
   { href: '/observed', label: 'Observed stacks', icon: Eye },
   { href: '/registry', label: 'Registry', icon: Cube },
+  { href: '/storage', label: 'Storage', icon: Database },
   { href: '/settings', label: 'Settings', icon: Gear },
 ];
 
@@ -188,8 +189,8 @@ export function Sidebar() {
             )}
           >
             <ProjectIcon slug={p.slug} src={p.icon} size="sm" />
-            <span className={cx('min-w-0 flex-1 truncate', collapsed && 'sr-only', p !== open && inkOf(p.health))}>{p.slug}</span>
-            <Beacon health={p.health} />
+            <span className={cx('min-w-0 flex-1 truncate', collapsed && 'sr-only')}>{p.slug}</span>
+            <Beacon health={p.health} className={collapsed ? 'absolute top-1 right-0.5 scale-75' : undefined} />
           </Link>
         ))}
         {projects === null &&

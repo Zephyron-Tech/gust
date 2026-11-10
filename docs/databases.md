@@ -122,9 +122,15 @@ the worker from `GUST_DATA_NETWORK`, default `gust_data`). Postgres sits on
 - Sharing one database between projects. Each project gets its own.
 - Exposing Postgres outside the server or the internal network.
 
+## Checked on the dev stack
+
+- Engine deploy with `dataNetwork`: the app container joins `gust_edge` and `gust_data`,
+  resolves `postgres` and opens `postgres:5432`. A container without the network gets
+  `ENOTFOUND`. The engine ran against a socket proxy with the production env.
+- The Storage page (`/storage`) lists every project database with its state and last backup.
+
 ## Next steps
 
-1. Engine deploy with `dataNetwork` on a real run: the dev engine was not running
-   during the check, so the network connect in `apps/engine` is not exercised yet.
-2. A real `docker build` of the image (registry pulls timed out in the dev sandbox).
-3. Restore into the same database (overwrite) is deliberately not offered.
+1. A real `docker build` of the image: Docker Hub and the Alpine package mirror were
+   unreachable from the dev sandbox, so `apk add postgresql17-client` was not run in a build.
+2. Restore into the same database (overwrite) is deliberately not offered.
