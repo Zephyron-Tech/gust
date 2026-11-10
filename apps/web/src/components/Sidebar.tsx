@@ -122,9 +122,9 @@ export function Sidebar() {
         <span
           aria-hidden
           className="pointer-events-none absolute top-0 left-0 rounded-[10px] bg-bg-3"
-          style={{ ...hoverStyle('fill'), opacity: hovering ? 1 : 0 }}
+          style={{ ...hoverStyle('band'), opacity: hovering ? 1 : 0 }}
         />
-        <span aria-hidden className="pointer-events-none absolute top-0 left-0 rounded-[10px] bg-accent-soft" style={style('fill')} />
+        <span aria-hidden className="pointer-events-none absolute top-0 left-0 rounded-[10px] bg-accent-soft" style={style('band')} />
         {nav.map(({ href, label, icon: I }) => {
           const on = active === href;
           return (
@@ -173,7 +173,7 @@ export function Sidebar() {
         <span
           aria-hidden
           className="pointer-events-none absolute top-0 left-0 rounded-[10px] bg-bg-3"
-          style={{ ...pinnedHoverStyle('fill'), opacity: pinnedHovering ? 1 : 0 }}
+          style={{ ...pinnedHoverStyle('band'), opacity: pinnedHovering ? 1 : 0 }}
         />
         {pinned.map((p) => (
           <Link

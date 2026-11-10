@@ -1,12 +1,10 @@
 import type { Icon } from '@phosphor-icons/react';
-import { ArrowRight, DownloadSimple, GitBranch, Plus, RocketLaunch } from '@phosphor-icons/react/ssr';
+import { DownloadSimple, GitBranch, Plus, RocketLaunch } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
-import { Beacon, StateGlow } from '@/components/Beacon';
-import { ProjectIcon } from '@/components/ProjectIcon';
-import { ProjectsToolbar } from '@/components/ProjectsToolbar';
-import { btn, cx, PageHead, Panel, Tag } from '@/components/ui';
+import { ProjectsCollection } from '@/components/ProjectsCollection';
+import { ProjectsToolbar, type StateFilter } from '@/components/ProjectsToolbar';
+import { btn, PageHead, Panel } from '@/components/ui';
 import { getProjects } from '@/lib/data';
-import { ago } from '@/lib/format';
 import { NOT_SET } from '@/lib/integrations';
 import { projectStats } from '@/lib/projects-stats';
 
@@ -20,21 +18,36 @@ const FIRST_STEPS: [Icon, string, string][] = [
   [RocketLaunch, 'Push', 'Pushes to the production branch deploy; other branches get their own preview.'],
 ];
 
-export default async function ProjectsPage({ searchParams }: { searchParams: Promise<{ sort?: string; view?: string }> }) {
-  const [all, stats, { sort, view: viewParam }] = await Promise.all([getProjects(), projectStats(), searchParams]);
-  const mode = sort === 'name' ? 'name' : 'activity';
+// Live first, then stopped, then failed: the order the states come in on the list.
+const STATE_RANK = { live: 0, stopped: 1, failed: 2 } as const;
+
+export default async function ProjectsPage({ searchParams }: { searchParams: Promise<{ sort?: string; view?: string; state?: string }> }) {
+  const [all, stats, { sort, view: viewParam, state: stateParam }] = await Promise.all([getProjects(), projectStats(), searchParams]);
+  const mode = sort === 'name' ? 'name' : sort === 'status' ? 'status' : 'activity';
   const view = viewParam === 'list' ? 'list' : 'grid';
-  // Most recent deploy first, or alphabetical. Ties keep the server's order.
-  const projects = [...all].sort((a, b) =>
-    mode === 'name' ? a.slug.localeCompare(b.slug) : Date.parse(b.lastDeploy) - Date.parse(a.lastDeploy),
-  );
-  const services = projects.reduce((n, p) => n + p.services.length, 0);
+  const state: StateFilter = stateParam === 'live' || stateParam === 'stopped' || stateParam === 'failed' ? stateParam : 'all';
+  const counts: Record<StateFilter, number> = {
+    all: all.length,
+    live: all.filter((p) => p.health === 'live').length,
+    stopped: all.filter((p) => p.health === 'stopped').length,
+    failed: all.filter((p) => p.health === 'failed').length,
+  };
+  // Ties keep the most recent deploy first. Name sorts alphabetically.
+  const byActivity = (a: (typeof all)[number], b: (typeof all)[number]) => Date.parse(b.lastDeploy) - Date.parse(a.lastDeploy);
+  const projects = all
+    .filter((p) => state === 'all' || p.health === state)
+    .sort((a, b) => {
+      if (mode === 'name') return a.slug.localeCompare(b.slug);
+      if (mode === 'status') return STATE_RANK[a.health] - STATE_RANK[b.health] || byActivity(a, b);
+      return byActivity(a, b);
+    });
+  const services = all.reduce((n, p) => n + p.services.length, 0);
   const median = stats.medianDeploySec === null ? NOT_SET : `${Math.round(stats.medianDeploySec)} s`;
   return (
     <div className="view-in space-y-8">
       <PageHead
         title="Projects"
-        sub={`${projects.length} projects · ${services} services`}
+        sub={`${all.length} projects · ${services} services`}
         actions={
           <Link href="/projects/new" className={btn.primary}>
             <Plus weight="bold" /> New project
@@ -47,7 +60,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
         style={{ animationDelay: '60ms' }}
       >
         {[
-          ['Deploys, 24 h', String(stats.deploys24h), `across ${projects.length} projects`],
+          ['Deploys, 24 h', String(stats.deploys24h), `across ${all.length} projects`],
           ['Median deploy', median, 'push to live, last 7 days'],
           ['Failed, 7 days', String(stats.failed7d), stats.lastFailed ?? 'none'],
           ['Live services', `${stats.liveServices} of ${stats.services}`, 'newest deploy is live'],
@@ -60,7 +73,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
         ))}
       </Panel>
 
-      {projects.length === 0 && (
+      {all.length === 0 && (
         <Panel className="rise-in px-6 py-10 sm:px-10" style={{ animationDelay: '120ms' }}>
           <div className="mx-auto max-w-3xl space-y-8 text-center">
             <div className="space-y-2">
@@ -88,89 +101,23 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
         </Panel>
       )}
 
-      <ProjectsToolbar sort={mode} view={view} />
+      <ProjectsToolbar sort={mode} view={view} state={state} counts={counts} />
 
-      {view === 'list' && (
-        <Panel className="overflow-hidden">
-          {projects.map((p, i) => (
-            <Link
-              key={p.slug}
-              href={`/projects/${p.slug}/${p.services.find((s) => s.type === 'app')?.name ?? p.services[0]?.name}/deployments`}
-              className={cx(
-                'group relative isolate flex items-center gap-4 overflow-hidden px-5 py-3.5 transition-colors duration-150 hover:bg-bg-3/40',
-                i > 0 && 'border-t border-line',
-              )}
-            >
-              <StateGlow health={p.health} />
-              <ProjectIcon slug={p.slug} src={p.icon} size="sm" />
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2">
-                  <span className="truncate font-medium">{p.slug}</span>
-                  {!p.engine && <Tag>sample</Tag>}
-                </span>
-                <span className="block truncate text-[13px] text-fg-3">{p.domain}</span>
-              </span>
-              <span className="hidden flex-wrap justify-end gap-1.5 md:flex">
-                {p.services.map((s) => (
-                  <Tag key={s.name} tone={s.type === 'stateful' ? 'info' : undefined}>
-                    {s.name}
-                  </Tag>
-                ))}
-              </span>
-              <span className="hidden w-[180px] shrink-0 truncate text-right text-[13px] text-fg-3 lg:block">
-                {p.health === 'stopped' ? 'Stopped' : `Deployed ${ago(p.lastDeploy)}`}
-              </span>
-              <Beacon health={p.health} />
-              <ArrowRight size={15} className="shrink-0 text-fg-3 transition-transform duration-200 group-hover:translate-x-0.5" />
-            </Link>
-          ))}
-        </Panel>
-      )}
-
-      {view === 'grid' && (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {projects.map((p, i) => (
-            <Link
-              key={p.slug}
-              style={{ animationDelay: `${120 + i * 45}ms` }}
-              href={`/projects/${p.slug}/${p.services.find((s) => s.type === 'app')?.name ?? p.services[0]?.name}/deployments`}
-              className="rise-in hover-lift group relative isolate flex flex-col gap-4 overflow-hidden rounded-2xl border border-line bg-bg-2 p-5 transition-[translate,border-color,background-color,box-shadow] duration-300 ease-[var(--ease-out)] hover:-translate-y-1 hover:border-fg-3/60 hover:bg-bg-3/40 hover:shadow-[0_18px_40px_-24px_rgb(0_0_0/0.6)] active:translate-y-0 active:duration-100"
-            >
-              <StateGlow health={p.health} />
-              <span className="flex items-center justify-between gap-3">
-                <span className="flex min-w-0 items-center gap-3">
-                  <ProjectIcon slug={p.slug} src={p.icon} />
-                  <span className="min-w-0">
-                    <span className="flex items-center gap-2">
-                      <span className="truncate font-display text-[18px] leading-tight font-semibold tracking-tight">{p.slug}</span>
-                      {!p.engine && <Tag>sample</Tag>}
-                    </span>
-                    <span className="block truncate text-[13.5px] text-fg-2">{p.domain}</span>
-                  </span>
-                </span>
-                <Beacon health={p.health} showLabel />
-              </span>
-              <span className="flex flex-wrap gap-1.5">
-                {p.services.map((s) => (
-                  <Tag key={s.name} tone={s.type === 'stateful' ? 'info' : undefined}>
-                    {s.name}
-                  </Tag>
-                ))}
-              </span>
-              <span className="mt-auto flex items-center justify-between gap-3 border-t border-line pt-3.5 text-[13px] text-fg-3">
-                <span>{p.health === 'stopped' ? 'Stopped' : `Deployed ${ago(p.lastDeploy)}`}</span>
-                <span className="flex min-w-0 items-center gap-1.5">
-                  <span className="truncate">{p.repo.split('/').slice(1).join('/')}</span>
-                  <ArrowRight
-                    size={15}
-                    className="shrink-0 -translate-x-1 text-fg-2 opacity-0 transition-[opacity,translate] duration-200 ease-[var(--ease-out)] group-hover:translate-x-0 group-hover:opacity-100"
-                  />
-                </span>
-              </span>
-            </Link>
-          ))}
-        </div>
-      )}
+      <ProjectsCollection
+        view={view}
+        filterKey={state}
+        items={projects.map((p) => ({
+          slug: p.slug,
+          href: `/projects/${p.slug}/${p.services.find((s) => s.type === 'app')?.name ?? p.services[0]?.name}/deployments`,
+          icon: p.icon,
+          engine: p.engine ?? false,
+          domain: p.domain,
+          repo: p.repo,
+          health: p.health,
+          lastDeploy: p.lastDeploy,
+          services: p.services.map((x) => ({ name: x.name, type: x.type })),
+        }))}
+      />
     </div>
   );
 }

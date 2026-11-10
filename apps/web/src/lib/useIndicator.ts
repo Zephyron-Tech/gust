@@ -39,8 +39,22 @@ export function useIndicator<T extends HTMLElement>(key: string | null, external
     return () => cancelAnimationFrame(id);
   }, [box, animate]);
 
-  const style = (part: 'fill' | 'underline'): React.CSSProperties | undefined => {
+  /**
+   * `band`: a full-width highlight. Its width is the container's, so it follows a
+   * container that is resizing (the sidebar) frame by frame; only its position and
+   * height animate.
+   */
+  const style = (part: 'fill' | 'underline' | 'band'): React.CSSProperties | undefined => {
     if (!box) return undefined;
+    if (part === 'band') {
+      return {
+        transform: `translateY(${box.y}px)`,
+        left: 0,
+        width: '100%',
+        height: box.h,
+        transition: animate ? 'transform 280ms var(--ease-out), height 280ms var(--ease-out), opacity 150ms var(--ease-out)' : 'none',
+      };
+    }
     const y = part === 'underline' ? box.y + box.h - 2 : box.y;
     return {
       transform: `translate(${box.x}px, ${y}px)`,
