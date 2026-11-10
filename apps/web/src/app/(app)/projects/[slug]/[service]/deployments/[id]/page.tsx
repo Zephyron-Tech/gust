@@ -1,9 +1,9 @@
 'use client';
 
 import { type Deployment, environmentOf, RUNNING_STATES } from '@gust/contracts';
-import { ArrowCounterClockwise, ArrowSquareOut, Check, X } from '@phosphor-icons/react/ssr';
+import { ArrowCounterClockwise, ArrowDown, ArrowSquareOut, Check, Copy, X } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
-import { use, useEffect, useRef } from 'react';
+import { use, useEffect, useRef, useState } from 'react';
 import { Ago } from '@/components/Ago';
 import { EnvBadge } from '@/components/EnvBadge';
 import { btn, Code, cx, Pill } from '@/components/ui';
@@ -31,6 +31,8 @@ export default function DeploymentPage({ params }: { params: Promise<{ slug: str
   const d = real ? (detail ? { ...detail, state: listedState ?? detail.state } : listed) : listed;
   const logRef = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
+  const [following, setFollowing] = useState(true);
+  const [copied, setCopied] = useState(false);
   const lines = d?.logs.length ?? 0;
 
   // Follow the log while the reader stays at the bottom; leave it alone once they scroll up.
@@ -147,12 +149,50 @@ export default function DeploymentPage({ params }: { params: Promise<{ slug: str
         ref={logRef}
         onScroll={(e) => {
           const el = e.currentTarget;
-          pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+          const atEnd = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+          pinned.current = atEnd;
+          setFollowing(atEnd);
         }}
         className="h-[460px] overflow-auto rounded-2xl border border-line bg-log px-6 py-5 font-mono text-[13px] leading-[1.8] text-[#d6d5e4]"
       >
+        <div className="sticky top-0 z-10 -mx-6 -mt-5 mb-3 flex items-center justify-between gap-3 border-b border-white/[0.06] bg-log/95 px-6 py-2.5 font-sans text-[12.5px] text-[#8c8aa6] backdrop-blur">
+          <span className="tabular-nums">
+            {lines} {lines === 1 ? 'line' : 'lines'}
+          </span>
+          <span className="flex items-center gap-1">
+            {!following && (
+              <button
+                type="button"
+                onClick={() => {
+                  const el = logRef.current;
+                  if (el) el.scrollTop = el.scrollHeight;
+                  pinned.current = true;
+                  setFollowing(true);
+                }}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[#d6d5e4] transition-colors hover:bg-white/[0.08]"
+              >
+                <ArrowDown size={13} /> Jump to end
+              </button>
+            )}
+            <button
+              type="button"
+              disabled={lines === 0}
+              onClick={() => {
+                const text = d.logs.map((l) => `${l.ts} ${l.phase} ${l.line}`).join('\n');
+                void navigator.clipboard?.writeText(text).then(() => {
+                  setCopied(true);
+                  window.setTimeout(() => setCopied(false), 1500);
+                });
+              }}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[#d6d5e4] transition-colors hover:bg-white/[0.08] disabled:opacity-40"
+            >
+              {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? 'Copied' : 'Copy'}
+            </button>
+          </span>
+        </div>
         {d.logs.map((l, i) => {
           const bad = l.phase === 'fail' || / 503 |no healthy/.test(l.line);
+          const warn = !bad && /\bwarn(ing)?\b/i.test(l.line);
           const good = l.phase === 'live' || / 200 /.test(l.line);
           return (
             <div key={i} className="log-in grid grid-cols-[76px_64px_1fr] gap-4">
@@ -160,7 +200,7 @@ export default function DeploymentPage({ params }: { params: Promise<{ slug: str
               <span className={l.phase === 'fail' ? 'text-[#ff7480]' : l.phase === 'live' ? 'text-[#4fd08f]' : 'text-[#8b80ff]'}>
                 {l.phase}
               </span>
-              <span className={bad ? 'text-[#ff7480]' : good ? 'text-[#4fd08f]' : undefined}>{l.line}</span>
+              <span className={cx(bad ? 'text-[#ff7480]' : warn ? 'text-[#f5b84a]' : good ? 'text-[#4fd08f]' : undefined)}>{l.line}</span>
             </div>
           );
         })}
