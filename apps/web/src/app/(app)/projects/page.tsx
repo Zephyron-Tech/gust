@@ -70,7 +70,7 @@ export default async function ProjectsPage() {
           >
             <span className="flex items-center justify-between gap-3">
               <span className="flex min-w-0 items-center gap-3">
-                <ProjectIcon slug={p.slug} />
+                <ProjectIcon slug={p.slug} src={p.icon} />
                 <span className="min-w-0">
                   <span className="flex items-center gap-2">
                     <span className="truncate font-display text-[18px] leading-tight font-semibold tracking-tight">{p.slug}</span>

@@ -174,7 +174,7 @@ function CommandPalette({ open, onOpenChange, onTheme }: { open: boolean; onOpen
                       className={item}
                       onSelect={() => run(() => router.push(p.href))}
                     >
-                      <ProjectIcon slug={p.slug} size="sm" />
+                      <ProjectIcon slug={p.slug} src={p.icon} size="sm" />
                       {p.slug}
                       <span className="ml-auto flex min-w-0 items-center gap-2.5 text-[13px] text-fg-3">
                         <span className="truncate">{p.domain}</span>

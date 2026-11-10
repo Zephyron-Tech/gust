@@ -35,6 +35,14 @@ export const projects = pgTable('projects', {
   productionBranch: text('production_branch').notNull().default('main'),
   /** Pushes to these branches deploy as previews, on their own host, apart from production. */
   previewBranches: text('preview_branches').array().notNull().default(sql`'{}'::text[]`),
+  /** Icon shown next to the name: a PNG, JPEG, GIF, WebP, ICO or SVG, base64 encoded. Null shows the letter. */
+  iconType: text('icon_type'),
+  iconData: text('icon_data'),
+  /** `auto` came from the site's favicon, `manual` was uploaded, `removed` was cleared by hand and is not fetched again. */
+  iconSource: text('icon_source'),
+  iconUpdatedAt: timestamp('icon_updated_at', { withTimezone: true }),
+  /** Last try to take the icon from the site, so a site without one is not asked on every page view. */
+  iconCheckedAt: timestamp('icon_checked_at', { withTimezone: true }),
   createdAt: createdAt(),
 });
 

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 
 import { BranchesPanel } from '@/components/BranchesPanel';
 import { DeleteProject } from '@/components/DeleteProject';
+import { ProjectIconPanel } from '@/components/ProjectIconPanel';
 import { Panel } from '@/components/ui';
 import { getProject } from '@/lib/data';
 
@@ -40,6 +41,7 @@ export default async function ServiceSettingsPage({ params }: { params: Promise<
 
   return (
     <div className="space-y-6">
+      <ProjectIconPanel slug={slug} icon={project.icon} domain={project.domain} />
       {project.engine && (
         <BranchesPanel
           slug={slug}

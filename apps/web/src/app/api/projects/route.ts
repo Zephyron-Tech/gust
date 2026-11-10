@@ -41,6 +41,7 @@ export async function GET(req: Request) {
         engine: p.engine === true,
         health: p.health,
         domain: p.domain,
+        icon: p.icon,
         href: first ? `/projects/${p.slug}/${first.name}/${first.type === 'stateful' ? 'settings' : 'deployments'}` : `/projects/${p.slug}`,
       };
     }),

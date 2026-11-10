@@ -38,7 +38,7 @@ export function useDeploymentDetail(id: string, enabled: boolean) {
 export type UiDeployment = Deployment & { containerId?: string; engine?: boolean };
 
 /** A project as the sidebar and the command menu list it. */
-export type ProjectLink = { slug: string; engine: boolean; health: Health; domain: string; href: string };
+export type ProjectLink = { slug: string; engine: boolean; health: Health; domain: string; icon: string | null; href: string };
 
 // Before the server's answer arrives, the sample data decides.
 const sampleIsEngine = (project: string) => projects.some((p) => p.slug === project && p.engine);

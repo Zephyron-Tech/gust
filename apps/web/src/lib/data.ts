@@ -3,9 +3,13 @@ import 'server-only';
 // Projects and services as the UI shows them, read from the database.
 import type { Health, Project } from '@gust/contracts';
 import { db, deployments, projects, services } from '@gust/db';
-import { asc, desc, eq, inArray } from 'drizzle-orm';
+import { asc, desc, eq, getTableColumns, inArray, sql } from 'drizzle-orm';
 
-export type UiProject = Project & { id: string };
+import { iconCheckDue } from './project-icon';
+import { refreshIconFromSite } from './project-icon-fetch';
+
+/** `icon` is the URL of the project's icon, or null for the letter tile. */
+export type UiProject = Project & { id: string; icon: string | null };
 
 function health(states: string[]): Health {
   if (states.includes('live')) return 'live';
@@ -15,7 +19,12 @@ function health(states: string[]): Health {
 
 /** All projects with their services; health and last deploy from real deploys where they exist. */
 export async function getProjects(): Promise<UiProject[]> {
-  const ps = await db.select().from(projects).orderBy(desc(projects.engine), asc(projects.createdAt));
+  // The icon's bytes stay in the database until the icon is asked for; the list only needs to know there is one.
+  const { iconData: _bytes, ...columns } = getTableColumns(projects);
+  const ps = await db
+    .select({ ...columns, hasIcon: sql<boolean>`${projects.iconData} is not null` })
+    .from(projects)
+    .orderBy(desc(projects.engine), asc(projects.createdAt));
   const ss = await db.select().from(services).orderBy(asc(services.createdAt));
   const ds = ss.length
     ? await db
@@ -30,6 +39,9 @@ export async function getProjects(): Promise<UiProject[]> {
         .orderBy(desc(deployments.createdAt))
     : [];
   return ps.map((p) => {
+    // A site without an icon is asked for one in the background, at most once a day; the next view shows it.
+    const wanted = !p.hasIcon && p.iconSource !== 'manual' && p.iconSource !== 'removed';
+    if (wanted && iconCheckDue(p.iconCheckedAt)) void refreshIconFromSite(p.slug).catch(() => false);
     const mine = ss.filter((s) => s.projectId === p.id);
     const deps = ds.filter((d) => mine.some((s) => s.id === d.serviceId));
     return {
@@ -37,6 +49,7 @@ export async function getProjects(): Promise<UiProject[]> {
       slug: p.slug,
       repo: p.repo,
       domain: p.domain,
+      icon: p.hasIcon ? `/api/projects/${p.slug}/icon?v=${p.iconUpdatedAt?.getTime() ?? 0}` : null,
       engine: p.engine,
       productionBranch: p.productionBranch,
       previewBranches: p.previewBranches,

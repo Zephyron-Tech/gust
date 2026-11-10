@@ -125,7 +125,7 @@ export function Sidebar() {
             aria-current={p === open ? 'page' : undefined}
             className={cx('relative py-2', item, p === open ? 'bg-bg-3 text-fg' : 'text-fg-2 hover:text-fg')}
           >
-            <ProjectIcon slug={p.slug} size="sm" />
+            <ProjectIcon slug={p.slug} src={p.icon} size="sm" />
             <span className="min-w-0 flex-1 truncate">{p.slug}</span>
             <Dot health={p.health} />
           </Link>
