@@ -226,3 +226,17 @@ html {
     stroke-dashoffset: -100;
   }
 }
+
+/* A live project's corner glow breathes slowly. Reduced motion stops it through the global rule. */
+@keyframes state-breathe {
+  0%,
+  100% {
+    opacity: 0.22;
+  }
+  50% {
+    opacity: 0.42;
+  }
+}
+.state-breathe {
+  animation: state-breathe 4.5s ease-in-out infinite;
+}

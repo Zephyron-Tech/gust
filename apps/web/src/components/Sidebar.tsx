@@ -11,7 +11,7 @@ import { useFlip } from '@/lib/useFlip';
 import { useIndicator } from '@/lib/useIndicator';
 import { useServerMetrics } from '@/lib/useServerMetrics';
 import { useUpdateStatus } from '@/lib/useUpdateStatus';
-import { Beacon } from './Beacon';
+import { Beacon, inkOf } from './Beacon';
 import { GustMark } from './GustMark';
 import { ProjectIcon } from './ProjectIcon';
 import { cx, Meter } from './ui';
@@ -188,8 +188,8 @@ export function Sidebar() {
             )}
           >
             <ProjectIcon slug={p.slug} src={p.icon} size="sm" />
-            <span className={cx('min-w-0 flex-1 truncate', collapsed && 'sr-only')}>{p.slug}</span>
-            <Beacon health={p.health} className={collapsed ? 'absolute top-1 right-0.5 scale-75' : undefined} />
+            <span className={cx('min-w-0 flex-1 truncate', collapsed && 'sr-only', p !== open && inkOf(p.health))}>{p.slug}</span>
+            <Beacon health={p.health} />
           </Link>
         ))}
         {projects === null &&

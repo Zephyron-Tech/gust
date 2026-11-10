@@ -1,7 +1,7 @@
 import type { Icon } from '@phosphor-icons/react';
 import { ArrowRight, DownloadSimple, GitBranch, Plus, RocketLaunch } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
-import { Beacon } from '@/components/Beacon';
+import { Beacon, StateGlow } from '@/components/Beacon';
 import { ProjectIcon } from '@/components/ProjectIcon';
 import { ProjectsToolbar } from '@/components/ProjectsToolbar';
 import { btn, cx, PageHead, Panel, Tag } from '@/components/ui';
@@ -97,10 +97,11 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
               key={p.slug}
               href={`/projects/${p.slug}/${p.services.find((s) => s.type === 'app')?.name ?? p.services[0]?.name}/deployments`}
               className={cx(
-                'group flex items-center gap-4 px-5 py-3.5 transition-colors duration-150 hover:bg-bg-3/40',
+                'group relative isolate flex items-center gap-4 overflow-hidden px-5 py-3.5 transition-colors duration-150 hover:bg-bg-3/40',
                 i > 0 && 'border-t border-line',
               )}
             >
+              <StateGlow health={p.health} />
               <ProjectIcon slug={p.slug} src={p.icon} size="sm" />
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2">
@@ -133,8 +134,9 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
               key={p.slug}
               style={{ animationDelay: `${120 + i * 45}ms` }}
               href={`/projects/${p.slug}/${p.services.find((s) => s.type === 'app')?.name ?? p.services[0]?.name}/deployments`}
-              className="rise-in hover-lift group relative flex flex-col gap-4 overflow-hidden rounded-2xl border border-line bg-bg-2 p-5 transition-[translate,border-color,background-color,box-shadow] duration-300 ease-[var(--ease-out)] hover:-translate-y-1 hover:border-fg-3/60 hover:bg-bg-3/40 hover:shadow-[0_18px_40px_-24px_rgb(0_0_0/0.6)] active:translate-y-0 active:duration-100"
+              className="rise-in hover-lift group relative isolate flex flex-col gap-4 overflow-hidden rounded-2xl border border-line bg-bg-2 p-5 transition-[translate,border-color,background-color,box-shadow] duration-300 ease-[var(--ease-out)] hover:-translate-y-1 hover:border-fg-3/60 hover:bg-bg-3/40 hover:shadow-[0_18px_40px_-24px_rgb(0_0_0/0.6)] active:translate-y-0 active:duration-100"
             >
+              <StateGlow health={p.health} />
               <span className="flex items-center justify-between gap-3">
                 <span className="flex min-w-0 items-center gap-3">
                   <ProjectIcon slug={p.slug} src={p.icon} />
