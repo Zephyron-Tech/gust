@@ -5,6 +5,9 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 const startedAt = new Date();
 let role: 'admin' | 'member' = 'admin';
+// Tests that wait for the worker to provision, back up or drop a database need it
+// running and its PG_DUMP wrappers set. CI has no worker: set GUST_WORKER_TESTS=1 to run them.
+const worker = process.env.GUST_WORKER_TESTS === '1';
 
 vi.mock('server-only', () => ({}));
 vi.mock('@/lib/auth', () => ({
@@ -83,7 +86,7 @@ describe('database endpoints', () => {
     ).toBe(0);
   });
 
-  it('creates the row, and the worker makes the database and the app env variable', { timeout: 60_000 }, async () => {
+  it.skipIf(!worker)('creates the row, and the worker makes the database and the app env variable', { timeout: 60_000 }, async () => {
     const res = await post('demo', 'api');
     expect(res.status).toBe(201);
     const body = (await res.json()) as { id: string; state: string };
@@ -100,6 +103,8 @@ describe('database endpoints', () => {
   });
 
   it('refuses a second database with the same name', async () => {
+    // The first call makes the row when the worker test above did not run.
+    await post('demo', 'api');
     expect((await post('demo', 'api')).status).toBe(409);
   });
 
@@ -110,7 +115,7 @@ describe('database endpoints', () => {
     expect(JSON.stringify(body)).not.toMatch(/password/i);
   });
 
-  it('backs up a ready database into a file and records it', { timeout: 60_000 }, async () => {
+  it.skipIf(!worker)('backs up a ready database into a file and records it', { timeout: 60_000 }, async () => {
     const res = await BACKUP(new Request('http://gust.test', { method: 'POST' }), ctxId('demo', id));
     expect(res.status).toBe(202);
     const audit = await until(async () => {
@@ -124,7 +129,7 @@ describe('database endpoints', () => {
     expect(existsSync(file)).toBe(true);
   });
 
-  it('deletes: the worker drops the database and removes its env variable', { timeout: 60_000 }, async () => {
+  it.skipIf(!worker)('deletes: the worker drops the database and removes its env variable', { timeout: 60_000 }, async () => {
     const res = await DELETE(new Request('http://gust.test', { method: 'DELETE' }), ctxId('demo', id));
     expect(res.status).toBe(202);
     await until(async () => ((await rowOf(id)) === undefined ? true : undefined), 'row removed');

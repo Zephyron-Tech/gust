@@ -16,6 +16,22 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    # The web tests of project databases use a real database, migrated and seeded below.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: gust
+          POSTGRES_PASSWORD: gust
+          POSTGRES_DB: gust
+        ports: ['5434:5432']
+        options: >-
+          --health-cmd "pg_isready -U gust"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgres://gust:gust@127.0.0.1:5434/gust
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -24,6 +40,10 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Throwaway key for the test database
+        run: echo "GUST_MASTER_KEY=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+      - name: Migrate and seed the test database
+        run: pnpm --filter @gust/db db:migrate && pnpm --filter @gust/db db:seed
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
