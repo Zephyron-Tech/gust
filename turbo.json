@@ -4,6 +4,6 @@
     "build": { "dependsOn": ["^build"], "outputs": [".next/**", "!.next/cache/**", "dist/**"] },
     "dev": { "cache": false, "persistent": true },
     "typecheck": { "dependsOn": ["^typecheck"] },
-    "test": { "dependsOn": ["^build"] }
+    "test": { "dependsOn": ["^build"], "env": ["GUST_MASTER_KEY", "DATABASE_URL", "GUST_WORKER_TESTS"] }
   }
 }
