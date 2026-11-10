@@ -9,6 +9,7 @@ import { type RefObject, useLayoutEffect, useRef } from 'react';
  */
 export function useFlip<T extends HTMLElement>(ref: RefObject<T | null>, order: string) {
   const last = useRef(new Map<string, number>());
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `order` is the trigger; the effect reads the DOM, which changes with it
   useLayoutEffect(() => {
     const root = ref.current;
     if (!root) return;

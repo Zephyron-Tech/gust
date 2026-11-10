@@ -37,14 +37,20 @@ export function Sidebar() {
   useEffect(() => {
     setRecent(readRecent());
   }, []);
+  const openSlug = open?.slug;
   useEffect(() => {
-    if (open) setRecent(rememberProject(open.slug));
-  }, [open?.slug]);
+    if (openSlug) setRecent(rememberProject(openSlug));
+  }, [openSlug]);
   const pinned = useMemo(() => {
     if (!projects) return [];
     const bySlug = new Map(projects.map((p) => [p.slug, p]));
     const order = [...new Set([...recent, ...projects.map((p) => p.slug)])];
-    return order.flatMap((slug) => (bySlug.get(slug) ? [bySlug.get(slug)!] : [])).slice(0, RECENT);
+    return order
+      .flatMap((slug) => {
+        const p = bySlug.get(slug);
+        return p ? [p] : [];
+      })
+      .slice(0, RECENT);
   }, [projects, recent]);
   const { data: metrics } = useServerMetrics('1h');
   const snap = metrics?.snapshot ?? null;
