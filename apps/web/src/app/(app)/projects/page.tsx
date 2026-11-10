@@ -1,4 +1,5 @@
-import { ArrowRight, Plus } from '@phosphor-icons/react/ssr';
+import type { Icon } from '@phosphor-icons/react';
+import { ArrowRight, DownloadSimple, GitBranch, Plus, RocketLaunch } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
 
 import { ProjectIcon } from '@/components/ProjectIcon';
@@ -14,6 +15,12 @@ export const dynamic = 'force-dynamic';
 
 // The card's top edge shows the project's state: the same colours as the health dots.
 const STRIPE: Record<string, string> = { live: 'bg-ok', failed: 'bg-err', stopped: 'bg-fg-3/50', healthy: 'bg-info' };
+
+const FIRST_STEPS: [Icon, string, string][] = [
+  [DownloadSimple, 'Import a repository', 'Pick one from the organisation. Gust reads its branches and Dockerfile.'],
+  [GitBranch, 'Add the workflow', 'Gust prepares the GitHub Actions file. Commit it once, from a link.'],
+  [RocketLaunch, 'Push', 'Pushes to the production branch deploy; other branches get their own preview.'],
+];
 
 const SORTS = [
   { key: 'activity', label: 'Recent activity' },
@@ -60,16 +67,30 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
       </Panel>
 
       {projects.length === 0 && (
-        <Panel className="rise-in grid place-items-center gap-4 px-6 py-14 text-center" style={{ animationDelay: '120ms' }}>
-          <div className="space-y-1.5">
-            <h2 className="text-[20px]">No projects yet</h2>
-            <p className="mx-auto max-w-sm text-[14.5px] text-fg-3">
-              Import a repository, add the deploy workflow Gust prepares for it, and the next push goes live.
-            </p>
+        <Panel className="rise-in px-6 py-10 sm:px-10" style={{ animationDelay: '120ms' }}>
+          <div className="mx-auto max-w-3xl space-y-8 text-center">
+            <div className="space-y-2">
+              <h2 className="font-display text-[22px] font-semibold tracking-tight">Ship your first project</h2>
+              <p className="mx-auto max-w-md text-[14.5px] text-fg-3">Three steps, and the next push to main goes live.</p>
+            </div>
+            <ol className="grid gap-4 text-left md:grid-cols-3">
+              {FIRST_STEPS.map(([I, title, text], i) => (
+                <li key={title} className="relative rounded-xl border border-line bg-bg p-5">
+                  <span className="mb-4 flex items-center justify-between">
+                    <span className="grid size-9 place-items-center rounded-[10px] border border-line bg-bg-3 text-fg-2">
+                      <I size={18} aria-hidden />
+                    </span>
+                    <span className="font-mono text-[12px] text-fg-3">0{i + 1}</span>
+                  </span>
+                  <span className="block font-medium">{title}</span>
+                  <span className="mt-1 block text-[13.5px] leading-relaxed text-fg-3">{text}</span>
+                </li>
+              ))}
+            </ol>
+            <Link href="/projects/new" className={btn.primary}>
+              <Plus weight="bold" /> Import a repository
+            </Link>
           </div>
-          <Link href="/projects/new" className={btn.primary}>
-            <Plus weight="bold" /> Import a repository
-          </Link>
         </Panel>
       )}
 
