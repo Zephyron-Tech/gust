@@ -1,9 +1,9 @@
 import type { Icon } from '@phosphor-icons/react';
 import { ArrowRight, DownloadSimple, GitBranch, ListBullets, Plus, RocketLaunch, SquaresFour } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
-
+import { Beacon } from '@/components/Beacon';
 import { ProjectIcon } from '@/components/ProjectIcon';
-import { btn, cx, Dot, PageHead, Panel, Tag } from '@/components/ui';
+import { btn, cx, PageHead, Panel, Tag } from '@/components/ui';
 import { getProjects } from '@/lib/data';
 import { ago } from '@/lib/format';
 import { NOT_SET } from '@/lib/integrations';
@@ -12,9 +12,6 @@ import { projectStats } from '@/lib/projects-stats';
 export const metadata = { title: 'Projects' };
 
 export const dynamic = 'force-dynamic';
-
-// The card's top edge shows the project's state: the same colours as the health dots.
-const STRIPE: Record<string, string> = { live: 'bg-ok', failed: 'bg-err', stopped: 'bg-fg-3/50', healthy: 'bg-info' };
 
 const FIRST_STEPS: [Icon, string, string][] = [
   [DownloadSimple, 'Import a repository', 'Pick one from the organisation. Gust reads its branches and Dockerfile.'],
@@ -174,7 +171,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
               <span className="hidden w-[180px] shrink-0 truncate text-right text-[13px] text-fg-3 lg:block">
                 {p.health === 'stopped' ? 'Stopped' : `Deployed ${ago(p.lastDeploy)}`}
               </span>
-              <Dot health={p.health} />
+              <Beacon health={p.health} />
               <ArrowRight size={15} className="shrink-0 text-fg-3 transition-transform duration-200 group-hover:translate-x-0.5" />
             </Link>
           ))}
@@ -190,7 +187,6 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
               href={`/projects/${p.slug}/${p.services.find((s) => s.type === 'app')?.name ?? p.services[0]?.name}/deployments`}
               className="rise-in hover-lift group relative flex flex-col gap-4 overflow-hidden rounded-2xl border border-line bg-bg-2 p-5 transition-[translate,border-color,background-color,box-shadow] duration-300 ease-[var(--ease-out)] hover:-translate-y-1 hover:border-fg-3/60 hover:bg-bg-3/40 hover:shadow-[0_18px_40px_-24px_rgb(0_0_0/0.6)] active:translate-y-0 active:duration-100"
             >
-              <span aria-hidden className={cx('absolute inset-x-0 top-0 h-[3px]', STRIPE[p.health])} />
               <span className="flex items-center justify-between gap-3">
                 <span className="flex min-w-0 items-center gap-3">
                   <ProjectIcon slug={p.slug} src={p.icon} />
@@ -202,7 +198,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
                     <span className="block truncate text-[13.5px] text-fg-2">{p.domain}</span>
                   </span>
                 </span>
-                <Dot health={p.health} />
+                <Beacon health={p.health} showLabel />
               </span>
               <span className="flex flex-wrap gap-1.5">
                 {p.services.map((s) => (

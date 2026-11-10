@@ -10,9 +10,10 @@ import { useDemo } from '@/lib/demo';
 import { useIndicator } from '@/lib/useIndicator';
 import { useServerMetrics } from '@/lib/useServerMetrics';
 import { useUpdateStatus } from '@/lib/useUpdateStatus';
+import { Beacon } from './Beacon';
 import { GustMark } from './GustMark';
 import { ProjectIcon } from './ProjectIcon';
-import { cx, Dot, Meter } from './ui';
+import { cx, Meter } from './ui';
 
 const nav: { href: string; label: string; icon: Icon }[] = [
   { href: '/projects', label: 'Projects', icon: SquaresFour },
@@ -167,7 +168,7 @@ export function Sidebar() {
           >
             <ProjectIcon slug={p.slug} src={p.icon} size="sm" />
             <span className={cx('min-w-0 flex-1 truncate', collapsed && 'sr-only')}>{p.slug}</span>
-            <Dot health={p.health} className={collapsed ? 'absolute top-1.5 right-1.5 size-1.5' : undefined} />
+            <Beacon health={p.health} className={collapsed ? 'absolute top-1 right-0.5 scale-75' : undefined} />
           </Link>
         ))}
         {projects === null &&

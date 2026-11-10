@@ -10,8 +10,9 @@ import { useEffect, useState } from 'react';
 
 import { authClient } from '@/lib/auth-client';
 import { useDemo } from '@/lib/demo';
+import { Beacon } from './Beacon';
 import { ProjectIcon } from './ProjectIcon';
-import { Dot, Kbd } from './ui';
+import { Kbd } from './ui';
 
 function useTheme() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -178,7 +179,7 @@ function CommandPalette({ open, onOpenChange, onTheme }: { open: boolean; onOpen
                       {p.slug}
                       <span className="ml-auto flex min-w-0 items-center gap-2.5 text-[13px] text-fg-3">
                         <span className="truncate">{p.domain}</span>
-                        <Dot health={p.health} />
+                        <Beacon health={p.health} />
                       </span>
                     </Command.Item>
                   ))}

@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 
-import { cx, Dot } from '@/components/ui';
+import { Beacon } from '@/components/Beacon';
+import { cx } from '@/components/ui';
 import { getProject } from '@/lib/data';
 import { EngineNotice, ProjectActions, ServiceTabs } from './nav';
 
@@ -53,7 +54,7 @@ export default async function ServiceLayout({
               s.name === svc.name ? 'border-accent bg-accent-soft text-fg' : 'border-line text-fg-2 hover:border-fg-3',
             )}
           >
-            <Dot health={s.health} />
+            <Beacon health={s.health} showLabel />
             {s.name}
             <span className="font-normal text-fg-3">{s.type}</span>
           </Link>

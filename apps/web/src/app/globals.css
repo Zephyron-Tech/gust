@@ -100,6 +100,9 @@ html {
     /* biome-ignore lint/complexity/noImportantStyles: reduced motion must win over every component */
     transition-duration: 0.01ms !important;
   }
+  .beacon-ripple {
+    animation: none;
+  }
 }
 
 /* uPlot draws its own legend and axes; the chart cards show values themselves. */
@@ -198,4 +201,21 @@ html {
   .hover-lift:hover {
     translate: none;
   }
+}
+
+/* The live beacon's halo: one slow ring out from the core. Reduced motion
+   turns it off through the global rule above. */
+@keyframes beacon-ripple {
+  from {
+    transform: scale(0.55);
+    opacity: 0.8;
+  }
+  to {
+    transform: scale(2.1);
+    opacity: 0;
+  }
+}
+
+.beacon-ripple {
+  animation: beacon-ripple 2s var(--ease-out) infinite;
 }

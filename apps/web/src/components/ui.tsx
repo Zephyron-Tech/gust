@@ -1,4 +1,4 @@
-import type { DeployState, Health } from '@gust/contracts';
+import type { DeployState } from '@gust/contracts';
 import type { ComponentProps, ReactNode } from 'react';
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
@@ -45,22 +45,6 @@ export function Pill({ state }: { state: DeployState }) {
     >
       {pillLabel[state]}
     </span>
-  );
-}
-
-export function Dot({ health, className }: { health: Health; className?: string }) {
-  return (
-    <span
-      role="img"
-      aria-label={health}
-      className={cx(
-        'size-2 shrink-0 rounded-full',
-        className,
-        health === 'live' && 'bg-ok ring-[3px] ring-ok/20',
-        health === 'failed' && 'bg-err ring-[3px] ring-err/20',
-        health === 'stopped' && 'bg-fg-3',
-      )}
-    />
   );
 }
 
