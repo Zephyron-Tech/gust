@@ -195,11 +195,22 @@ export const previewHost = (branch: string, project: string, domain: string) => 
  * Which deploy a GitHub run means, from its ref. `null` branch is production;
  * a preview branch deploys as a preview. Anything else is refused.
  */
-export function deployTarget(ref: string, productionBranch: string, previewBranches: string[]): { branch: string | null } | null {
+export function deployTarget(
+  ref: string,
+  productionBranch: string,
+  previewBranches: string[],
+): { branch: string | null; pullRequest?: number } | null {
   if (ref === `refs/heads/${productionBranch}`) return { branch: null };
   const preview = previewBranches.find((b) => ref === `refs/heads/${b}`);
-  return preview ? { branch: preview } : null;
+  if (preview) return { branch: preview };
+  // A pull request's merge ref deploys as the preview `pr-<number>`. The caller checks the PR is open.
+  const pr = /^refs\/pull\/([1-9]\d{0,8})\/merge$/.exec(ref);
+  return pr ? { branch: prBranch(Number(pr[1])), pullRequest: Number(pr[1]) } : null;
 }
+
+/** The preview branch name of a pull request. Branch names matching this are reserved for PRs. */
+export const prBranch = (number: number) => `pr-${number}`;
+export const PR_BRANCH = /^pr-[1-9]\d{0,8}$/;
 
 /** The environment a deploy runs in: production, or the preview of one branch. */
 export type Environment = { kind: 'production' } | { kind: 'preview'; branch: string };

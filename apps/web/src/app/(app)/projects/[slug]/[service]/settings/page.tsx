@@ -10,6 +10,7 @@ import { RegistryAccount } from '@/components/RegistryAccount';
 import { Panel } from '@/components/ui';
 import { currentUser } from '@/lib/auth';
 import { getProject } from '@/lib/data';
+import { openPullRequestPreviews } from '@/lib/pull-requests';
 import { accountView } from '@/lib/registry-action';
 
 // Values that are literal code are set in monospace; the rest reads as prose.
@@ -43,6 +44,7 @@ export default async function ServiceSettingsPage({ params }: { params: Promise<
   const domain = process.env.GUST_DOMAIN;
   const previewBranches = project.previewBranches ?? [];
   const previewUrls = Object.fromEntries(previewBranches.flatMap((b) => (domain ? [[b, `https://${previewHost(b, slug, domain)}`]] : [])));
+  const pullRequestPreviews = await openPullRequestPreviews(slug, domain);
 
   const user = await currentUser(await headers());
   const reg = await registryStatus(slug);
@@ -60,6 +62,8 @@ export default async function ServiceSettingsPage({ params }: { params: Promise<
           previewUrls={previewUrls}
           productionDomains={s.domains ?? []}
           previewsStopped={project.previewsStopped ?? false}
+          githubRepo={project.repo ?? null}
+          pullRequests={pullRequestPreviews}
         />
       )}
       {project.engine && (

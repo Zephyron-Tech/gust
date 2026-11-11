@@ -205,6 +205,8 @@ services:
       GITHUB_APP_ID: ${GITHUB_APP_ID:-}
       # Only whether a key is set; the key itself never reaches the web container.
       GITHUB_APP_KEY_SET: ${GITHUB_APP_PRIVATE_KEY:+yes}
+      # Signs the GitHub App webhook that opens and closes pull request previews.
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET}
       # Only this folder is shared with the host: update requests in, status.json out.
       GUST_REQUESTS_DIR: /gust-requests
     volumes:

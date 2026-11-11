@@ -139,6 +139,7 @@ master="$(existing GUST_MASTER_KEY)"
 engine="$(existing ENGINE_TOKEN)"
 pull="$(existing REGISTRY_PULL_PASSWORD)"
 admin="$(existing REGISTRY_ADMIN_PASSWORD)"
+webhook="$(existing GITHUB_WEBHOOK_SECRET)"
 redis="$(existing REDIS_PASSWORD)"
 bg="$(existing BREAK_GLASS_PASSWORD)"
 umask 077
@@ -161,6 +162,9 @@ ENGINE_TOKEN=${engine:-$(randpw 40)}
 
 REGISTRY_PULL_PASSWORD=${pull:-$(randpw 32)}
 REGISTRY_ADMIN_PASSWORD=${admin:-$(randpw 32)}
+
+# Signs the GitHub App webhook (pull request previews). Set the same value in the App settings.
+GITHUB_WEBHOOK_SECRET=${webhook:-$(randpw 40)}
 
 REDIS_PASSWORD=${redis:-$(randpw 40)}
 

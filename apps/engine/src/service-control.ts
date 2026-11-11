@@ -43,3 +43,29 @@ export async function stopService(project: string, service: string, scope: StopS
   }
   return names;
 }
+
+/**
+ * Removes the containers of one preview branch (a closed pull request, or one evicted for the limit):
+ * drains them from routing, stops them, then deletes them. Their routes go with them.
+ */
+export async function removeBranch(project: string, service: string, branch: string): Promise<string[]> {
+  const found = await docker.listContainers({
+    all: true,
+    filters: {
+      label: [`${LABEL.managed}=true`, `${LABEL.project}=${project}`, `${LABEL.service}=${service}`, `${LABEL.branch}=${branch}`],
+    },
+  });
+  if (found.length === 0) return [];
+  const running = found.filter((c) => c.State === 'running');
+  for (const c of running) drain(c.Id);
+  if (running.length) await sleep(DRAIN_GRACE_MS);
+  const names: string[] = [];
+  for (const c of found) {
+    const handle = docker.getContainer(c.Id);
+    await handle.stop({ t: 15 }).catch(() => {});
+    await handle.remove({ force: true }).catch(() => {});
+    undrain(c.Id);
+    names.push(c.Names[0]?.slice(1) ?? c.Id.slice(0, 12));
+  }
+  return names;
+}

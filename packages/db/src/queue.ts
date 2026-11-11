@@ -2,13 +2,21 @@
 // Postgres. The web app only sends; the worker does the work.
 import { PgBoss } from 'pg-boss';
 
-export const QUEUES = { deploy: 'deploy', database: 'database', nightly: 'database-backup-nightly', registry: 'registry' } as const;
+export const QUEUES = {
+  deploy: 'deploy',
+  database: 'database',
+  nightly: 'database-backup-nightly',
+  registry: 'registry',
+  previewRemove: 'preview-remove',
+} as const;
 export type DeployJob = { deploymentId: string };
 export type DatabaseAction = 'provision' | 'drop' | 'backup' | 'rotate' | 'restore';
 /** `file` is set for `restore` only: the dump's absolute path, taken from the audit log. */
 /** `create` or `rotate` a project's registry account and write its GitHub secrets; `revoke` only syncs. The password never goes in the job. */
 export type RegistryJob = { slug: string; action: 'create' | 'rotate' | 'revoke'; actor: string };
 export type DatabaseJob = { databaseId: string; action: DatabaseAction; file?: string };
+/** Removes a pull request's preview (its containers and route): the PR closed, or was evicted for the limit. */
+export type PreviewRemoveJob = { slug: string; number: number; reason: 'closed' | 'evicted' };
 
 const url = () => process.env.DATABASE_URL ?? 'postgres://gust:gust@127.0.0.1:5434/gust';
 
@@ -48,4 +56,10 @@ export async function enqueueRegistry(job: RegistryJob) {
   const boss = await sender();
   await boss.createQueue(QUEUES.registry, { retryLimit: 0, expireInSeconds: 5 * 60 });
   return boss.send(QUEUES.registry, job satisfies RegistryJob);
+}
+
+export async function enqueuePreviewRemove(job: PreviewRemoveJob) {
+  const boss = await sender();
+  await boss.createQueue(QUEUES.previewRemove, { retryLimit: 2, retryDelay: 5, expireInSeconds: 10 * 60 });
+  return boss.send(QUEUES.previewRemove, job satisfies PreviewRemoveJob);
 }

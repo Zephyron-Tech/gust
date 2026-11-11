@@ -6,6 +6,7 @@ import { DeployError, startDeploy } from '@/lib/deploy-runner';
 import { GithubDeployError, serviceForToken, spendToken } from '@/lib/github-deploy';
 import { githubClaims, TokenError } from '@/lib/github-oidc';
 import { deploymentUrl } from '@/lib/public-url';
+import { evictForPullRequest } from '@/lib/pull-requests';
 
 const body = z.object({
   service: z.string().regex(/^[a-z0-9-]+$/),
@@ -28,8 +29,10 @@ export async function POST(req: Request) {
   if (!parsed.success) return Response.json({ error: 'Send service and tag' }, { status: 400 });
 
   try {
-    const { project, service, branch } = await serviceForToken(claims, parsed.data.service);
+    const { project, service, branch, headSha, pullRequest, projectId } = await serviceForToken(claims, parsed.data.service);
     await spendToken(claims);
+    // A pull request preview may need room: the limit removes the least recently changed other one.
+    if (pullRequest !== undefined) await evictForPullRequest(projectId, project.slug, pullRequest);
     try {
       const id = await startDeploy({
         project: project.slug,
@@ -39,7 +42,8 @@ export async function POST(req: Request) {
         author: claims.actor,
         actor: `github:${claims.repository}`,
         push: {
-          sha: claims.sha,
+          // A pull request's status belongs on its head commit, not on the merge commit the run builds.
+          sha: headSha ?? claims.sha,
           message: parsed.data.message?.split('\n')[0],
           repository: claims.repository,
           runId: claims.run_id,

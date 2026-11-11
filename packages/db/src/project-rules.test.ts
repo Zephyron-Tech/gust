@@ -76,6 +76,10 @@ describe('validateNewProject', () => {
 });
 
 describe('validatePreviewBranches', () => {
+  it('keeps pr-<number> for pull request previews', () => {
+    expect(validatePreviewBranches(['pr-7'], 'main')).toEqual({ ok: false, error: '"pr-7" is reserved for pull request previews' });
+    expect(validatePreviewBranches(['pr-review'], 'main')).toEqual({ ok: true, value: ['pr-review'] });
+  });
   it('accepts a list of distinct branches', () => {
     expect(validatePreviewBranches([' dev ', 'staging'], 'main')).toEqual({ ok: true, value: ['dev', 'staging'] });
   });

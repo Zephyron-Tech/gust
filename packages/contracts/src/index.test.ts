@@ -75,6 +75,10 @@ describe('preview deploys', () => {
   it('refuses branches that are neither production nor preview', () => {
     expect(deployTarget('refs/heads/feature', 'main', ['dev'])).toBeNull();
     expect(deployTarget('refs/tags/v1', 'main', ['dev'])).toBeNull();
+    // A pull request's merge ref is the preview pr-<number>; the caller checks that the PR is open.
+    expect(deployTarget('refs/pull/42/merge', 'main', ['dev'])).toEqual({ branch: 'pr-42', pullRequest: 42 });
+    expect(deployTarget('refs/pull/0/merge', 'main', ['dev'])).toBeNull();
+    expect(deployTarget('refs/pull/42/head', 'main', ['dev'])).toBeNull();
     expect(deployTarget('refs/heads/dev', 'main', [])).toBeNull();
   });
 });

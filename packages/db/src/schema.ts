@@ -57,6 +57,36 @@ export const githubTokenUses = pgTable('github_token_uses', {
   usedAt: timestamp('used_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * A pull request of a project's repository, kept from the GitHub App webhook. A PR deploy is
+ * accepted only while its row is open and its head comes from the same repository.
+ */
+export const pullRequests = pgTable(
+  'pull_requests',
+  {
+    id: text('id').primaryKey(), // pr_<project>_<number>
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    number: integer('number').notNull(),
+    state: text('state').notNull(), // open | closed
+    headSha: text('head_sha').notNull(),
+    headRepo: text('head_repo').notNull(), // owner/name the head branch lives in
+    title: text('title').notNull(),
+    author: text('author').notNull(),
+    /** Last change of the PR (open, push, close), used to evict the oldest preview first. */
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('pull_requests_project_number').on(t.projectId, t.number)],
+);
+
+/** Delivery ids of GitHub webhooks already handled, so a redelivery does nothing twice. */
+export const githubWebhookDeliveries = pgTable('github_webhook_deliveries', {
+  deliveryId: text('delivery_id').primaryKey(),
+  event: text('event').notNull(),
+  receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const services = pgTable(
   'services',
   {

@@ -25,8 +25,14 @@ export function BranchesPanel({
   previewUrls,
   productionDomains,
   previewsStopped,
+  githubRepo,
+  pullRequests,
 }: {
   slug: string;
+  /** owner/name on GitHub, to link the pull requests. */
+  githubRepo: string | null;
+  /** Open pull requests with a live preview. */
+  pullRequests: { number: number; title: string; author: string; host: string | null }[];
   productionBranch: string;
   previewBranches: string[];
   /** Previews are stopped by hand; production is not affected. */
@@ -83,7 +89,6 @@ export function BranchesPanel({
           )}
         </div>
       </div>
-
       {!editing ? (
         <ul className="divide-y divide-line rounded-xl border border-line text-[14.5px]">
           <BranchRow branch={productionBranch} env={{ kind: 'production' }} hosts={productionDomains} />
@@ -135,6 +140,42 @@ export function BranchesPanel({
             </button>
           </div>
         </form>
+      )}
+      {!editing && pullRequests.length > 0 && (
+        <div className="mt-6">
+          <h3 className="mb-2 text-[13.5px] font-medium text-fg-2">Pull requests with a preview</h3>
+          <ul className="divide-y divide-line rounded-xl border border-line text-[14.5px]">
+            {pullRequests.map((pr) => (
+              <li key={pr.number} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 px-4 py-3">
+                {githubRepo ? (
+                  <a
+                    href={`https://github.com/${githubRepo}/pull/${pr.number}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-mono text-[13.5px] text-fg hover:text-accent"
+                  >
+                    #{pr.number}
+                  </a>
+                ) : (
+                  <Code className="text-fg">#{pr.number}</Code>
+                )}
+                <span className="min-w-0 truncate text-fg-2">
+                  {pr.title} <span className="text-fg-3">· {pr.author}</span>
+                </span>
+                {pr.host && (
+                  <a
+                    href={`https://${pr.host}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 truncate text-[14px] text-fg-2 transition-colors hover:text-accent"
+                  >
+                    {pr.host} <ArrowSquareOut size={14} className="shrink-0 text-fg-3" />
+                  </a>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </Panel>
   );

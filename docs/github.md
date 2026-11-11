@@ -58,6 +58,9 @@ name: Deploy
 on:
   push:
     branches: [main]
+  # Pull requests from this repository get a preview. Forks never do (no token, see the job's if).
+  pull_request:
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
@@ -70,6 +73,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: actions/checkout@v5
       - uses: Zephyron-Tech/gust/.github/actions/deploy@main
@@ -119,7 +123,19 @@ own check still shows the result.
 The app is registered as **Zephyron Gust** (App ID `5670843`, installable
 only on Zephyron-Tech) with:
 
-- Webhook: off for now. Pull-request previews are not built; branch previews are.
+- Webhook: on, `https://gust.zephyron.tech/api/github/webhook`, secret
+  `GITHUB_WEBHOOK_SECRET` (the same value as in `/opt/gust/.env`). Subscribed to
+  **Pull request** events. Gust keeps each open pull request and removes its preview
+  when it closes. Permission **Pull requests: Read** is needed; an organisation owner
+  approves the change on GitHub.
+
+## Pull request previews
+
+A pull request in a project's repository gets a preview at `pr-<number>-<project>.<GUST_DOMAIN>`,
+built and deployed by the project's workflow on `opened`, `synchronize` and `reopened`. The
+preview is removed when the pull request closes. Gust keeps at most 10 pull request previews per
+project; the least recently changed one makes room for a new one. Pull requests from forks get no
+preview. Branch previews (`previewBranches`) work as before; a branch may not be named `pr-<number>`.
 
 ## Branch previews
 

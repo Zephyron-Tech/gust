@@ -91,6 +91,8 @@ export function validatePreviewBranches(raw: string[], production: string): { ok
   for (const b of list) {
     if (!BRANCH.test(b)) return { ok: false, error: `"${b}" is not a valid branch name` };
     if (b === production) return { ok: false, error: `"${b}" is the production branch` };
+    // pr-<number> is the host of a pull request's preview; a branch may not take it.
+    if (/^pr-\d+$/.test(b)) return { ok: false, error: `"${b}" is reserved for pull request previews` };
   }
   if (new Set(list).size !== list.length) return { ok: false, error: 'A branch is listed twice' };
   return { ok: true, value: list };

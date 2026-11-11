@@ -11,7 +11,7 @@ import { docker } from './docker';
 import { listObserved, restartObserved, STACK_NAME } from './observed';
 import { reloadRegistry } from './registry';
 import { traefikConfig } from './routing';
-import { stopService } from './service-control';
+import { removeBranch, stopService } from './service-control';
 
 const token = process.env.ENGINE_TOKEN;
 if (!token) throw new Error('ENGINE_TOKEN is not set');
@@ -73,6 +73,17 @@ app.post('/v1/services/:project/:service/stop', async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as { scope?: string };
   const scope = body.scope === 'production' || body.scope === 'previews' ? body.scope : 'all';
   return c.json({ ok: true, containers: await stopService(project, service, scope) });
+});
+
+// Removes one preview branch (a closed or evicted pull request): containers stopped and deleted.
+app.post('/v1/services/:project/:service/remove-branch', async (c) => {
+  const { project, service } = c.req.param();
+  if (!/^[a-z0-9-]+$/.test(project) || !/^[a-z0-9-]+$/.test(service)) return c.json({ error: 'Invalid name' }, 400);
+  const body = (await c.req.json().catch(() => ({}))) as { branch?: unknown };
+  // Only pull request previews are removed this way: production and branch names never match.
+  if (typeof body.branch !== 'string' || !/^pr-[1-9]\d{0,8}$/.test(body.branch))
+    return c.json({ error: 'Not a pull request preview' }, 400);
+  return c.json({ ok: true, containers: await removeBranch(project, service, body.branch) });
 });
 
 // The worker calls this after Zot's accounts change; Zot reads its login file only at start.

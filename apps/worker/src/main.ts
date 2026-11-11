@@ -1,6 +1,6 @@
 // Gust worker: takes deploy jobs from the queue and keeps running services
 // in line with the database.
-import { type DatabaseJob, type DeployJob, QUEUES, type RegistryJob } from '@gust/db/queue';
+import { type DatabaseJob, type DeployJob, type PreviewRemoveJob, QUEUES, type RegistryJob } from '@gust/db/queue';
 import { PgBoss } from 'pg-boss';
 
 import {
@@ -15,6 +15,7 @@ import {
 } from './databases';
 import { runDeploy } from './deploy';
 import { checkDomains } from './domains';
+import { runPreviewRemove } from './preview-remove';
 import { failCrashed, failInterrupted, reconcile } from './reconcile';
 import { logRegistryError, reconcileRegistry } from './registry';
 import { runRegistryJob } from './registry-job';
@@ -27,6 +28,7 @@ await boss.start();
 await boss.createQueue(QUEUES.deploy, { retryLimit: 0, expireInSeconds: 15 * 60 });
 await boss.createQueue(QUEUES.database, { retryLimit: 0, expireInSeconds: 5 * 60 });
 await boss.createQueue(QUEUES.registry, { retryLimit: 0, expireInSeconds: 5 * 60 });
+await boss.createQueue(QUEUES.previewRemove, { retryLimit: 2, retryDelay: 5, expireInSeconds: 10 * 60 });
 await recoverDatabases(log);
 // Not awaited: a Redis that is down must not hold the worker back; the interval below retries.
 void reconcileRedisUsers(log).catch((e) => log(`redis reconcile failed: ${(e as Error).message}`));
@@ -74,6 +76,12 @@ await boss.work<DatabaseJob>(QUEUES.database, { batchSize: 1, localConcurrency: 
 await boss.work<RegistryJob>(QUEUES.registry, { batchSize: 1, pollingIntervalSeconds: 1 }, async ([job]) => {
   if (!job) return;
   await runRegistryJob(job.data, log).catch((e) => log(`registry job crashed: ${(e as Error).message}`));
+});
+
+// Pull request previews removed when the PR closes or the project's limit evicts them.
+await boss.work<PreviewRemoveJob>(QUEUES.previewRemove, { batchSize: 1, pollingIntervalSeconds: 1 }, async ([job]) => {
+  if (!job) return;
+  await runPreviewRemove(job.data, log); // a throw retries the job (retryLimit 2)
 });
 
 // Nightly dumps of every ready database, then retention. Cron and time zone are set in env.

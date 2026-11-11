@@ -31,6 +31,11 @@ ensure_env() {
       "$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 40)" >> .env
     echo "Added REGISTRY_ADMIN_PASSWORD to .env."
   fi
+  if ! grep -q '^GITHUB_WEBHOOK_SECRET=' .env; then
+    printf '\n# Signs the GitHub App webhook (pull request previews). Set the same value in the App settings.\nGITHUB_WEBHOOK_SECRET=%s\n' \
+      "$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 40)" >> .env
+    echo "Added GITHUB_WEBHOOK_SECRET to .env. Put the same value in the GitHub App's webhook settings."
+  fi
 }
 
 dc() { docker compose --project-directory "$GUST_DIR" "$@"; }
