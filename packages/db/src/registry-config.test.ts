@@ -41,11 +41,15 @@ describe('renderZotConfig', () => {
   it('gives each project push rights only under its own prefix', () => {
     const cfg = renderZotConfig(base, [{ slug: 'demo' }, { slug: 'smart-targets' }], '/etc/zot-auth/htpasswd');
     const repos = cfg.http.accessControl.repositories;
-    expect(repos['demo/**']?.policies).toEqual([{ users: ['ci-demo'], actions: ['read', 'create', 'update', 'delete'] }]);
+    expect(repos['demo/**']?.policies).toEqual([
+      { users: ['ci-demo'], actions: ['read', 'create', 'update', 'delete'] },
+      { users: ['gust'], actions: ['read'] },
+    ]);
     expect(repos['smart-targets/**']?.policies[0]).toEqual({
       users: ['ci-smart-targets'],
       actions: ['read', 'create', 'update', 'delete'],
     });
+    expect(repos['smart-targets/**']?.policies[1]).toEqual({ users: ['gust'], actions: ['read'] });
     expect(repos['**']?.policies).toEqual([{ users: ['gust'], actions: ['read'] }]);
   });
 
@@ -56,6 +60,7 @@ describe('renderZotConfig', () => {
       users: ['ci-demo'],
       actions: ['read', 'create', 'update', 'delete'],
     });
+    expect(cfg.http.accessControl.repositories['demo/**']?.policies[1]).toEqual({ users: ['gust'], actions: ['read'] });
   });
 
   it('keeps storage and log from the base and points auth at the htpasswd path', () => {

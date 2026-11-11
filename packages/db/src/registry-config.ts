@@ -46,8 +46,12 @@ export interface RegistryProject {
 export function renderZotConfig(base: ZotBase, projects: RegistryProject[], htpasswdPath: string) {
   const repositories: Record<string, { policies: unknown[]; defaultPolicy: string[] }> = {};
   for (const p of projects) {
+    // Zot applies only the rule that matches the repository, so the pull account is listed here too.
     repositories[`${p.slug}/**`] = {
-      policies: [{ users: [accountName(p.slug)], actions: ['read', 'create', 'update', 'delete'] }],
+      policies: [
+        { users: [accountName(p.slug)], actions: ['read', 'create', 'update', 'delete'] },
+        { users: ['gust'], actions: ['read'] },
+      ],
       defaultPolicy: [],
     };
   }
