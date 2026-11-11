@@ -27,30 +27,34 @@ export async function listEnv(serviceId: string): Promise<EnvRow[]> {
   }));
 }
 
-export async function setEnv(
-  serviceId: string,
-  target: string,
-  actor: string,
-  v: { key: string; value: string; scope: EnvScope; isSecret: boolean },
-) {
-  const stored = v.isSecret ? encryptSecret(v.value) : v.value;
-  await db
-    .insert(envVars)
-    .values({
-      id: `env_${crypto.randomUUID().replace(/-/g, '').slice(0, 10)}`,
-      serviceId,
-      key: v.key,
-      scope: v.scope,
-      isSecret: v.isSecret,
-      value: stored,
-    })
-    .onConflictDoUpdate({
-      target: [envVars.serviceId, envVars.key, envVars.scope],
-      set: { value: stored, isSecret: v.isSecret, createdAt: new Date() },
-    });
-  // The audit names the key, never the value.
-  await db.insert(auditEvents).values({ actor, action: 'env.set', target, detail: { key: v.key, scope: v.scope, secret: v.isSecret } });
+type EnvInput = { key: string; value: string; scope: EnvScope; isSecret: boolean };
+
+/** Upserts several variables in one transaction: all are saved or none. */
+export async function setEnvMany(serviceId: string, target: string, actor: string, vars: EnvInput[]) {
+  await db.transaction(async (tx) => {
+    for (const v of vars) {
+      const stored = v.isSecret ? encryptSecret(v.value) : v.value;
+      await tx
+        .insert(envVars)
+        .values({
+          id: `env_${crypto.randomUUID().replace(/-/g, '').slice(0, 10)}`,
+          serviceId,
+          key: v.key,
+          scope: v.scope,
+          isSecret: v.isSecret,
+          value: stored,
+        })
+        .onConflictDoUpdate({
+          target: [envVars.serviceId, envVars.key, envVars.scope],
+          set: { value: stored, isSecret: v.isSecret, createdAt: new Date() },
+        });
+      // The audit names the key, never the value.
+      await tx.insert(auditEvents).values({ actor, action: 'env.set', target, detail: { key: v.key, scope: v.scope, secret: v.isSecret } });
+    }
+  });
 }
+
+export const setEnv = (serviceId: string, target: string, actor: string, v: EnvInput) => setEnvMany(serviceId, target, actor, [v]);
 
 export async function deleteEnv(serviceId: string, id: string, target: string, actor: string) {
   const [row] = await db

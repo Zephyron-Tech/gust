@@ -2,13 +2,14 @@
 
 import type { EnvScope } from '@gust/contracts';
 import { ArrowsClockwise, Eye, EyeSlash, LockSimple, PencilSimple, Plus, Trash } from '@phosphor-icons/react/ssr';
-import { use, useCallback, useEffect, useState } from 'react';
+import { Fragment, use, useCallback, useEffect, useState } from 'react';
 
 import { EnvBadge } from '@/components/EnvBadge';
 import { Select } from '@/components/Select';
 import { btn, cx, Table, Td } from '@/components/ui';
 import { authClient } from '@/lib/auth-client';
 import { useDemo } from '@/lib/demo';
+import { parseDotenv } from '@/lib/dotenv';
 
 type Row = { id: string; key: string; scope: EnvScope; isSecret: boolean; value: string | null };
 type Stale = { branch: string | null; liveTag: string; changedAt: string };
@@ -41,12 +42,8 @@ export default function EnvironmentPage({ params }: { params: Promise<{ slug: st
   const [shown, setShown] = useState<Record<string, string>>({});
   const [confirm, setConfirm] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ id: string; value: string; isSecret: boolean; scope: EnvScope } | null>(null);
-  const [draft, setDraft] = useState<{ key: string; value: string; isSecret: boolean; scope: EnvScope }>({
-    key: '',
-    value: '',
-    isSecret: false,
-    scope: 'all',
-  });
+  const [rows, setRows] = useState<{ key: string; value: string }[]>([{ key: '', value: '' }]);
+  const [shared, setShared] = useState<{ isSecret: boolean; scope: EnvScope }>({ isSecret: false, scope: 'all' });
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -122,15 +119,37 @@ export default function EnvironmentPage({ params }: { params: Promise<{ slug: st
     void load();
   }
 
+  // A pasted .env block fills one row per KEY=value; a plain single key pastes as before.
+  function pasteInto(i: number, e: React.ClipboardEvent<HTMLInputElement>) {
+    const text = e.clipboardData.getData('text');
+    const pairs = text.includes('=') ? parseDotenv(text) : [];
+    if (pairs.length === 0) return;
+    e.preventDefault();
+    setRows((rs) => {
+      const rest = rs.slice(i + 1);
+      const before = rs.slice(0, i);
+      const current = rs[i];
+      // The row pasted into is replaced; if it was filled in, it stays above the pasted ones.
+      return [...before, ...(current?.key || current?.value ? [current] : []), ...pairs, ...rest];
+    });
+  }
+
+  const patchRow = (i: number, p: Partial<{ key: string; value: string }>) =>
+    setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...p } : r)));
+  const removeRow = (i: number) => setRows((rs) => (rs.length > 1 ? rs.filter((_, j) => j !== i) : [{ key: '', value: '' }]));
+
   async function add(e: React.FormEvent) {
     e.preventDefault();
-    const key = draft.key.trim().toUpperCase();
+    const vars = rows.map((r) => ({ key: r.key.trim().toUpperCase(), value: r.value }));
     setSaving(true);
-    const ok = await send(base, 'POST', { ...draft, key });
+    const ok = await send(base, 'POST', { vars, ...shared });
     setSaving(false);
     if (!ok) return;
-    notify(`${key} saved`, draft.isSecret ? 'Encrypted at rest.' : undefined);
-    setDraft({ key: '', value: '', isSecret: false, scope: draft.scope });
+    notify(
+      vars.length === 1 ? `${vars[0]?.key} saved` : `${vars.length} variables saved`,
+      shared.isSecret ? 'Encrypted at rest.' : undefined,
+    );
+    setRows([{ key: '', value: '' }]);
     void load();
   }
 
@@ -279,50 +298,72 @@ export default function EnvironmentPage({ params }: { params: Promise<{ slug: st
       {data !== null && list.length === 0 && <p className="text-[14px] text-fg-3">No variables yet.</p>}
 
       {admin ? (
-        <form
-          onSubmit={add}
-          className="grid grid-cols-2 items-end gap-3 rounded-2xl border border-line bg-bg-2 p-4 xl:grid-cols-[200px_1fr_auto_auto_auto]"
-        >
-          <label className="space-y-1">
-            <span className="text-[13px] text-fg-3">Key</span>
-            <input
-              required
-              value={draft.key}
-              onChange={(e) => setDraft((d) => ({ ...d, key: e.target.value }))}
-              placeholder="DATABASE_URL"
-              autoComplete="off"
-              spellCheck={false}
-              className={field}
-            />
-          </label>
-          <label className="space-y-1">
-            <span className="text-[13px] text-fg-3">Value</span>
-            <input
-              required
-              value={draft.value}
-              onChange={(e) => setDraft((d) => ({ ...d, value: e.target.value }))}
-              type={draft.isSecret ? 'password' : 'text'}
-              autoComplete="new-password"
-              spellCheck={false}
-              className={field}
-            />
-          </label>
-          <span className="space-y-1">
-            <span className="block text-[13px] text-fg-3">Environment</span>
-            <ScopeSelect label="Environment" value={draft.scope} onChange={(scope) => setDraft((d) => ({ ...d, scope }))} />
-          </span>
-          <label className="flex h-9 items-center gap-2 text-[14px] text-fg-2">
-            <input
-              type="checkbox"
-              checked={draft.isSecret}
-              onChange={(e) => setDraft((d) => ({ ...d, isSecret: e.target.checked }))}
-              className="size-4 accent-[var(--g-accent)]"
-            />
-            Secret
-          </label>
-          <button type="submit" disabled={saving} className={btn.primary}>
-            <Plus weight="bold" /> Add
-          </button>
+        <form onSubmit={add} className="space-y-3 rounded-2xl border border-line bg-bg-2 p-4">
+          <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-3 xl:grid-cols-[200px_1fr_auto]">
+            {rows.map((r, i) => {
+              const key = r.key.trim().toUpperCase();
+              const exists = key !== '' && (data?.rows ?? []).some((x) => x.key === key && x.scope === shared.scope);
+              return (
+                <Fragment key={i}>
+                  <label className="space-y-1">
+                    <span className={cx('text-[13px] text-fg-3', i > 0 && 'sr-only')}>Key</span>
+                    <input
+                      required
+                      value={r.key}
+                      onChange={(e) => patchRow(i, { key: e.target.value })}
+                      onPaste={(e) => pasteInto(i, e)}
+                      placeholder="DATABASE_URL"
+                      autoComplete="off"
+                      spellCheck={false}
+                      className={field}
+                    />
+                  </label>
+                  <label className="space-y-1">
+                    <span className={cx('flex justify-between text-[13px] text-fg-3', i > 0 && 'sr-only')}>
+                      Value{exists && <span className="text-warn">overwrites</span>}
+                    </span>
+                    <input
+                      value={r.value}
+                      onChange={(e) => patchRow(i, { value: e.target.value })}
+                      type={shared.isSecret ? 'password' : 'text'}
+                      autoComplete="new-password"
+                      spellCheck={false}
+                      aria-label={`Value for ${r.key || 'variable'}`}
+                      className={field}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    aria-label={`Remove row ${i + 1}`}
+                    onClick={() => removeRow(i)}
+                    disabled={rows.length === 1 && !r.key && !r.value}
+                    className={cx(linkBtn, 'h-9 text-fg-3 hover:bg-bg-3 hover:text-fg disabled:opacity-0')}
+                  >
+                    <Trash size={16} />
+                  </button>
+                </Fragment>
+              );
+            })}
+          </div>
+          <div className="flex flex-wrap items-end justify-end gap-3">
+            <span className="space-y-1">
+              <span className="block text-[13px] text-fg-3">Environment</span>
+              <ScopeSelect label="Environment" value={shared.scope} onChange={(scope) => setShared((d) => ({ ...d, scope }))} />
+            </span>
+            <label className="flex h-9 items-center gap-2 text-[14px] text-fg-2">
+              <input
+                type="checkbox"
+                checked={shared.isSecret}
+                onChange={(e) => setShared((d) => ({ ...d, isSecret: e.target.checked }))}
+                className="size-4 accent-[var(--g-accent)]"
+              />
+              Secret
+            </label>
+            <button type="submit" disabled={saving} className={btn.primary}>
+              <Plus weight="bold" /> {rows.length > 1 ? `Add ${rows.length}` : 'Add'}
+            </button>
+          </div>
+          <p className="text-[13px] text-fg-3">Tip: paste a whole .env block into Key to add many at once.</p>
         </form>
       ) : (
         <p className="text-[14px] text-fg-3">Only admins can change variables and reveal secrets.</p>
