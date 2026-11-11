@@ -53,3 +53,4 @@ process.on('SIGTERM', () => {
 });
 
 // Test change for the pull request preview check.
+// second commit for the close-during-deploy check
