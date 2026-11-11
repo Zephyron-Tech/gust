@@ -106,6 +106,8 @@ runs:
         BUILD_ARGS: ${{ inputs.build-args }}
       run: |
         tag="${GITHUB_SHA::12}"
+        # Pull request builds go to <image>-pr, so they cannot push production tags out of the registry.
+        if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then IMAGE="${IMAGE}-pr"; fi
         ref="$REGISTRY/$IMAGE:$tag"
         args=()
         while IFS= read -r line; do [[ -n "$line" ]] && args+=(--build-arg "$line"); done <<<"$BUILD_ARGS"
@@ -123,7 +125,7 @@ runs:
         GUST_URL: ${{ inputs.gust-url }}
         GUST_SERVICE: ${{ inputs.service }}
         GUST_TAG: ${{ steps.build.outputs.tag }}
-        GUST_MESSAGE: ${{ github.event.head_commit.message }}
+        GUST_MESSAGE: ${{ github.event.head_commit.message || github.event.pull_request.title }}
         GUST_AUDIENCE: ${{ inputs.audience }}
         GUST_WAIT: ${{ inputs.wait }}
         GUST_TIMEOUT: ${{ inputs.timeout }}

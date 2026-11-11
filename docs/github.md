@@ -87,7 +87,10 @@ jobs:
 
 The image is tagged with the first 12 characters of the commit. The action
 waits for the deploy and fails the job when the deploy fails; `wait: false`
-returns as soon as Gust accepted it.
+returns as soon as Gust accepted it. A pull request build is pushed to
+`<image>-pr` instead (for example `smart-targets/api-pr`), so its tags can never
+push the production tags out of the registry, which keeps the newest tags per
+repository.
 
 ### Dockerfile
 
@@ -136,6 +139,21 @@ built and deployed by the project's workflow on `opened`, `synchronize` and `reo
 preview is removed when the pull request closes. Gust keeps at most 10 pull request previews per
 project; the least recently changed one makes room for a new one. Pull requests from forks get no
 preview. Branch previews (`previewBranches`) work as before; a branch may not be named `pr-<number>`.
+
+Every project that should have pull request previews needs `pull_request` in its workflow and the
+`if:` above on the job. A new project gets both from the setup page; an existing workflow is changed
+by hand, and the setup page tells which workflows lack the trigger. The commit message shown for the
+deploy is the pull request title.
+
+- **Missed webhooks.** GitHub does not send a failed delivery again by itself (the web may be down
+  during an update). The worker therefore compares open pull requests with GitHub every two minutes
+  and removes the preview of one that closed. A pull request whose webhook never arrived has no
+  record yet, so its first deploy is refused (403); run the workflow again after a couple of minutes.
+- **Closing during a deploy.** A deploy that finishes after its pull request closed is removed
+  again, so a closed pull request never keeps a preview.
+- **Shared environment.** Pull request previews use the same _Preview_ environment variables as
+  branch previews, a database included. A migration in a pull request therefore also reaches the
+  preview of `dev` and the other pull requests.
 
 ## Branch previews
 

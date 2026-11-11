@@ -6,7 +6,7 @@ import { detectFrameworks } from './frameworks';
 // repositories anyway. Without a token GitHub allows 60 requests an hour, so
 // answers are cached and revalidated with ETags (a 304 does not count).
 // File contents come from raw.githubusercontent.com, which has no such limit.
-import { allowedOwners, ownerAllowed, readDockerfile, usesGustAction } from './github-repo-logic';
+import { allowedOwners, hasPullRequestTrigger, ownerAllowed, readDockerfile, usesGustAction } from './github-repo-logic';
 
 const API = 'https://api.github.com';
 const RAW = 'https://raw.githubusercontent.com';
@@ -133,6 +133,8 @@ export type RepoDetail = RepoSummary & {
   dockerfile: { found: boolean; port: number | null; healthPath: string | null };
   /** Path of a workflow that already uses the Gust deploy action, or null. */
   workflow: string | null;
+  /** Whether that workflow also runs on pull_request, so pull requests get a preview. */
+  pullRequestTrigger: boolean;
 };
 
 /** One repository with what the import needs: branches, Dockerfile hints and an existing Gust workflow. */
@@ -153,10 +155,12 @@ export async function repoDetail(fullName: string, fresh = false): Promise<RepoD
   ]);
 
   let workflow: string | null = null;
+  let pullRequestTrigger = false;
   for (const f of workflows.filter((w) => w.type === 'file' && /\.ya?ml$/.test(w.name))) {
     const text = await raw(fullName, ref, f.path);
     if (text && usesGustAction(text)) {
       workflow = f.path;
+      pullRequestTrigger = hasPullRequestTrigger(text);
       break;
     }
   }
@@ -169,5 +173,6 @@ export async function repoDetail(fullName: string, fresh = false): Promise<RepoD
     branches: [ref, ...names.filter((n) => n !== ref).sort()],
     dockerfile: dockerText === null ? { found: false, port: null, healthPath: null } : { found: true, ...readDockerfile(dockerText) },
     workflow,
+    pullRequestTrigger,
   };
 }

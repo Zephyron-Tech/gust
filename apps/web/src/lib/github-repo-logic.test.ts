@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { newFileUrl, ownerAllowed, readDockerfile, slugFromRepo, usesGustAction, workflowYaml } from './github-repo-logic';
+import {
+  hasPullRequestTrigger,
+  newFileUrl,
+  ownerAllowed,
+  readDockerfile,
+  slugFromRepo,
+  usesGustAction,
+  workflowYaml,
+} from './github-repo-logic';
 
 describe('readDockerfile', () => {
   it('reads the first exposed port', () => {
@@ -52,8 +60,28 @@ describe('workflowYaml', () => {
     expect(usesGustAction(yaml)).toBe(true);
   });
 
+  it('runs on pull requests of the repository itself, not on forks', () => {
+    expect(hasPullRequestTrigger(yaml)).toBe(true);
+    expect(yaml).toContain('types: [opened, synchronize, reopened]');
+    expect(yaml).toContain('github.event.pull_request.head.repo.full_name == github.repository');
+  });
+
   it('links to a prefilled new file on GitHub', () => {
     const url = newFileUrl('Zephyron-Tech/orbit', 'main', '.github/workflows/gust-deploy.yml', 'a b');
     expect(url).toBe('https://github.com/Zephyron-Tech/orbit/new/main?filename=.github%2Fworkflows%2Fgust-deploy.yml&value=a%20b');
+  });
+});
+
+describe('hasPullRequestTrigger', () => {
+  it('finds the trigger in block and inline form', () => {
+    expect(hasPullRequestTrigger('on:\n  push:\n    branches: [main]\n  pull_request:\n')).toBe(true);
+    expect(hasPullRequestTrigger('on: [push, pull_request]')).toBe(true);
+    expect(hasPullRequestTrigger('on:\n  pull_request:\n    types: [opened]')).toBe(true);
+  });
+
+  it('does not take pull_request_target or a push-only workflow', () => {
+    expect(hasPullRequestTrigger('on:\n  pull_request_target:\n')).toBe(false);
+    expect(hasPullRequestTrigger('on:\n  push:\n    branches: [main]\n')).toBe(false);
+    expect(hasPullRequestTrigger('# runs on pull requests\non: push')).toBe(false);
   });
 });

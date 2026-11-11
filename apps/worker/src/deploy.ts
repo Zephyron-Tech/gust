@@ -1,8 +1,9 @@
 // Runs one deploy: calls the engine, stores every event as a log line and
 // moves the deployment's state along. The only place that changes a
 // deployment after it was queued.
-import { branchLabel, pickEnv, previewHost } from '@gust/contracts';
-import { db, deploymentLogs, deployments, envVars, projectDatabases, projects, services } from '@gust/db';
+import { branchLabel, PR_BRANCH, pickEnv, previewHost } from '@gust/contracts';
+import { db, deploymentLogs, deployments, envVars, projectDatabases, projects, pullRequests, services } from '@gust/db';
+import { enqueuePreviewRemove } from '@gust/db/queue';
 import { decryptSecret } from '@gust/db/secrets';
 import { and, eq, isNull, ne } from 'drizzle-orm';
 
@@ -157,4 +158,14 @@ export async function runDeploy(id: string) {
       );
   });
   await report('success');
+
+  // A pull request that closed while this deploy was running must not keep the preview it just got.
+  if (d.branch && PR_BRANCH.test(d.branch)) {
+    const number = Number(d.branch.slice(3));
+    const [pr] = await db
+      .select({ state: pullRequests.state })
+      .from(pullRequests)
+      .where(and(eq(pullRequests.projectId, p.id), eq(pullRequests.number, number)));
+    if (pr?.state === 'closed') await enqueuePreviewRemove({ slug: p.slug, number, reason: 'closed' });
+  }
 }

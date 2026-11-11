@@ -15,6 +15,7 @@ import {
 } from './databases';
 import { runDeploy } from './deploy';
 import { checkDomains } from './domains';
+import { syncPullRequests } from './pr-sync';
 import { runPreviewRemove } from './preview-remove';
 import { failCrashed, failInterrupted, reconcile } from './reconcile';
 import { logRegistryError, reconcileRegistry } from './registry';
@@ -105,6 +106,11 @@ const every = Number(process.env.RECONCILE_EVERY_S ?? 20) * 1000;
 const tick = () => reconcile(log).catch((e) => log(`reconcile failed: ${(e as Error).message}`));
 setTimeout(tick, 3000);
 setInterval(tick, every);
+
+// Pull requests against GitHub: a closed one whose webhook was missed still loses its preview.
+const prSyncTick = () => syncPullRequests(log).catch((e) => log(`pull request sync failed: ${(e as Error).message}`));
+setTimeout(prSyncTick, 8000);
+setInterval(prSyncTick, Number(process.env.PR_SYNC_EVERY_S ?? 120) * 1000);
 
 // Custom domains on their way to serving: DNS, then a deploy, then HTTPS.
 const domainTick = () => checkDomains(log).catch((e) => log(`domain check failed: ${(e as Error).message}`));

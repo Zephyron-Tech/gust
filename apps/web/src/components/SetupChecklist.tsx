@@ -34,6 +34,8 @@ export function SetupChecklist(props: {
   repo: string;
   host: string;
   workflow: string | null;
+  /** Whether the found workflow runs on pull_request. */
+  pullRequestTrigger: boolean;
   problem: string | null;
   yaml: string;
   workflowPath: string;
@@ -88,6 +90,13 @@ export function SetupChecklist(props: {
             }
           >
             {props.problem && <p className="text-[14px] text-err">{props.problem}</p>}
+            {props.workflow && !props.pullRequestTrigger && (
+              <p className="text-[14px] text-fg-2">
+                This workflow does not run on pull requests, so they get no preview. Add <Code className="text-fg">pull_request</Code> to
+                its <Code className="text-fg">on:</Code> and skip forks with an <Code className="text-fg">if:</Code> on the job;
+                docs/github.md has the example.
+              </p>
+            )}
             {!props.workflow && (
               <>
                 <p className="text-[14px] text-fg-2">

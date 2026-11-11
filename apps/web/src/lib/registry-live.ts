@@ -2,7 +2,9 @@ import 'server-only';
 
 import { previewHost } from '@gust/contracts';
 import { db, deployments, projects, services } from '@gust/db';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
+
+import { imagesForRepo, repoOfDeploy } from './registry-live-logic';
 
 /** Where a live tag runs: its project and service, the branch or pull request, and the URL. */
 export type LiveUse = { project: string; service: string; branch: string | null; label: string; url: string | null };
@@ -19,15 +21,18 @@ export async function liveTagsForRepo(repo: string): Promise<Map<string, LiveUse
       branch: deployments.branch,
       service: services.name,
       domains: services.domains,
+      image: services.image,
       project: projects.slug,
       productionBranch: projects.productionBranch,
     })
     .from(deployments)
     .innerJoin(services, eq(deployments.serviceId, services.id))
     .innerJoin(projects, eq(services.projectId, projects.id))
-    .where(and(eq(services.image, repo), eq(deployments.state, 'live')));
+    .where(and(inArray(services.image, imagesForRepo(repo)), eq(deployments.state, 'live')));
   const byTag = new Map<string, LiveUse[]>();
   for (const r of rows) {
+    // Pull request builds live in <image>-pr, everything else in the image itself.
+    if (repoOfDeploy(r.image, r.branch) !== repo) continue;
     // A pull request preview is named pr-<n>; a branch preview by its branch.
     const pr = r.branch?.match(/^pr-(\d+)$/);
     const label = pr ? `PR #${pr[1]}` : (r.branch ?? r.productionBranch ?? 'main');

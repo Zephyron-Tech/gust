@@ -3,7 +3,7 @@ import 'server-only';
 // Starts a deploy: checks the service, writes the deployment row and an audit
 // event, and puts a job on the queue. apps/worker picks it up, talks to the
 // engine and moves the state along; the UI reads the rows back.
-import { PR_BRANCH, RUNNING_STATES } from '@gust/contracts';
+import { PR_BRANCH, PR_IMAGE_SUFFIX, RUNNING_STATES } from '@gust/contracts';
 import { auditEvents, db, deployments, projects, services } from '@gust/db';
 import { enqueueDeploy } from '@gust/db/queue';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
@@ -73,7 +73,7 @@ export async function startDeploy(input: {
   if (busy) throw new DeployError(`A deploy is already running (${busy.id})`);
 
   const id = `dpl_${crypto.randomUUID().replace(/-/g, '').slice(0, 10)}`;
-  const imageRef = `${registryHost()}/${svc.image}:${tag}`;
+  const imageRef = `${registryHost()}/${svc.image}${pullRequest ? PR_IMAGE_SUFFIX : ''}:${tag}`;
   await db.insert(deployments).values({
     id,
     serviceId: svc.id,

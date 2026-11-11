@@ -99,3 +99,41 @@ export async function setCommitStatus(
     log(`commit status for ${input.repository}@${input.sha.slice(0, 7)} not sent: ${(e as Error).message}`);
   }
 }
+
+export type OpenPullRequest = { number: number; title: string; author: string; headSha: string; headRepo: string };
+
+const PR_PAGE = 100;
+const PR_PAGES = 3;
+
+/**
+ * The open pull requests of a repository, newest change first. `complete` is false when there are
+ * more than the pages read, so a caller must not treat a missing one as closed. Null when the GitHub
+ * App is not configured here.
+ */
+export async function listOpenPullRequests(repository: string): Promise<{ prs: OpenPullRequest[]; complete: boolean } | null> {
+  if (!appConfigured()) return null;
+  const token = `token ${await repoToken(repository, { pull_requests: 'read', metadata: 'read' })}`;
+  const prs: OpenPullRequest[] = [];
+  for (let page = 1; page <= PR_PAGES; page++) {
+    const rows = (await gh(
+      `/repos/${repository}/pulls?state=open&sort=updated&direction=desc&per_page=${PR_PAGE}&page=${page}`,
+      token,
+    )) as unknown as {
+      number: number;
+      title: string;
+      user: { login: string } | null;
+      head: { sha: string; repo: { full_name: string } | null };
+    }[];
+    for (const r of rows) {
+      prs.push({
+        number: r.number,
+        title: r.title,
+        author: r.user?.login ?? 'unknown',
+        headSha: r.head.sha,
+        headRepo: r.head.repo?.full_name ?? '',
+      });
+    }
+    if (rows.length < PR_PAGE) return { prs, complete: true };
+  }
+  return { prs, complete: false };
+}

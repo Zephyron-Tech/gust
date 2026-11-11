@@ -10,6 +10,11 @@ on:
       - infra/demo-app/**
       - .github/actions/deploy/**
       - .github/workflows/demo-deploy.yml
+  pull_request:
+    paths:
+      - infra/demo-app/**
+      - .github/actions/deploy/**
+      - .github/workflows/demo-deploy.yml
   workflow_dispatch:
 
 permissions:
@@ -22,6 +27,8 @@ concurrency:
 
 jobs:
   deploy:
+    # Pull requests from forks get no OIDC token and no preview.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

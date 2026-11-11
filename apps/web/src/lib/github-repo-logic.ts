@@ -41,6 +41,9 @@ export const DEPLOY_ACTION = 'Zephyron-Tech/gust/.github/actions/deploy';
 /** Whether a workflow file uses the Gust deploy action. */
 export const usesGustAction = (yaml: string) => yaml.includes(DEPLOY_ACTION);
 
+/** Whether a workflow runs on pull_request, which is what gives a pull request its preview. */
+export const hasPullRequestTrigger = (yaml: string) => /(^|[\s[,])pull_request(?=\s*(:|,|\]))/m.test(yaml);
+
 /** A project slug from a repository name: lowercase, dashes, at most 40 characters. */
 export const slugFromRepo = (name: string) =>
   name
@@ -50,13 +53,18 @@ export const slugFromRepo = (name: string) =>
     .slice(0, 40)
     .replace(/-+$/, '');
 
-/** The deploy workflow for a service: builds on push to the production and preview branches and hands the image to Gust. */
+/**
+ * The deploy workflow for a service: builds on push to the production and preview branches and on pull
+ * requests of the repository itself, and hands the image to Gust. A fork's pull request gets no preview.
+ */
 export function workflowYaml(input: { gustUrl: string; project: string; service: string; branches: string[] }) {
   const branches = input.branches.map((b) => (/^[A-Za-z0-9._/-]+$/.test(b) ? b : JSON.stringify(b))).join(', ');
   return `name: Deploy to Gust
 on:
   push:
     branches: [${branches}]
+  pull_request:
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
@@ -68,6 +76,8 @@ concurrency:
 
 jobs:
   deploy:
+    # A fork's pull request gets no OIDC token and no preview.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

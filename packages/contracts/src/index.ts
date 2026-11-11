@@ -212,6 +212,12 @@ export function deployTarget(
 export const prBranch = (number: number) => `pr-${number}`;
 export const PR_BRANCH = /^pr-[1-9]\d{0,8}$/;
 
+/**
+ * Pull request builds are pushed to `<image>-pr`, not to the image of production. The registry keeps
+ * the newest tags per repository, so a busy pull request cannot push the production tags out.
+ */
+export const PR_IMAGE_SUFFIX = '-pr';
+
 /** The environment a deploy runs in: production, or the preview of one branch. */
 export type Environment = { kind: 'production' } | { kind: 'preview'; branch: string };
 

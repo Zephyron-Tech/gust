@@ -33,9 +33,12 @@ export default async function SetupPage({
   const production = project.productionBranch ?? 'main';
 
   let workflow: string | null = null;
+  let pullRequestTrigger = false;
   let problem: string | null = null;
   try {
-    workflow = (await repoDetail(repo, fresh !== undefined)).workflow;
+    const detail = await repoDetail(repo, fresh !== undefined);
+    workflow = detail.workflow;
+    pullRequestTrigger = detail.pullRequestTrigger;
   } catch (e) {
     if (!(e instanceof GithubError)) throw e;
     problem = e.message;
@@ -56,6 +59,7 @@ export default async function SetupPage({
         repo={repo}
         host={project.domain}
         workflow={workflow}
+        pullRequestTrigger={pullRequestTrigger}
         problem={problem}
         yaml={yaml}
         workflowPath={WORKFLOW_PATH}
