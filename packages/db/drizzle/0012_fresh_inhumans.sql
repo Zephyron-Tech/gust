@@ -1,0 +1,1 @@
+ALTER TABLE "registry_accounts" ADD COLUMN "secret_checked_at" timestamp with time zone;

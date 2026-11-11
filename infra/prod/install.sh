@@ -138,6 +138,7 @@ auth="$(existing BETTER_AUTH_SECRET)"
 master="$(existing GUST_MASTER_KEY)"
 engine="$(existing ENGINE_TOKEN)"
 pull="$(existing REGISTRY_PULL_PASSWORD)"
+admin="$(existing REGISTRY_ADMIN_PASSWORD)"
 redis="$(existing REDIS_PASSWORD)"
 bg="$(existing BREAK_GLASS_PASSWORD)"
 umask 077
@@ -159,6 +160,7 @@ GUST_MASTER_KEY=${master:-$(rand 32)}
 ENGINE_TOKEN=${engine:-$(randpw 40)}
 
 REGISTRY_PULL_PASSWORD=${pull:-$(randpw 32)}
+REGISTRY_ADMIN_PASSWORD=${admin:-$(randpw 32)}
 
 REDIS_PASSWORD=${redis:-$(randpw 40)}
 

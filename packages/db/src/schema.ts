@@ -206,6 +206,8 @@ export const registryAccounts = pgTable(
     /** When the repository's GUST_REGISTRY_* secrets were last written, and the error if that failed. */
     secretSetAt: timestamp('secret_set_at', { withTimezone: true }),
     secretError: text('secret_error'),
+    /** Every time the worker finished writing the secrets, success or not; the UI waits for this to change. */
+    secretCheckedAt: timestamp('secret_checked_at', { withTimezone: true }),
   },
   (t) => [uniqueIndex('registry_accounts_project').on(t.projectId), uniqueIndex('registry_accounts_username').on(t.username)],
 );

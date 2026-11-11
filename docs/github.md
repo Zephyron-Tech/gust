@@ -181,6 +181,12 @@ and records the result on the project's setup page (Retry secrets there, or
 rotate and revoke from the same card). Passwords are never shown in the UI or
 written to logs; only the bcrypt hash is stored.
 
+The Registry page lists the accounts (admins can create, rotate, revoke and
+reactivate them there) and each repository's tags. An admin can delete a tag
+there; the web does it with the `gust-admin` account, which may read and delete
+but never push. Its password, `REGISTRY_ADMIN_PASSWORD`, lives in `.env` and
+reaches only the web and worker containers.
+
 The Docker daemon on the host pulls with the read-only `gust` account on
 `127.0.0.1:5050`. Zot reads its login file and push rules from the
 `registry-auth` volume, which the worker writes; when they change, the engine

@@ -3,7 +3,7 @@
 import { eq, isNull } from 'drizzle-orm';
 
 import { db } from './index';
-import { accountName, generatePassword, hashPassword, renderHtpasswd, renderZotConfig, ZOT_BASE } from './registry-config';
+import { ADMIN_ACCOUNT, accountName, generatePassword, hashPassword, renderHtpasswd, renderZotConfig, ZOT_BASE } from './registry-config';
 import { auditEvents, projects, registryAccounts } from './schema';
 
 /** Makes an account for a project and returns its password. The password is shown once, then only its hash is kept. */
@@ -62,16 +62,20 @@ export async function revokeAccount(slug: string, actor: string) {
 
 /**
  * What Zot should load now: the active accounts and one push rule per project with an account.
- * `gustHash` is the read-only pull account.
+ * `gustHash` is the read-only pull account; `adminHash` the web's delete account, when configured.
  */
-export async function buildRegistryFiles(opts: { gustHash: string; htpasswdPath: string }) {
+export async function buildRegistryFiles(opts: { gustHash: string; adminHash?: string; htpasswdPath: string }) {
   const rows = await db
     .select({ slug: projects.slug, username: registryAccounts.username, hash: registryAccounts.passwordHash })
     .from(registryAccounts)
     .innerJoin(projects, eq(projects.id, registryAccounts.projectId))
     .where(isNull(registryAccounts.revokedAt));
 
-  const lines = [{ username: 'gust', hash: opts.gustHash }, ...rows.map((r) => ({ username: r.username, hash: r.hash }))];
+  const lines = [
+    { username: 'gust', hash: opts.gustHash },
+    ...(opts.adminHash ? [{ username: ADMIN_ACCOUNT, hash: opts.adminHash }] : []),
+    ...rows.map((r) => ({ username: r.username, hash: r.hash })),
+  ];
 
   const config = renderZotConfig(
     ZOT_BASE,
@@ -83,9 +87,10 @@ export async function buildRegistryFiles(opts: { gustHash: string; htpasswdPath:
 
 /** Records whether the repository's secrets were written. The error text never holds a password. */
 export async function recordSecretResult(slug: string, error: string | null) {
+  const now = new Date();
   await db
     .update(registryAccounts)
-    .set(error ? { secretError: error.slice(0, 300) } : { secretSetAt: new Date(), secretError: null })
+    .set(error ? { secretError: error.slice(0, 300), secretCheckedAt: now } : { secretSetAt: now, secretError: null, secretCheckedAt: now })
     .where(eq(registryAccounts.id, `reg_${slug}`));
 }
 
@@ -98,8 +103,28 @@ export async function registryStatus(slug: string) {
       revokedAt: registryAccounts.revokedAt,
       secretSetAt: registryAccounts.secretSetAt,
       secretError: registryAccounts.secretError,
+      secretCheckedAt: registryAccounts.secretCheckedAt,
     })
     .from(registryAccounts)
     .where(eq(registryAccounts.id, `reg_${slug}`));
   return row ?? null;
+}
+
+/** Every engine project with its account, or null when the project has none yet. */
+export async function listAccounts() {
+  return db
+    .select({
+      slug: projects.slug,
+      repo: projects.repo,
+      username: registryAccounts.username,
+      rotatedAt: registryAccounts.rotatedAt,
+      revokedAt: registryAccounts.revokedAt,
+      secretSetAt: registryAccounts.secretSetAt,
+      secretError: registryAccounts.secretError,
+      secretCheckedAt: registryAccounts.secretCheckedAt,
+    })
+    .from(projects)
+    .leftJoin(registryAccounts, eq(registryAccounts.projectId, projects.id))
+    .where(eq(projects.engine, true))
+    .orderBy(projects.slug);
 }

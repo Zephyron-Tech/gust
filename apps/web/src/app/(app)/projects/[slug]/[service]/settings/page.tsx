@@ -10,6 +10,7 @@ import { RegistryAccount } from '@/components/RegistryAccount';
 import { Panel } from '@/components/ui';
 import { currentUser } from '@/lib/auth';
 import { getProject } from '@/lib/data';
+import { accountView } from '@/lib/registry-action';
 
 // Values that are literal code are set in monospace; the rest reads as prose.
 const codeKeys = new Set(['Image', 'Health path', 'Network', 'Volume', 'Repository']);
@@ -45,13 +46,7 @@ export default async function ServiceSettingsPage({ params }: { params: Promise<
 
   const user = await currentUser(await headers());
   const reg = await registryStatus(slug);
-  const registryStatusView = reg && {
-    username: reg.username,
-    rotatedAt: reg.rotatedAt?.toISOString() ?? null,
-    revokedAt: reg.revokedAt?.toISOString() ?? null,
-    secretSetAt: reg.secretSetAt?.toISOString() ?? null,
-    secretError: reg.secretError,
-  };
+  const registryStatusView = accountView(reg);
 
   return (
     <div className="space-y-6">

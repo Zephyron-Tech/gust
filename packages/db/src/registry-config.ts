@@ -19,6 +19,9 @@ export const hashPassword = (password: string) => bcrypt.hashSync(password, 10);
 
 export const accountName = (slug: string) => `ci-${slug}`;
 
+/** The web's admin account: it may read and delete tags (rollback targets), never push. */
+export const ADMIN_ACCOUNT = 'gust-admin';
+
 export interface HtpasswdLine {
   username: string;
   hash: string;
@@ -51,12 +54,19 @@ export function renderZotConfig(base: ZotBase, projects: RegistryProject[], htpa
       policies: [
         { users: [accountName(p.slug)], actions: ['read', 'create', 'update', 'delete'] },
         { users: ['gust'], actions: ['read'] },
+        { users: [ADMIN_ACCOUNT], actions: ['read', 'delete'] },
       ],
       defaultPolicy: [],
     };
   }
   // `gust` reads everything; pushes stay with the project accounts above.
-  repositories['**'] = { policies: [{ users: ['gust'], actions: ['read'] }], defaultPolicy: [] };
+  repositories['**'] = {
+    policies: [
+      { users: ['gust'], actions: ['read'] },
+      { users: [ADMIN_ACCOUNT], actions: ['read', 'delete'] },
+    ],
+    defaultPolicy: [],
+  };
   const http = {
     address: base.http.address,
     port: base.http.port,

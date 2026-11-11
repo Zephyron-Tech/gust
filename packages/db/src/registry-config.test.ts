@@ -44,13 +44,17 @@ describe('renderZotConfig', () => {
     expect(repos['demo/**']?.policies).toEqual([
       { users: ['ci-demo'], actions: ['read', 'create', 'update', 'delete'] },
       { users: ['gust'], actions: ['read'] },
+      { users: ['gust-admin'], actions: ['read', 'delete'] },
     ]);
     expect(repos['smart-targets/**']?.policies[0]).toEqual({
       users: ['ci-smart-targets'],
       actions: ['read', 'create', 'update', 'delete'],
     });
     expect(repos['smart-targets/**']?.policies[1]).toEqual({ users: ['gust'], actions: ['read'] });
-    expect(repos['**']?.policies).toEqual([{ users: ['gust'], actions: ['read'] }]);
+    expect(repos['**']?.policies).toEqual([
+      { users: ['gust'], actions: ['read'] },
+      { users: ['gust-admin'], actions: ['read', 'delete'] },
+    ]);
   });
 
   it('has no shared ci account: every push rule names one project account', () => {
@@ -61,6 +65,7 @@ describe('renderZotConfig', () => {
       actions: ['read', 'create', 'update', 'delete'],
     });
     expect(cfg.http.accessControl.repositories['demo/**']?.policies[1]).toEqual({ users: ['gust'], actions: ['read'] });
+    expect(cfg.http.accessControl.repositories['demo/**']?.policies[2]).toEqual({ users: ['gust-admin'], actions: ['read', 'delete'] });
   });
 
   it('keeps storage and log from the base and points auth at the htpasswd path', () => {
@@ -68,7 +73,10 @@ describe('renderZotConfig', () => {
     expect(cfg.storage).toEqual(base.storage);
     expect(cfg.log).toEqual(base.log);
     expect(cfg.http.auth.htpasswd.path).toBe('/etc/zot-auth/htpasswd');
-    expect(cfg.http.accessControl.repositories['**']?.policies).toEqual([{ users: ['gust'], actions: ['read'] }]);
+    expect(cfg.http.accessControl.repositories['**']?.policies).toEqual([
+      { users: ['gust'], actions: ['read'] },
+      { users: ['gust-admin'], actions: ['read', 'delete'] },
+    ]);
   });
 });
 

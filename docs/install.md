@@ -44,7 +44,8 @@ the optional Authentik and GitHub App values (the App key as a path to the
    encryption key, engine token, registry accounts, break-glass password);
 3. takes `compose.yml`, the Traefik and Zot config and the `gust` command out
    of the image;
-4. creates the registry account `gust` (read only, for pulls on the server).
+4. creates the registry account `gust` (read only, for pulls on the server) and
+   `gust-admin` (reads and deletes tags for the Registry page, never pushes).
    Each project gets its own push account when it is added;
 5. starts the stack, runs the migrations and creates the break-glass admin;
 6. installs `/usr/local/bin/gust` and a nightly backup at 03:15.

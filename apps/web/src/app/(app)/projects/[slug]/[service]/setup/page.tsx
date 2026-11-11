@@ -8,6 +8,7 @@ import { getProject } from '@/lib/data';
 import { newFileUrl, workflowYaml } from '@/lib/github-repo-logic';
 import { GithubError, repoDetail } from '@/lib/github-repos';
 import { publicUrl } from '@/lib/public-url';
+import { accountView } from '@/lib/registry-action';
 
 export const metadata = { title: 'Set up deploys' };
 
@@ -41,12 +42,7 @@ export default async function SetupPage({
   }
 
   const reg = await registryStatus(slug);
-  const status = reg && {
-    ...reg,
-    rotatedAt: reg.rotatedAt?.toISOString() ?? null,
-    revokedAt: reg.revokedAt?.toISOString() ?? null,
-    secretSetAt: reg.secretSetAt?.toISOString() ?? null,
-  };
+  const status = accountView(reg);
 
   const user = await currentUser(await headers());
 

@@ -180,6 +180,8 @@ services:
       REGISTRY_HOST: 127.0.0.1:5050
       REGISTRY_USERNAME: gust
       REGISTRY_PASSWORD: ${REGISTRY_PULL_PASSWORD}
+      # Deletes tags (admin only, from the Registry page). Never leaves web and worker.
+      REGISTRY_ADMIN_PASSWORD: ${REGISTRY_ADMIN_PASSWORD}
       BETTER_AUTH_URL: ${GUST_URL:-https://${GUST_DOMAIN}}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
       AUTHENTIK_ISSUER: ${AUTHENTIK_ISSUER:-}
@@ -232,6 +234,7 @@ services:
       # Registry accounts: the worker writes Zot's files, then the engine restarts Zot.
       REGISTRY_AUTH_DIR: /registry-auth
       REGISTRY_PULL_PASSWORD: ${REGISTRY_PULL_PASSWORD}
+      REGISTRY_ADMIN_PASSWORD: ${REGISTRY_ADMIN_PASSWORD}
     depends_on:
       migrate: { condition: service_completed_successfully }
     volumes:

@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { ADMIN_ACCOUNT } from '@gust/db/registry-config';
+
 import { pickChild, readManifest, toMb } from './registry-logic';
 
 // What zot holds, read with the read-only account the web already uses for pulls.
@@ -18,9 +20,15 @@ const MANIFEST_ACCEPT = [
 
 let cache: { at: number; repos: RegistryRepo[] } | null = null;
 
-function headers(extra: Record<string, string> = {}): Record<string, string> {
-  const user = process.env.REGISTRY_USERNAME;
-  const pass = process.env.REGISTRY_PASSWORD;
+export type RegistryTag = { tag: string; digest: string | null; sizeMb: number | null; created: string | null };
+
+const baseUrl = () => process.env.REGISTRY_URL ?? 'http://127.0.0.1:5050';
+
+function headers(
+  extra: Record<string, string> = {},
+  user = process.env.REGISTRY_USERNAME,
+  pass = process.env.REGISTRY_PASSWORD,
+): Record<string, string> {
   const out: Record<string, string> = { ...extra };
   if (user && pass) out.authorization = `Basic ${Buffer.from(`${user}:${pass}`).toString('base64')}`;
   return out;
@@ -28,7 +36,7 @@ function headers(extra: Record<string, string> = {}): Record<string, string> {
 
 async function getJson(path: string, accept?: string): Promise<unknown | null> {
   try {
-    const res = await fetch(`${process.env.REGISTRY_URL ?? 'http://127.0.0.1:5050'}${path}`, {
+    const res = await fetch(`${baseUrl()}${path}`, {
       cache: 'no-store',
       headers: headers(accept ? { accept } : {}),
       signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -71,4 +79,79 @@ export async function registryRepos(): Promise<RegistryRepo[] | null> {
   repos.sort((a, b) => a.name.localeCompare(b.name));
   cache = { at: Date.now(), repos };
   return repos;
+}
+
+/** A manifest with the digest zot reports for it, or null when it cannot be read. */
+async function manifestWithDigest(repo: string, ref: string) {
+  try {
+    const res = await fetch(`${baseUrl()}/v2/${repo}/manifests/${encodeURIComponent(ref)}`, {
+      cache: 'no-store',
+      headers: headers({ accept: MANIFEST_ACCEPT }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!res.ok) return null;
+    return { digest: res.headers.get('docker-content-digest'), body: (await res.json()) as unknown };
+  } catch {
+    return null;
+  }
+}
+
+/** Size and build time of a tag's image; an index is followed to its linux/amd64 child. */
+async function imageInfo(repo: string, body: unknown) {
+  const m = readManifest(body);
+  if (!m) return { sizeMb: null, created: null };
+  let image = body;
+  let bytes: number | null = m.kind === 'image' ? m.bytes : null;
+  if (m.kind === 'index') {
+    const digest = pickChild(m.children);
+    const child = digest ? await getJson(`/v2/${repo}/manifests/${encodeURIComponent(digest)}`, MANIFEST_ACCEPT) : null;
+    const childManifest = readManifest(child);
+    if (childManifest?.kind === 'image') {
+      image = child;
+      bytes = childManifest.bytes;
+    }
+  }
+  const configDigest = (image as { config?: { digest?: unknown } } | null)?.config?.digest;
+  const config =
+    typeof configDigest === 'string' ? ((await getJson(`/v2/${repo}/blobs/${configDigest}`)) as { created?: unknown } | null) : null;
+  return {
+    sizeMb: bytes === null ? null : toMb(bytes),
+    created: typeof config?.created === 'string' ? config.created : null,
+  };
+}
+
+/** The tags of one repository, newest build first, or null when zot does not know the repository. */
+export async function registryTags(repo: string): Promise<RegistryTag[] | null> {
+  const list = (await getJson(`/v2/${repo}/tags/list`)) as { tags?: unknown } | null;
+  if (!list || !Array.isArray(list.tags)) return null;
+  const tags = list.tags.filter((t): t is string => typeof t === 'string');
+  const rows = await Promise.all(
+    tags.map(async (tag): Promise<RegistryTag> => {
+      const top = await manifestWithDigest(repo, tag);
+      if (!top) return { tag, digest: null, sizeMb: null, created: null };
+      return { tag, digest: top.digest, ...(await imageInfo(repo, top.body)) };
+    }),
+  );
+  return rows.sort((a, b) => (b.created ?? '').localeCompare(a.created ?? ''));
+}
+
+/** Deletes a manifest by digest with the admin account. Every tag on that digest goes with it. */
+export async function deleteManifest(repo: string, digest: string): Promise<'deleted' | 'not-found' | 'failed'> {
+  const pass = process.env.REGISTRY_ADMIN_PASSWORD;
+  if (!pass) return 'failed';
+  try {
+    const res = await fetch(`${baseUrl()}/v2/${repo}/manifests/${digest}`, {
+      method: 'DELETE',
+      cache: 'no-store',
+      headers: headers({}, ADMIN_ACCOUNT, pass),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (res.status === 404) return 'not-found';
+    if (!res.ok) return 'failed';
+  } catch {
+    return 'failed';
+  }
+  // The repository list shows tag counts; drop it so the next visit shows the deletion.
+  cache = null;
+  return 'deleted';
 }

@@ -46,8 +46,10 @@ export async function reconcileRegistry(log: (msg: string) => void) {
   if (!gustPassword) return; // Not configured yet; nothing to load.
 
   await mkdir(dir(), { recursive: true });
+  const adminPassword = process.env.REGISTRY_ADMIN_PASSWORD;
   const files = await buildRegistryFiles({
     gustHash: stableHash(gustPassword),
+    adminHash: adminPassword ? stableHash(adminPassword) : undefined,
     htpasswdPath: HTPASSWD_IN_ZOT,
   });
 
