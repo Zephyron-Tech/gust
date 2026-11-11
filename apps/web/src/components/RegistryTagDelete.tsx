@@ -1,20 +1,20 @@
 'use client';
 
-import { WarningCircle } from '@phosphor-icons/react/ssr';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { useDemo } from '@/lib/demo';
-import { btn } from './ui';
+import { ConfirmDialog } from './ConfirmDialog';
+import { btn, Code } from './ui';
 
 /**
- * Deletes one image by digest after a confirmation. The digest may carry more tags; they go too,
- * and the confirmation says which.
+ * Deletes one image by digest after a confirmation dialog. The digest may carry more tags; they go
+ * too, and the dialog lists them.
  */
 export function RegistryTagDelete({ repo, tag, digest, alsoTags }: { repo: string; tag: string; digest: string; alsoTags: string[] }) {
   const router = useRouter();
   const { notify } = useDemo();
-  const [asking, setAsking] = useState(false);
+  const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,50 +32,51 @@ export function RegistryTagDelete({ repo, tag, digest, alsoTags }: { repo: strin
       setError(body?.error ?? 'Could not reach the server. Try again.');
       return;
     }
-    notify(`Deleted ${tag}.`, undefined, 'ok');
-    setAsking(false);
+    notify(`Deleted ${tag}`, undefined, 'ok');
+    setOpen(false);
     router.refresh();
   }
 
-  if (!asking) {
-    return (
-      <button type="button" className={btn.danger} onClick={() => setAsking(true)}>
+  return (
+    <>
+      <button type="button" className={btn.danger} onClick={() => setOpen(true)}>
         Delete
       </button>
-    );
-  }
-
-  return (
-    <div className="max-w-md space-y-3 text-left">
-      <p className="flex items-start gap-2 text-[13.5px] text-err">
-        <WarningCircle size={18} weight="fill" className="mt-0.5 shrink-0" />
-        <span>
-          Delete <span className="font-mono">{tag}</span>? Rollback to this version will no longer work. The image is removed after the next
-          registry cleanup (about an hour).
-          {alsoTags.length > 0 && (
-            <>
-              {' '}
-              The same image also has{' '}
-              {alsoTags.map((t, i) => (
-                <span key={t}>
-                  {i > 0 && ', '}
-                  <span className="font-mono">{t}</span>
-                </span>
-              ))}
-              , which go too.
-            </>
-          )}
-        </span>
-      </p>
-      {error && <p className="text-[13.5px] text-err">{error}</p>}
-      <div className="flex gap-2">
-        <button type="button" className={btn.danger} disabled={busy} onClick={remove}>
-          {busy ? 'Deleting…' : 'Delete tag'}
-        </button>
-        <button type="button" className={btn.ghost} disabled={busy} onClick={() => setAsking(false)}>
-          Cancel
-        </button>
-      </div>
-    </div>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={(next) => !busy && setOpen(next)}
+        title="Delete this image?"
+        description={
+          <>
+            <Code className="text-fg">{tag}</Code> is removed from <Code className="text-fg">{repo}</Code>. Rollback to this version will no
+            longer work. The image is removed after the next registry cleanup (about an hour).
+            {alsoTags.length > 0 && (
+              <>
+                {' '}
+                The same image also has{' '}
+                {alsoTags.map((t, i) => (
+                  <span key={t}>
+                    {i > 0 && ', '}
+                    <Code className="text-fg">{t}</Code>
+                  </span>
+                ))}
+                , which go too.
+              </>
+            )}
+            {error && <span className="mt-3 block text-err">{error}</span>}
+          </>
+        }
+        actions={
+          <>
+            <button type="button" className={btn.ghost} disabled={busy} onClick={() => setOpen(false)}>
+              Cancel
+            </button>
+            <button type="button" className={btn.danger} disabled={busy} onClick={remove}>
+              {busy ? 'Deleting…' : 'Delete image'}
+            </button>
+          </>
+        }
+      />
+    </>
   );
 }

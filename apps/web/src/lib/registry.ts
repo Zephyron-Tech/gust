@@ -10,6 +10,7 @@ import { pickChild, readManifest, toMb } from './registry-logic';
 export type RegistryRepo = { name: string; tags: number; sizeMb: number | null };
 
 const TTL_MS = 5 * 60_000;
+const TAGS_TTL_MS = 60_000;
 const TIMEOUT_MS = 8_000;
 const MANIFEST_ACCEPT = [
   'application/vnd.oci.image.manifest.v1+json',
@@ -120,8 +121,18 @@ async function imageInfo(repo: string, body: unknown) {
   };
 }
 
-/** The tags of one repository, newest build first, or null when zot does not know the repository. */
+const tagCache = new Map<string, { at: number; tags: RegistryTag[] }>();
+
+/** The tags of one repository, newest build first, or null when zot does not know the repository. Cached a minute. */
 export async function registryTags(repo: string): Promise<RegistryTag[] | null> {
+  const hit = tagCache.get(repo);
+  if (hit && Date.now() - hit.at < TAGS_TTL_MS) return hit.tags;
+  const tags = await fetchTags(repo);
+  if (tags) tagCache.set(repo, { at: Date.now(), tags });
+  return tags;
+}
+
+async function fetchTags(repo: string): Promise<RegistryTag[] | null> {
   const list = (await getJson(`/v2/${repo}/tags/list`)) as { tags?: unknown } | null;
   if (!list || !Array.isArray(list.tags)) return null;
   const tags = list.tags.filter((t): t is string => typeof t === 'string');
@@ -151,7 +162,8 @@ export async function deleteManifest(repo: string, digest: string): Promise<'del
   } catch {
     return 'failed';
   }
-  // The repository list shows tag counts; drop it so the next visit shows the deletion.
+  // The repository list and this repository's tags show the deletion on the next visit.
   cache = null;
+  tagCache.delete(repo);
   return 'deleted';
 }

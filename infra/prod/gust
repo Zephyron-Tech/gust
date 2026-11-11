@@ -26,6 +26,11 @@ ensure_env() {
       "$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 40)" >> .env
     echo "Added REDIS_PASSWORD to .env."
   fi
+  if ! grep -q '^REGISTRY_ADMIN_PASSWORD=' .env; then
+    printf '\n# Password of the gust-admin registry account (tag delete on the Registry page).\nREGISTRY_ADMIN_PASSWORD=%s\n' \
+      "$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 40)" >> .env
+    echo "Added REGISTRY_ADMIN_PASSWORD to .env."
+  fi
 }
 
 dc() { docker compose --project-directory "$GUST_DIR" "$@"; }
