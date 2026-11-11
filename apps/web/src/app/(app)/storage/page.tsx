@@ -47,8 +47,7 @@ export default async function StoragePage() {
       ) : (
         <Panel className="overflow-hidden">
           {rows.map((r, i) => {
-            const service = home.get(r.slug);
-            const href = service ? `/projects/${r.slug}/${service}/databases` : `/projects/${r.slug}`;
+            const href = `/storage/${r.slug}/${r.name}`;
             const word = STATE[r.state];
             return (
               <Link

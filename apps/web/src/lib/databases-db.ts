@@ -132,3 +132,44 @@ export async function listAllDatabases(): Promise<StorageRow[]> {
 
   return rows.map((r) => ({ ...r, lastBackup: last.get(`project:${r.slug}|${r.database}`) ?? null }));
 }
+
+export type DatabaseTarget = {
+  id: string;
+  name: string;
+  database: string;
+  role: string;
+  kind: DatabaseKind;
+  state: DatabaseRow['state'];
+  passwordEncrypted: string;
+  error: string | null;
+  createdAt: Date;
+};
+
+/**
+ * One project database by project slug and name, with its encrypted password, for the Storage
+ * pages that connect to it. Server only: the password never goes into a response.
+ */
+export async function lookupDatabase(slug: string, name: string): Promise<DatabaseTarget | null> {
+  const [row] = await db
+    .select({
+      id: projectDatabases.id,
+      name: projectDatabases.name,
+      database: projectDatabases.database,
+      role: projectDatabases.role,
+      kind: projectDatabases.kind,
+      state: projectDatabases.state,
+      passwordEncrypted: projectDatabases.passwordEncrypted,
+      error: projectDatabases.error,
+      createdAt: projectDatabases.createdAt,
+    })
+    .from(projectDatabases)
+    .innerJoin(projects, eq(projects.id, projectDatabases.projectId))
+    .where(and(eq(projects.slug, slug), eq(projectDatabases.name, name)));
+  return row ?? null;
+}
+
+/** The env variable an app gets for a database: `DATABASE_URL` (Redis: `REDIS_URL`) for `main`, else with `_<NAME>` added. Same rule as the worker. */
+export const envKeyFor = (name: string, kind: DatabaseKind) => {
+  const base = kind === 'redis' ? 'REDIS_URL' : 'DATABASE_URL';
+  return name === 'main' ? base : `${base}_${name.toUpperCase()}`;
+};

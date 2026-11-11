@@ -1,11 +1,11 @@
 'use client';
 
-import { ArrowCounterClockwise, Database, DownloadSimple, Key, Plus, Trash } from '@phosphor-icons/react/ssr';
+import { ArrowCounterClockwise, Database, Plus } from '@phosphor-icons/react/ssr';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { Ago } from '@/components/Ago';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { DatabaseActions } from '@/components/DatabaseActions';
 import { Select } from '@/components/Select';
 import { btn, cx, Panel } from '@/components/ui';
 import { authClient } from '@/lib/auth-client';
@@ -32,8 +32,6 @@ export function DatabasesPanel({ slug, initial }: { slug: string; initial: { dat
   const [kind, setKind] = useState<DatabaseKind>('postgres');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [removing, setRemoving] = useState<DatabaseRow | null>(null);
-  const [rotating, setRotating] = useState<DatabaseRow | null>(null);
   const [restoring, setRestoring] = useState<{ file: string; name: string } | null>(null);
 
   const { databases, backups } = initial;
@@ -74,46 +72,6 @@ export function DatabasesPanel({ slug, initial }: { slug: string; initial: { dat
       `Creating ${body?.database ?? 'database'}`,
       `The worker makes the ${kind === 'redis' ? 'Redis user' : 'database and its login'}, then sets ${kind === 'redis' ? 'REDIS_URL' : 'DATABASE_URL'} on the app.`,
     );
-    router.refresh();
-  }
-
-  async function remove(d: DatabaseRow) {
-    setBusy(d.id);
-    const res = await fetch(`/api/projects/${slug}/databases/${d.id}`, { method: 'DELETE' }).catch(() => null);
-    setBusy(null);
-    setRemoving(null);
-    if (!res?.ok) {
-      notify('Delete failed', 'Gust did not accept the request. Try again.', 'err');
-      return;
-    }
-    notify(`Deleting ${d.database}`, 'The database and its login are dropped by the worker. Backups stay.');
-    router.refresh();
-  }
-
-  async function backup(d: DatabaseRow) {
-    setBusy(d.id);
-    const res = await fetch(`/api/projects/${slug}/databases/${d.id}/backup`, { method: 'POST' }).catch(() => null);
-    setBusy(null);
-    if (!res?.ok) {
-      notify('Backup not started', 'Gust did not accept the request. Try again.', 'err');
-      return;
-    }
-    notify(`Backup of ${d.database} queued`, 'It appears in the list when the dump is written.');
-    router.refresh();
-    // The worker writes the audit row after the dump; refresh again once it is likely done.
-    window.setTimeout(() => router.refresh(), 4000);
-  }
-
-  async function rotate(d: DatabaseRow) {
-    setBusy(d.id);
-    const res = await fetch(`/api/projects/${slug}/databases/${d.id}/rotate`, { method: 'POST' }).catch(() => null);
-    setBusy(null);
-    setRotating(null);
-    if (!res?.ok) {
-      notify('Rotation not started', 'Gust did not accept the request. Try again.', 'err');
-      return;
-    }
-    notify(`Rotating the password of ${d.database}`, 'Redeploy the app once it is done, so it gets the new DATABASE_URL.');
     router.refresh();
   }
 
@@ -228,25 +186,7 @@ export function DatabasesPanel({ slug, initial }: { slug: string; initial: { dat
               <span className="text-[13px] text-fg-3">
                 <Ago iso={new Date(d.createdAt).toISOString()} />
               </span>
-              {admin && (
-                <div className="flex gap-2">
-                  {d.state === 'ready' && (
-                    <button type="button" className={btn.secondary} disabled={busy !== null} onClick={() => void backup(d)}>
-                      <DownloadSimple /> Back up
-                    </button>
-                  )}
-                  {d.state === 'ready' && (
-                    <button type="button" className={btn.secondary} disabled={busy !== null} onClick={() => setRotating(d)}>
-                      <Key /> Rotate password
-                    </button>
-                  )}
-                  {d.state !== 'provisioning' && d.state !== 'deleting' && (
-                    <button type="button" className={btn.ghost} disabled={busy !== null} onClick={() => setRemoving(d)}>
-                      <Trash /> Delete
-                    </button>
-                  )}
-                </div>
-              )}
+              {admin && <DatabaseActions slug={slug} db={d} />}
             </div>
           ))
         )}
@@ -312,44 +252,6 @@ export function DatabasesPanel({ slug, initial }: { slug: string; initial: { dat
           </ul>
         )}
       </Panel>
-
-      <ConfirmDialog
-        open={rotating !== null}
-        onOpenChange={(next) => {
-          if (!next) setRotating(null);
-        }}
-        title={`Rotate the password of ${rotating?.database ?? 'the database'}?`}
-        description="A new password replaces the old one at once, so the running app stops connecting until you redeploy it. It then gets the new DATABASE_URL."
-        actions={
-          <>
-            <button type="button" className={btn.ghost} onClick={() => setRotating(null)}>
-              Cancel
-            </button>
-            <button type="button" className={btn.primary} disabled={busy !== null} onClick={() => rotating && void rotate(rotating)}>
-              Rotate password
-            </button>
-          </>
-        }
-      />
-
-      <ConfirmDialog
-        open={removing !== null}
-        onOpenChange={(next) => {
-          if (!next) setRemoving(null);
-        }}
-        title={`Delete ${removing?.database ?? 'database'}?`}
-        description="The database and its login are dropped, with all its data. Existing backups are kept. This cannot be undone."
-        actions={
-          <>
-            <button type="button" className={btn.ghost} onClick={() => setRemoving(null)}>
-              Cancel
-            </button>
-            <button type="button" className={btn.danger} disabled={busy !== null} onClick={() => removing && void remove(removing)}>
-              Delete database
-            </button>
-          </>
-        }
-      />
     </div>
   );
 }

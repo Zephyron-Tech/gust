@@ -139,6 +139,21 @@ and ACL, not by a separate server or role per database.
 - ACL users live in Redis memory. A Redis restart drops them; the worker sets every ready
   Redis user again from its stored password at start and every 60 s.
 
+## Storage pages
+
+`/storage` lists every database; each opens `/storage/<project>/<name>` with Overview (state, size,
+tables, the app variable, backups, the same back up, rotate and delete as the project's Databases tab),
+and for Postgres also Data and Query. Redis has Overview only.
+
+- The web connects as the database's own login (password decrypted from `password_encrypted`), never as
+  the cluster admin, so a query reaches that database and nothing else. Host and port come from `DATABASE_URL`.
+- Data lists the public schema and pages through a table 50 rows at a time. A table name from the URL is
+  used only if the database's own catalog lists it.
+- Query runs in a `READ ONLY` transaction, so Postgres refuses anything that changes data. An admin can switch
+  "Allow changes" on; that commits. Statements stop after 15 s; at most 500 rows come back.
+- Every query writes a `database.query` audit row with the database, the mode and the length. The text and
+  the result are not kept: they can hold secrets.
+
 ## Tools and settings
 
 - `PG_DUMP`, `PG_RESTORE` override the client binaries (dev on a Mac without the

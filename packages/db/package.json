@@ -10,6 +10,7 @@
     "./secrets": "./src/secrets.ts",
     "./project-rules": "./src/project-rules.ts",
     "./postgres-admin": "./src/postgres-admin.ts",
+    "./project-db": "./src/project-db.ts",
     "./redis-admin": "./src/redis-admin.ts",
     "./registry": "./src/registry.ts",
     "./registry-config": "./src/registry-config.ts"
