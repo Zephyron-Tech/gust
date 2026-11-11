@@ -56,7 +56,7 @@ export default async function ServiceSettingsPage({ params }: { params: Promise<
   return (
     <div className="space-y-6">
       <ProjectIconPanel slug={slug} icon={project.icon} domain={project.domain} />
-      <RegistryAccount slug={slug} status={registryStatusView ?? null} canManage={user?.role === 'admin'} />
+
       {project.engine && (
         <BranchesPanel
           slug={slug}
@@ -66,6 +66,11 @@ export default async function ServiceSettingsPage({ params }: { params: Promise<
           productionDomains={s.domains ?? []}
           previewsStopped={project.previewsStopped ?? false}
         />
+      )}
+      {project.engine && (
+        <div className="max-w-3xl">
+          <RegistryAccount slug={slug} status={registryStatusView ?? null} canManage={user?.role === 'admin'} />
+        </div>
       )}
       <Panel className="view-in max-w-3xl p-7">
         <dl className="grid grid-cols-[180px_1fr] gap-x-8 gap-y-4 text-[14.5px]">
