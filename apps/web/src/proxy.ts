@@ -22,7 +22,8 @@ function sameOrigin(req: NextRequest) {
 }
 
 // Everything except the sign-in page, the auth API, the GitHub deploy API
-// (it checks a GitHub OIDC token instead) and static files needs a session.
+// (it checks a GitHub OIDC token instead), the GitHub webhook (it checks an
+// HMAC signature instead) and static files needs a session.
 // This only checks that the cookie is there; route handlers and pages verify
 // the session itself.
 export function proxy(req: NextRequest) {
@@ -39,6 +40,6 @@ export function proxy(req: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!login|api/auth|api/deploy(?:/|$)|_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png|manifest.webmanifest|gust-icon).*)',
+    '/((?!login|api/auth|api/deploy(?:/|$)|api/github/webhook(?:/|$)|_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png|manifest.webmanifest|gust-icon).*)',
   ],
 };

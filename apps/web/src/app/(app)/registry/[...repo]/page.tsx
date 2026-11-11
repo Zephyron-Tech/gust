@@ -9,6 +9,7 @@ import { currentUser } from '@/lib/auth';
 import { size } from '@/lib/format';
 import { NOT_SET } from '@/lib/integrations';
 import { registryTags } from '@/lib/registry';
+import { liveTagsForRepo } from '@/lib/registry-live';
 
 export const metadata = { title: 'Registry tags' };
 export const dynamic = 'force-dynamic';
@@ -18,7 +19,7 @@ const REPO = /^[a-z0-9][a-z0-9._-]{0,39}\/[a-z0-9][a-z0-9._-]{0,39}$/;
 export default async function RegistryTagsPage({ params }: { params: Promise<{ repo: string[] }> }) {
   const repo = (await params).repo.join('/');
   if (!REPO.test(repo)) notFound();
-  const [tags, user] = await Promise.all([registryTags(repo), currentUser(await headers())]);
+  const [tags, user, live] = await Promise.all([registryTags(repo), currentUser(await headers()), liveTagsForRepo(repo)]);
   const canManage = user?.role === 'admin';
 
   return (
@@ -38,13 +39,27 @@ export default async function RegistryTagsPage({ params }: { params: Promise<{ r
           The registry does not know this repository, or did not answer.
         </p>
       ) : (
-        <Table head={['Tag', 'Digest', 'Size', 'Built', ...(canManage ? [''] : [])]}>
+        <Table head={['Tag', 'Live', 'Digest', 'Size', 'Built', ...(canManage ? [''] : [])]}>
           {tags.map((t) => {
             const alsoTags = tags.filter((o) => o.digest !== null && o.digest === t.digest && o.tag !== t.tag).map((o) => o.tag);
             return (
               <tr key={t.tag}>
                 <Td>
                   <Code>{t.tag}</Code>
+                </Td>
+                <Td className="text-[13.5px]">
+                  {(live.get(t.tag) ?? []).length === 0 ? (
+                    <span className="text-fg-3">{NOT_SET}</span>
+                  ) : (
+                    <ul className="space-y-0.5">
+                      {(live.get(t.tag) ?? []).map((u) => (
+                        <li key={`${u.project}/${u.service}/${u.branch ?? ''}`} className="text-ok">
+                          {u.project}/{u.service}
+                          {u.branch ? ` · ${u.branch}` : ' · production'}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </Td>
                 <Td className="text-fg-3">
                   <Code>{t.digest ? t.digest.slice(7, 19) : NOT_SET}</Code>
@@ -61,7 +76,7 @@ export default async function RegistryTagsPage({ params }: { params: Promise<{ r
           })}
           {tags.length === 0 && (
             <tr>
-              <Td colSpan={canManage ? 5 : 4} className="text-center text-fg-3">
+              <Td colSpan={canManage ? 6 : 5} className="text-center text-fg-3">
                 No tags.
               </Td>
             </tr>
