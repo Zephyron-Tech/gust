@@ -88,16 +88,16 @@ a copy in the password manager.
 
 ## What runs where
 
-| Service      | Networks          | Notes                                                                                                                                               |
-| ------------ | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| traefik      | edge, control     | Ports 80 and 443. HTTP redirects to HTTPS. Routes for apps come from the engine, for Gust and the registry from `traefik/dynamic.yml`.              |
-| socket-proxy | internal          | The only container with the Docker socket.                                                                                                          |
-| postgres     | internal          | Volume `gust_postgres`.                                                                                                                             |
-| zot          | edge, internal    | `registry.gust.zephyron.tech` through Traefik; `127.0.0.1:5050` for pulls by the Docker daemon on the host. Keeps the 8 newest tags per repository. |
-| migrate      | internal          | Runs the migrations and exits; web and worker wait for it.                                                                                          |
-| engine       | internal, control | Deploys through the socket proxy, gives Traefik its config.                                                                                         |
-| web          | edge, internal    | The UI and API on `gust.zephyron.tech`.                                                                                                             |
-| worker       | internal          | Runs deploy jobs, restores lost containers, writes commit statuses.                                                                                 |
+| Service      | Networks          | Notes                                                                                                                                                |
+| ------------ | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| traefik      | edge, control     | Ports 80 and 443. HTTP redirects to HTTPS. Routes for apps come from the engine, for Gust and the registry from `traefik/dynamic.yml`.               |
+| socket-proxy | internal          | The only container with the Docker socket.                                                                                                           |
+| postgres     | internal          | Volume `gust_postgres`.                                                                                                                              |
+| zot          | edge, internal    | `registry.gust.zephyron.tech` through Traefik; `127.0.0.1:5050` for pulls by the Docker daemon on the host. Keeps the 20 newest tags per repository. |
+| migrate      | internal          | Runs the migrations and exits; web and worker wait for it.                                                                                           |
+| engine       | internal, control | Deploys through the socket proxy, gives Traefik its config.                                                                                          |
+| web          | edge, internal    | The UI and API on `gust.zephyron.tech`.                                                                                                              |
+| worker       | internal          | Runs deploy jobs, restores lost containers, writes commit statuses.                                                                                  |
 
 Apps deployed through Gust join `gust_edge` only.
 

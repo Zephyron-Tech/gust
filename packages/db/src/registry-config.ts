@@ -67,7 +67,7 @@ export function renderZotConfig(base: ZotBase, projects: RegistryProject[], htpa
   return { distSpecVersion: '1.1.1', storage: base.storage, http, log: base.log };
 }
 
-/** The settings Zot runs with in production. Storage keeps the 8 newest pushed tags per repository. */
+/** The settings Zot runs with in production. Storage keeps the 20 newest pushed tags per repository. */
 export const ZOT_BASE: ZotBase = {
   storage: {
     rootDirectory: '/var/lib/registry',
@@ -76,7 +76,7 @@ export const ZOT_BASE: ZotBase = {
     gcInterval: '24h',
     retention: {
       delay: '24h',
-      policies: [{ repositories: ['**'], deleteReferrers: true, keepTags: [{ mostRecentlyPushedCount: 8 }] }],
+      policies: [{ repositories: ['**'], deleteReferrers: true, keepTags: [{ mostRecentlyPushedCount: 20 }] }],
     },
   },
   http: { address: '0.0.0.0', port: '5000', realm: 'gust', auth: { failDelay: 1 } },

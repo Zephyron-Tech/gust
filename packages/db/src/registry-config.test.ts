@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { describe, expect, it } from 'vitest';
 
-import { accountName, generatePassword, hashPassword, renderHtpasswd, renderZotConfig, type ZotBase } from './registry-config';
+import { accountName, generatePassword, hashPassword, renderHtpasswd, renderZotConfig, ZOT_BASE, type ZotBase } from './registry-config';
 
 const base: ZotBase = {
   storage: { rootDirectory: '/var/lib/registry', gc: true },
@@ -75,5 +75,16 @@ describe('renderZotConfig', () => {
 describe('accountName', () => {
   it('prefixes the slug with ci-', () => {
     expect(accountName('demo')).toBe('ci-demo');
+  });
+});
+
+describe('ZOT_BASE retention', () => {
+  it('keeps the 20 newest pushed tags per repository, with the delay before a tag is removed', () => {
+    const retention = ZOT_BASE.storage.retention as {
+      delay: string;
+      policies: { keepTags: { mostRecentlyPushedCount: number }[] }[];
+    };
+    expect(retention.delay).toBe('24h');
+    expect(retention.policies[0]?.keepTags).toEqual([{ mostRecentlyPushedCount: 20 }]);
   });
 });
