@@ -32,13 +32,15 @@ async function appJwt() {
     .sign(key);
 }
 
-async function gh(path: string, auth: string, init: RequestInit = {}) {
+/** One GitHub API call. Some answers have no body (a secret update is 204), so an empty body is an empty object. */
+export async function gh(path: string, auth: string, init: RequestInit = {}) {
   const res = await fetch(`${API}${path}`, {
     ...init,
     headers: { accept: 'application/vnd.github+json', 'x-github-api-version': '2022-11-28', authorization: auth, ...init.headers },
   });
   if (!res.ok) throw new Error(`GitHub ${init.method ?? 'GET'} ${path}: ${res.status}`);
-  return res.json() as Promise<Record<string, unknown>>;
+  const text = await res.text();
+  return (text ? JSON.parse(text) : {}) as Record<string, unknown>;
 }
 
 /** An installation token for the repository with the given permissions, cached until shortly before it expires. */
