@@ -5,19 +5,14 @@ import { use, useCallback, useEffect, useState } from 'react';
 
 import { Ago } from '@/components/Ago';
 import { EnvBadge } from '@/components/EnvBadge';
+import { PreviewRow, type PreviewRowData } from '@/components/PreviewRow';
 import { btn, cx, Panel } from '@/components/ui';
 import { authClient } from '@/lib/auth-client';
 import { useDemo } from '@/lib/demo';
 
 type DomainState = 'pending_dns' | 'applying' | 'live' | 'error';
 type ProductionDomain = { host: string; state: DomainState; error: string | null; checkedAt: string | null };
-type PreviewDomain = {
-  branch: string;
-  host: string | null;
-  live: boolean;
-  pr?: { number: number; title: string; author: string };
-  commit?: { sha: string | null; message: string | null; author: string } | null;
-};
+type PreviewDomain = PreviewRowData;
 type DomainsView = { serverIp: string | null; cnameTarget: string | null; production: ProductionDomain[]; previews: PreviewDomain[] };
 
 const stateTag: Record<DomainState, [string, string]> = {
@@ -239,58 +234,7 @@ export default function DomainsPage({ params }: { params: Promise<{ slug: string
         </div>
         <Panel className="overflow-hidden">
           {data?.previews.map((p, i) => (
-            <div
-              key={p.branch}
-              className={cx(
-                'grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_120px_100px] items-center gap-4 px-5 py-4',
-                i > 0 && 'border-t border-line',
-              )}
-            >
-              {!p.host ? (
-                <span className="truncate text-[14px] text-fg-3">Host appears once GUST_DOMAIN is set</span>
-              ) : p.live ? (
-                <a
-                  href={`https://${p.host}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex min-w-0 items-center gap-1.5 truncate text-[15px] font-medium hover:text-accent"
-                >
-                  {p.host} <ArrowSquareOut size={14} className="shrink-0 text-fg-3" />
-                </a>
-              ) : (
-                <span className="truncate text-[15px] text-fg-2">{p.host}</span>
-              )}
-              <div className="min-w-0 text-center text-[13.5px]">
-                {p.pr ? (
-                  <>
-                    <div className="truncate text-fg-2">
-                      PR #{p.pr.number} · {p.pr.title}
-                    </div>
-                    <div className="truncate text-fg-3">
-                      from {p.pr.author} · branch {p.branch}
-                    </div>
-                  </>
-                ) : p.commit ? (
-                  <>
-                    <div className="truncate text-fg-2">
-                      from branch <span className="font-mono text-[13px]">{p.branch}</span>
-                      {p.commit.sha && <span className="font-mono text-[13px] text-fg-3"> · {p.commit.sha.slice(0, 7)}</span>}
-                    </div>
-                    <div className="truncate text-fg-3">
-                      {p.commit.message ?? 'no commit message'} · {p.commit.author}
-                    </div>
-                  </>
-                ) : (
-                  <div className="truncate text-fg-3">from branch {p.branch}</div>
-                )}
-              </div>
-              <div className="flex justify-center">
-                <EnvBadge env={{ kind: 'preview', branch: p.branch }} />
-              </div>
-              <span className={cx('text-right text-[13.5px]', p.live ? 'text-fg-2' : 'text-fg-3')}>
-                {p.live ? 'Deployed' : 'No deploy yet'}
-              </span>
-            </div>
+            <PreviewRow key={p.branch} p={p} first={i === 0} />
           ))}
           {data && data.previews.length === 0 && (
             <p className="px-5 py-8 text-center text-fg-3">No preview branches. Add one in Settings → Branches.</p>
