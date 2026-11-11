@@ -1,4 +1,5 @@
 import { previewHost } from '@gust/contracts';
+import { GitBranch } from '@phosphor-icons/react/ssr';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
@@ -45,29 +46,15 @@ export default async function ServiceLayout({
               )}
             </dd>
             <dt className="text-fg-3">Production</dt>
-            <dd className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="text-fg-2">branch {project.productionBranch ?? 'main'}</span>
-              {project.domain && (
-                <a href={`https://${project.domain}`} target="_blank" rel="noreferrer" className="text-accent hover:underline">
-                  {project.domain}
-                </a>
-              )}
+            <dd className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <BranchHost branch={project.productionBranch ?? 'main'} host={project.domain} />
             </dd>
             <dt className="text-fg-3">Previews</dt>
             <dd className="flex flex-wrap items-center gap-x-4 gap-y-1">
               {project.previewBranches?.length ? (
                 project.previewBranches.map((b) => {
                   const host = process.env.GUST_DOMAIN ? previewHost(b, project.slug, process.env.GUST_DOMAIN) : null;
-                  return host ? (
-                    <a key={b} href={`https://${host}`} target="_blank" rel="noreferrer" className="text-accent hover:underline">
-                      {b}
-                      <span className="ml-1.5 text-fg-3">{host}</span>
-                    </a>
-                  ) : (
-                    <span key={b} className="text-fg-2">
-                      {b}
-                    </span>
-                  );
+                  return <BranchHost key={b} branch={b} host={host} />;
                 })
               ) : (
                 <span className="text-fg-3">none</span>
@@ -110,5 +97,22 @@ export default async function ServiceLayout({
       <ServiceTabs base={`/projects/${project.slug}/${svc.name}`} stateful={svc.type === 'stateful'} />
       {children}
     </div>
+  );
+}
+
+/** A branch with its host: a branch icon, the branch name, then the host as a link. */
+function BranchHost({ branch, host }: { branch: string; host: string | null | undefined }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className="inline-flex items-center gap-1.5 text-fg-2">
+        <GitBranch size={15} weight="bold" aria-hidden />
+        {branch}
+      </span>
+      {host && (
+        <a href={`https://${host}`} target="_blank" rel="noreferrer" className="text-accent hover:underline">
+          {host}
+        </a>
+      )}
+    </span>
   );
 }
