@@ -38,7 +38,6 @@ export function SetupChecklist(props: {
   yaml: string;
   workflowPath: string;
   createUrl: string;
-  secretsUrl: string;
 }) {
   const router = useRouter();
   const { deployments } = useDemo();
@@ -121,11 +120,8 @@ export function SetupChecklist(props: {
           <Step n={3} done={!!first} title="Registry secrets">
             <p className="text-[14px] text-fg-2">
               The workflow pushes the image with <Code className="text-fg">GUST_REGISTRY_USERNAME</Code> and{' '}
-              <Code className="text-fg">GUST_REGISTRY_PASSWORD</Code>. They are organisation secrets, so a new repository has them as long
-              as the organisation shares them with all repositories.{' '}
-              <a href={props.secretsUrl} target="_blank" rel="noreferrer" className="text-accent">
-                Check the organisation secrets
-              </a>
+              <Code className="text-fg">GUST_REGISTRY_PASSWORD</Code>. Gust writes both into this repository's Actions secrets when the
+              registry account above is created, so there is nothing to set by hand. If the card shows an error, retry it there.
             </p>
           </Step>
 

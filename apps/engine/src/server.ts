@@ -9,6 +9,7 @@ import { prune, usage } from './cleanup';
 import { deploy } from './deploy';
 import { docker } from './docker';
 import { listObserved, restartObserved, STACK_NAME } from './observed';
+import { reloadRegistry } from './registry';
 import { traefikConfig } from './routing';
 import { stopService } from './service-control';
 
@@ -71,6 +72,9 @@ app.post('/v1/services/:project/:service/stop', async (c) => {
   if (!/^[a-z0-9-]+$/.test(project) || !/^[a-z0-9-]+$/.test(service)) return c.json({ error: 'Invalid name' }, 400);
   return c.json({ ok: true, containers: await stopService(project, service) });
 });
+
+// The worker calls this after Zot's accounts change; Zot reads its login file only at start.
+app.post('/v1/registry/reload', async (c) => c.json(await reloadRegistry()));
 
 // Host disk: what cleanup would remove, and the cleanup itself.
 app.get('/v1/cleanup', async (c) => c.json(await usage()));

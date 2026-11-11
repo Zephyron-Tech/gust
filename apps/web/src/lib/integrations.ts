@@ -30,7 +30,7 @@ export function githubAppValue(appId: string | undefined, keySet: boolean, owner
 }
 
 export function registryValue(domain: string | undefined): string {
-  return domain ? `${domain} · one push account for all projects` : NOT_SET;
+  return domain ? `${domain} · one account per project` : NOT_SET;
 }
 
 /** Backup size in KB, at least 1, for display. */

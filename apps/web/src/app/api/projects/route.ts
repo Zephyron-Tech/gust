@@ -1,6 +1,7 @@
 import { envScope, previewHost } from '@gust/contracts';
 import { auditEvents, db, envVars, projects, serviceDomains, services } from '@gust/db';
 import { validateNewProject } from '@gust/db/project-rules';
+import { enqueueRegistry } from '@gust/db/queue';
 import { encryptSecret } from '@gust/db/secrets';
 import { eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
@@ -167,6 +168,9 @@ export async function POST(req: Request) {
     }
     throw e;
   }
+
+  // The project's own registry account and its GitHub secrets. If queuing fails, the setup page offers it again.
+  await enqueueRegistry({ slug: v.slug, action: 'create', actor: u.email }).catch(() => {});
 
   return Response.json({ slug: v.slug, service: v.service, host }, { status: 201 });
 }

@@ -14,10 +14,12 @@
     "@gust/db": "workspace:*",
     "drizzle-orm": "0.45.4",
     "jose": "6.2.15",
+    "libsodium-wrappers": "~0.7.16",
     "pg-boss": "12.38.0",
     "redis": "6.2.1"
   },
   "devDependencies": {
+    "@types/libsodium-wrappers": "~0.7.14",
     "@types/node": "24.19.2",
     "tsx": "4.23.15",
     "typescript": "7.0.2",

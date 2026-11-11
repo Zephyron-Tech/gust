@@ -7,7 +7,7 @@
 #   gust restart [service]      restart everything or one service
 #   gust project <args>         add and change projects (gust project help)
 #   gust break-glass            create or reset the break-glass admin from .env
-#   gust registry               credentials GitHub Actions push with
+#   gust registry               registry accounts (rotate or revoke one project's)
 #   gust backup                 dump the database to $GUST_DIR/backups (keeps 14 days)
 #   gust restore <file>         restore a dump (asks first)
 set -euo pipefail
@@ -39,10 +39,9 @@ sync_files() {
   img="$(image)"
   img="${img:-ghcr.io/zephyron-tech/gust:latest}"
   cid="$(docker create "$img")"
-  mkdir -p traefik zot
+  mkdir -p traefik
   docker cp "$cid:/gust/infra/prod/compose.yml" compose.yml
   docker cp "$cid:/gust/infra/prod/traefik/dynamic.yml" traefik/dynamic.yml
-  docker cp "$cid:/gust/infra/prod/zot/config.json" zot/config.json
   docker cp "$cid:/gust/infra/prod/gust" gust.new
   docker rm "$cid" >/dev/null
   chmod +x gust.new && mv gust.new gust
@@ -150,7 +149,8 @@ sample_metrics() {
 registry_status() {
   mkdir -p "$REQ"
   local keep
-  keep="$(sed -n 's/.*"mostRecentlyPushedCount": *\([0-9]*\).*/\1/p' "$GUST_DIR/zot/config.json" 2>/dev/null | head -n1)"
+  # Zot's config lives in the registry-auth volume (written by the worker).
+  keep="$(docker run --rm -v gust_registry-auth:/auth:ro busybox:1.37 cat /auth/config.json 2>/dev/null | sed -n 's/.*"mostRecentlyPushedCount": *\([0-9]*\).*/\1/p' | head -n1)"
   if [ -n "$keep" ]; then
     printf '{"keepTags":%s,"at":"%s"}\n' "$keep" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$REQ/registry.json.tmp"
   else
@@ -230,11 +230,18 @@ case "$cmd" in
     dc run --rm -T -e BREAK_GLASS_EMAIL="$(envval BREAK_GLASS_EMAIL)" -e BREAK_GLASS_PASSWORD="$(envval BREAK_GLASS_PASSWORD)" migrate break-glass
     ;;
   registry)
-    echo "Registry:  $(envval REGISTRY_DOMAIN)"
-    echo "Username:  ci"
-    echo "Password:  $(envval REGISTRY_CI_PASSWORD)"
-    echo
-    echo "Put them into GitHub as organisation secrets GUST_REGISTRY_USERNAME and GUST_REGISTRY_PASSWORD."
+    # Per-project accounts are made with "gust project add" and the worker writes their GitHub secrets.
+    # "registry rotate <slug>" and "registry revoke <slug>" change one project's account.
+    case "${2:-}" in
+      rotate | revoke)
+        dc run --rm -T migrate project registry "$2" "${3:?Project slug}"
+        ;;
+      *)
+        echo "Registry:  $(envval REGISTRY_DOMAIN)"
+        echo "Each project has its own account, ci-<slug>, set as GitHub secrets by Gust."
+        echo "Per project: gust registry rotate <slug> | gust registry revoke <slug>"
+        ;;
+    esac
     ;;
   backup)
     mkdir -p backups

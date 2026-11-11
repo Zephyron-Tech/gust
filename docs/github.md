@@ -46,7 +46,8 @@ deploy is written to the audit log as `deploy.push` with actor
 `GITHUB_TOKEN` on web if the 60 requests an hour ever run out). Import one,
 check the settings Gust filled in from the repository (branches, the port from
 the Dockerfile's `EXPOSE`), and create the project. It is served on
-`<slug>.<GUST_DOMAIN>`; custom domains are added later in the Domains tab.
+`<slug>.<GUST_TEMP_DOMAIN>` (for example `demo.zephyron.tech`) when that variable is set,
+otherwise on `<slug>.<GUST_DOMAIN>`; custom domains are added later in the Domains tab.
 The setup page that follows shows the workflow below, filled in for the
 project, with a button that opens GitHub's editor for the new file. Commit it
 there and the next push deploys.
@@ -155,8 +156,10 @@ HTTPS answers; Traefik gets the certificate on the first request. Removing a
 domain redeploys the same way. The worker needs `GUST_SERVER_IP` in
 `/opt/gust/.env`. Preview hosts are automatic and listed in the same tab.
 
-- Repository permissions: **Commit statuses: Read and write**, Metadata: Read.
-  Nothing else.
+- Repository permissions: **Commit statuses: Read and write**, **Secrets: Read
+  and write** (Gust sets each repository's registry secrets, see below), Metadata:
+  Read. Nothing else. Organisation owners approve the new permission on GitHub
+  before Gust can write secrets.
 - Installed on selected repositories; add each repository when it moves to
   Gust (organisation settings → GitHub Apps → Zephyron Gust → Configure).
 
@@ -169,10 +172,19 @@ printf 'GITHUB_APP_PRIVATE_KEY="%s"\n' "$(awk '{printf "%s\\n", $0}' path/to/key
 
 ## Registry access
 
-The action logs in to the registry with a robot account. Locally Zot runs
-without authentication on `127.0.0.1:5050`. Robot accounts per project
-(`RegistryCredential` in the spec) come with the VPS setup, when the registry
-becomes reachable from GitHub.
+The action logs in to the registry with the project's own account. Each project
+has one account, `ci-<slug>`, which may push only under `<slug>/` (Zot's
+`accessControl` in `registry-config.ts`). Gust creates the account when the
+project is added, writes its password into the repository's Actions secrets
+`GUST_REGISTRY_USERNAME` and `GUST_REGISTRY_PASSWORD` through the GitHub API,
+and records the result on the project's setup page (Retry secrets there, or
+rotate and revoke from the same card). Passwords are never shown in the UI or
+written to logs; only the bcrypt hash is stored.
+
+The Docker daemon on the host pulls with the read-only `gust` account on
+`127.0.0.1:5050`. Zot reads its login file and push rules from the
+`registry-auth` volume, which the worker writes; when they change, the engine
+restarts Zot.
 
 ## Trying it locally
 

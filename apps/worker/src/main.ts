@@ -1,6 +1,6 @@
 // Gust worker: takes deploy jobs from the queue and keeps running services
 // in line with the database.
-import { type DatabaseJob, type DeployJob, QUEUES } from '@gust/db/queue';
+import { type DatabaseJob, type DeployJob, QUEUES, type RegistryJob } from '@gust/db/queue';
 import { PgBoss } from 'pg-boss';
 
 import {
@@ -16,6 +16,8 @@ import {
 import { runDeploy } from './deploy';
 import { checkDomains } from './domains';
 import { failCrashed, failInterrupted, reconcile } from './reconcile';
+import { logRegistryError, reconcileRegistry } from './registry';
+import { runRegistryJob } from './registry-job';
 
 const log = (line: string) => console.log(`${new Date().toISOString()} ${line}`);
 
@@ -24,6 +26,7 @@ boss.on('error', (e) => log(`pg-boss error: ${e.message}`));
 await boss.start();
 await boss.createQueue(QUEUES.deploy, { retryLimit: 0, expireInSeconds: 15 * 60 });
 await boss.createQueue(QUEUES.database, { retryLimit: 0, expireInSeconds: 5 * 60 });
+await boss.createQueue(QUEUES.registry, { retryLimit: 0, expireInSeconds: 5 * 60 });
 await recoverDatabases(log);
 // Not awaited: a Redis that is down must not hold the worker back; the interval below retries.
 void reconcileRedisUsers(log).catch((e) => log(`redis reconcile failed: ${(e as Error).message}`));
@@ -67,6 +70,12 @@ await boss.work<DatabaseJob>(QUEUES.database, { batchSize: 1, localConcurrency: 
   await run().catch((e) => log(`database ${databaseId} ${action} crashed: ${(e as Error).message}`));
 });
 
+// Registry account jobs from the web and the CLI: one at a time, since each one writes Zot's files.
+await boss.work<RegistryJob>(QUEUES.registry, { batchSize: 1, pollingIntervalSeconds: 1 }, async ([job]) => {
+  if (!job) return;
+  await runRegistryJob(job.data, log).catch((e) => log(`registry job crashed: ${(e as Error).message}`));
+});
+
 // Nightly dumps of every ready database, then retention. Cron and time zone are set in env.
 await boss.createQueue(QUEUES.nightly, { retryLimit: 0, expireInSeconds: 60 * 60 });
 await boss.schedule(QUEUES.nightly, process.env.BACKUP_CRON ?? '0 3 * * *', null, { tz: process.env.BACKUP_TZ ?? 'Europe/Prague' });
@@ -78,6 +87,11 @@ await boss.work(QUEUES.nightly, { batchSize: 1, pollingIntervalSeconds: 5 }, asy
 
 // Redis ACL users come back after a Redis restart without this waiting for a worker restart.
 setInterval(() => reconcileRedisUsers(log).catch((e) => log(`redis reconcile failed: ${(e as Error).message}`)), 60_000);
+
+// Registry accounts: Zot loads the htpasswd file and push rules of every project, and reloads when they change.
+const registryTick = () => reconcileRegistry(log).catch((e) => logRegistryError(log, e));
+setTimeout(registryTick, 4000);
+setInterval(registryTick, 60_000);
 
 const every = Number(process.env.RECONCILE_EVERY_S ?? 20) * 1000;
 const tick = () => reconcile(log).catch((e) => log(`reconcile failed: ${(e as Error).message}`));

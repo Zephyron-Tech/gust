@@ -1,10 +1,14 @@
 import { previewHost } from '@gust/contracts';
+import { registryStatus } from '@gust/db/registry';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 
 import { BranchesPanel } from '@/components/BranchesPanel';
 import { DeleteProject } from '@/components/DeleteProject';
 import { ProjectIconPanel } from '@/components/ProjectIconPanel';
+import { RegistryAccount } from '@/components/RegistryAccount';
 import { Panel } from '@/components/ui';
+import { currentUser } from '@/lib/auth';
 import { getProject } from '@/lib/data';
 
 // Values that are literal code are set in monospace; the rest reads as prose.
@@ -39,9 +43,20 @@ export default async function ServiceSettingsPage({ params }: { params: Promise<
   const previewBranches = project.previewBranches ?? [];
   const previewUrls = Object.fromEntries(previewBranches.flatMap((b) => (domain ? [[b, `https://${previewHost(b, slug, domain)}`]] : [])));
 
+  const user = await currentUser(await headers());
+  const reg = await registryStatus(slug);
+  const registryStatusView = reg && {
+    username: reg.username,
+    rotatedAt: reg.rotatedAt?.toISOString() ?? null,
+    revokedAt: reg.revokedAt?.toISOString() ?? null,
+    secretSetAt: reg.secretSetAt?.toISOString() ?? null,
+    secretError: reg.secretError,
+  };
+
   return (
     <div className="space-y-6">
       <ProjectIconPanel slug={slug} icon={project.icon} domain={project.domain} />
+      <RegistryAccount slug={slug} status={registryStatusView ?? null} canManage={user?.role === 'admin'} />
       {project.engine && (
         <BranchesPanel
           slug={slug}

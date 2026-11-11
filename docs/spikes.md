@@ -36,7 +36,11 @@ the server takes the same 6.4 s.
 ## Still open
 
 2. GitHub OIDC token verification (JWKS, `aud`, `repository`, `ref`).
-3. Zot: robot accounts per project, retention and GC while running.
+3. Zot: per-project accounts are built (`registry_accounts`, `ci-<slug>` limited
+   to `<slug>/**`, secrets written by the worker, rotate and revoke; the shared
+   `ci` account is gone). Still open: revoking an account restarts Zot, which
+   interrupts pushes in progress; retention is 8 tags per repository and rollback
+   depth is not yet decided.
 4. Done: wildcard certificates over DNS-01 through Traefik's WEDOS (WAPI)
    provider for the zones in `GUST_WILDCARD_ZONES` (`*.zephyron.tech`,
    `*.gust.zephyron.tech`). Verify on the server after the first deploy.

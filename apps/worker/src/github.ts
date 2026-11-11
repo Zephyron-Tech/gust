@@ -2,12 +2,17 @@
 // App. Optional: without GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY nothing is
 // sent. A failure here never fails the deploy.
 import { createPrivateKey } from 'node:crypto';
+import { createRequire } from 'node:module';
 import { importPKCS8, SignJWT } from 'jose';
 
 export type CommitState = 'pending' | 'success' | 'failure';
 
+// libsodium-wrappers' ESM build cannot load under Node (it imports a file it does not ship), so the CJS build is used.
+const sodium = createRequire(import.meta.url)('libsodium-wrappers') as typeof import('libsodium-wrappers');
+
 const API = 'https://api.github.com';
 const tokens = new Map<string, { token: string; expires: number }>();
+type Permissions = Record<string, 'read' | 'write'>;
 
 function appConfigured() {
   return Boolean(process.env.GITHUB_APP_ID && process.env.GITHUB_APP_PRIVATE_KEY);
@@ -36,19 +41,39 @@ async function gh(path: string, auth: string, init: RequestInit = {}) {
   return res.json() as Promise<Record<string, unknown>>;
 }
 
-/** An installation token for the repository, cached until shortly before it expires. */
-async function repoToken(repository: string) {
-  const cached = tokens.get(repository);
+/** An installation token for the repository with the given permissions, cached until shortly before it expires. */
+async function repoToken(repository: string, permissions: Permissions = { statuses: 'write' }) {
+  const key = `${repository} ${JSON.stringify(permissions)}`;
+  const cached = tokens.get(key);
   if (cached && cached.expires > Date.now() + 60_000) return cached.token;
   const jwt = `Bearer ${await appJwt()}`;
   const installation = await gh(`/repos/${repository}/installation`, jwt);
   const created = await gh(`/app/installations/${installation.id}/access_tokens`, jwt, {
     method: 'POST',
-    body: JSON.stringify({ repositories: [repository.split('/')[1]], permissions: { statuses: 'write' } }),
+    body: JSON.stringify({ repositories: [repository.split('/')[1]], permissions }),
   });
   const token = String(created.token);
-  tokens.set(repository, { token, expires: Date.parse(String(created.expires_at)) });
+  tokens.set(key, { token, expires: Date.parse(String(created.expires_at)) });
   return token;
+}
+
+/**
+ * Writes Actions secrets to a repository, encrypted to its public key (libsodium sealed box, as
+ * GitHub requires). Throws on failure; the caller records the reason. The values never reach logs.
+ */
+export async function setActionsSecrets(repository: string, secrets: Record<string, string>) {
+  if (!appConfigured()) throw new Error('GitHub App is not configured on the worker');
+  const token = `token ${await repoToken(repository, { secrets: 'write', metadata: 'read' })}`;
+  const key = (await gh(`/repos/${repository}/actions/secrets/public-key`, token)) as { key_id: string; key: string };
+  await sodium.ready;
+  const publicKey = sodium.from_base64(key.key, sodium.base64_variants.ORIGINAL);
+  for (const [name, value] of Object.entries(secrets)) {
+    const encrypted = sodium.crypto_box_seal(value, publicKey);
+    await gh(`/repos/${repository}/actions/secrets/${name}`, token, {
+      method: 'PUT',
+      body: JSON.stringify({ encrypted_value: sodium.to_base64(encrypted, sodium.base64_variants.ORIGINAL), key_id: key.key_id }),
+    });
+  }
 }
 
 export function statusBody(state: CommitState, service: string, url: string, error?: string | null) {

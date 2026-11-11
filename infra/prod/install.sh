@@ -137,7 +137,6 @@ pg="$(existing POSTGRES_PASSWORD)"
 auth="$(existing BETTER_AUTH_SECRET)"
 master="$(existing GUST_MASTER_KEY)"
 engine="$(existing ENGINE_TOKEN)"
-ci="$(existing REGISTRY_CI_PASSWORD)"
 pull="$(existing REGISTRY_PULL_PASSWORD)"
 redis="$(existing REDIS_PASSWORD)"
 bg="$(existing BREAK_GLASS_PASSWORD)"
@@ -159,7 +158,6 @@ BETTER_AUTH_SECRET=${auth:-$(rand 32)}
 GUST_MASTER_KEY=${master:-$(rand 32)}
 ENGINE_TOKEN=${engine:-$(randpw 40)}
 
-REGISTRY_CI_PASSWORD=${ci:-$(randpw 32)}
 REGISTRY_PULL_PASSWORD=${pull:-$(randpw 32)}
 
 REDIS_PASSWORD=${redis:-$(randpw 40)}
@@ -184,22 +182,14 @@ chmod 600 "$GUST_DIR/.env"
 
 say "Files from the image"
 cid="$(docker create "$GUST_IMAGE")"
-mkdir -p "$GUST_DIR/traefik" "$GUST_DIR/zot" "$GUST_DIR/backups"
+mkdir -p "$GUST_DIR/traefik" "$GUST_DIR/backups"
 docker cp "$cid:/gust/infra/prod/compose.yml" "$GUST_DIR/compose.yml"
 docker cp "$cid:/gust/infra/prod/traefik/dynamic.yml" "$GUST_DIR/traefik/dynamic.yml"
-docker cp "$cid:/gust/infra/prod/zot/config.json" "$GUST_DIR/zot/config.json"
 docker cp "$cid:/gust/infra/prod/gust" "$GUST_DIR/gust"
 docker rm "$cid" >/dev/null
 chmod +x "$GUST_DIR/gust"
 
-say "Registry accounts"
-htp() { docker run --rm httpd:2.4-alpine htpasswd -nbB "$1" "$2" | sed -n '1p'; }
-{
-  htp ci "$(sed -n 's/^REGISTRY_CI_PASSWORD=//p' "$GUST_DIR/.env")"
-  htp gust "$(sed -n 's/^REGISTRY_PULL_PASSWORD=//p' "$GUST_DIR/.env")"
-} > "$GUST_DIR/zot/htpasswd"
-chmod 644 "$GUST_DIR/zot/htpasswd"
-
+# The registry's login file and push rules are written by the worker into the registry-auth volume.
 mkdir -p "$GUST_DIR/requests"
 
 say "Starting Gust"
@@ -306,9 +296,9 @@ cat <<EOF
   Registry:     https://$REGISTRY_DOMAIN
 
 Next:
-  1. Put the registry account into GitHub organisation secrets:  gust registry
-  2. Add a project:  gust project add <slug> --repo Zephyron-Tech/<repo> --service web --port 3000 --domain <domain>
-  3. Add the repository to the Zephyron Gust GitHub App installation and its deploy workflow (docs/github.md).
+  1. Add a project:  gust project add <slug> --repo Zephyron-Tech/<repo> --service web --port 3000 --domain <domain>
+     (Gust creates the project's registry account and sets its GitHub secrets.)
+  2. Add the repository to the Zephyron Gust GitHub App installation and its deploy workflow (docs/github.md).
 
 Backups run every night at 03:15 into $GUST_DIR/backups. Updates: Settings in the web UI, or gust update.
 EOF

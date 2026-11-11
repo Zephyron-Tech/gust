@@ -10,12 +10,13 @@
 //   set <slug> [--repo owner/name] [--branch main] [--domain example.com] [--preview dev,staging]
 //
 // Every change writes an audit_events row with actor "cli".
+
 import { parseArgs } from 'node:util';
-
 import { and, asc, eq } from 'drizzle-orm';
-
-import { auditEvents, db, pool, projects, services } from './index';
+import { auditEvents, db, pool, projects, registryAccounts, services } from './index';
 import { DOMAIN, HEALTH, REPO, SLUG } from './project-rules';
+import { enqueueRegistry, stopSender } from './queue';
+import { revokeAccount } from './registry';
 
 class UsageError extends Error {}
 
@@ -153,6 +154,27 @@ async function add(slug: string) {
   await audit('project.create', slug, { repo, branch: values.branch ?? 'main' });
   console.log(`added project ${slug} (${repo}@${values.branch ?? 'main'})`);
   await addService(slug, service);
+  // The worker makes the registry account and writes its GitHub secrets (it holds the App key).
+  await enqueueRegistry({ slug, action: 'create', actor: 'cli' });
+  console.log(`queued the registry account for ${slug}; the worker sets its secrets on ${repo} within a minute`);
+}
+
+/** Creates, rotates or revokes a project's registry account. The worker writes GitHub secrets (it holds the App key). */
+async function registry(action: string, slug: string) {
+  check(slug, SLUG, 'Project slug');
+  if (!['create', 'rotate', 'revoke'].includes(action)) throw new UsageError('Use "registry create|rotate|revoke <slug>"');
+  const [project] = await db.select({ id: projects.id }).from(projects).where(eq(projects.slug, slug));
+  if (!project) throw new UsageError(`Project ${slug} does not exist`);
+  const [account] = await db.select({ id: registryAccounts.id }).from(registryAccounts).where(eq(registryAccounts.projectId, project.id));
+  if (action === 'create' && account) throw new UsageError(`${slug} already has a registry account; use "registry rotate"`);
+  if (action !== 'create' && !account) throw new UsageError(`${slug} has no registry account; use "registry create"`);
+  if (action === 'revoke') {
+    await revokeAccount(slug, 'cli');
+    console.log(`revoked the registry account of ${slug}; Zot drops it within a minute`);
+    return;
+  }
+  await enqueueRegistry({ slug, action: action as 'create' | 'rotate', actor: 'cli' });
+  console.log(`queued ${action} for ${slug}; the worker writes its GitHub secrets within a minute`);
 }
 
 async function set(slug: string) {
@@ -174,11 +196,13 @@ try {
   else if (command === 'add') await add(need(a, 'Project slug'));
   else if (command === 'service') await addService(need(a, 'Project slug'), need(b, 'Service name'));
   else if (command === 'set') await set(need(a, 'Project slug'));
-  else throw new UsageError('Commands: list, add, service, set');
+  else if (command === 'registry') await registry(need(a, 'rotate or revoke'), need(b, 'Project slug'));
+  else throw new UsageError('Commands: list, add, service, set, registry');
 } catch (e) {
   if (!(e instanceof UsageError)) throw e;
   console.error(`gust project: ${e.message}`);
   process.exitCode = 64;
 } finally {
+  await stopSender();
   await pool.end();
 }

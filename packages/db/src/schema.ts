@@ -184,6 +184,30 @@ export const projectDatabases = pgTable(
   (t) => [uniqueIndex('project_databases_project_name').on(t.projectId, t.name)],
 );
 
+/**
+ * One Zot account per project, pushing under `<slug>/`. Only the bcrypt hash is stored; the
+ * password itself exists in memory when it is made, and in the repository's GUST_REGISTRY_PASSWORD secret.
+ */
+export const registryAccounts = pgTable(
+  'registry_accounts',
+  {
+    id: text('id').primaryKey(), // reg_<slug>
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    username: text('username').notNull(), // ci-<slug>
+    passwordHash: text('password_hash').notNull(),
+    createdAt: createdAt(),
+    rotatedAt: timestamp('rotated_at', { withTimezone: true }),
+    /** Set on revoke; the sync drops revoked accounts from htpasswd. */
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    /** When the repository's GUST_REGISTRY_* secrets were last written, and the error if that failed. */
+    secretSetAt: timestamp('secret_set_at', { withTimezone: true }),
+    secretError: text('secret_error'),
+  },
+  (t) => [uniqueIndex('registry_accounts_project').on(t.projectId), uniqueIndex('registry_accounts_username').on(t.username)],
+);
+
 export const auditEvents = pgTable(
   'audit_events',
   {

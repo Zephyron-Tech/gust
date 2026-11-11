@@ -1,6 +1,9 @@
+import { registryStatus } from '@gust/db/registry';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
-
+import { RegistryAccount } from '@/components/RegistryAccount';
 import { SetupChecklist } from '@/components/SetupChecklist';
+import { currentUser } from '@/lib/auth';
 import { getProject } from '@/lib/data';
 import { newFileUrl, workflowYaml } from '@/lib/github-repo-logic';
 import { GithubError, repoDetail } from '@/lib/github-repos';
@@ -37,19 +40,31 @@ export default async function SetupPage({
     problem = e.message;
   }
 
+  const reg = await registryStatus(slug);
+  const status = reg && {
+    ...reg,
+    rotatedAt: reg.rotatedAt?.toISOString() ?? null,
+    revokedAt: reg.revokedAt?.toISOString() ?? null,
+    secretSetAt: reg.secretSetAt?.toISOString() ?? null,
+  };
+
+  const user = await currentUser(await headers());
+
   const yaml = workflowYaml({ gustUrl: publicUrl(), project: slug, service, branches: [production, ...(project.previewBranches ?? [])] });
   return (
-    <SetupChecklist
-      slug={slug}
-      service={service}
-      repo={repo}
-      host={project.domain}
-      workflow={workflow}
-      problem={problem}
-      yaml={yaml}
-      workflowPath={WORKFLOW_PATH}
-      createUrl={newFileUrl(repo, production, WORKFLOW_PATH, yaml)}
-      secretsUrl={`https://github.com/organizations/${repo.split('/')[0]}/settings/secrets/actions`}
-    />
+    <div className="space-y-4">
+      <RegistryAccount slug={slug} status={status ?? null} canManage={user?.role === 'admin'} />
+      <SetupChecklist
+        slug={slug}
+        service={service}
+        repo={repo}
+        host={project.domain}
+        workflow={workflow}
+        problem={problem}
+        yaml={yaml}
+        workflowPath={WORKFLOW_PATH}
+        createUrl={newFileUrl(repo, production, WORKFLOW_PATH, yaml)}
+      />
+    </div>
   );
 }

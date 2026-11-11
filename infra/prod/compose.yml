@@ -124,15 +124,16 @@ services:
       retries: 20
     logging: { driver: json-file, options: { max-size: 20m, max-file: "5" } }
 
-  # Gust's registry. GitHub Actions push through Traefik with the "ci"
-  # account; the Docker daemon on this host pulls from 127.0.0.1:5050 with
-  # the read-only "gust" account.
+  # Gust's registry. Each project pushes with its own account (ci-<slug>) through
+  # Traefik; the Docker daemon on this host pulls from 127.0.0.1:5050 with the
+  # read-only "gust" account.
   zot:
     image: ghcr.io/project-zot/zot:v2.1.23
     restart: unless-stopped
+    # The worker writes config.json and htpasswd (one account per project) into registry-auth.
+    command: [serve, /etc/zot-auth/config.json]
     volumes:
-      - ./zot/config.json:/etc/zot/config.json:ro
-      - ./zot/htpasswd:/etc/zot/htpasswd:ro
+      - registry-auth:/etc/zot-auth:ro
       - zot:/var/lib/registry
     ports:
       - 127.0.0.1:5050:5000
@@ -228,10 +229,14 @@ services:
       # Custom domains are verified against it before they are routed.
       GUST_SERVER_IP: ${GUST_SERVER_IP:-}
       DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+      # Registry accounts: the worker writes Zot's files, then the engine restarts Zot.
+      REGISTRY_AUTH_DIR: /registry-auth
+      REGISTRY_PULL_PASSWORD: ${REGISTRY_PULL_PASSWORD}
     depends_on:
       migrate: { condition: service_completed_successfully }
     volumes:
       - ./backups:/backups
+      - registry-auth:/registry-auth
     networks: [gust_internal]
 
 networks:
@@ -249,3 +254,4 @@ volumes:
   redis:
   zot:
   letsencrypt:
+  registry-auth:

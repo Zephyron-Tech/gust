@@ -10,7 +10,9 @@
     "./secrets": "./src/secrets.ts",
     "./project-rules": "./src/project-rules.ts",
     "./postgres-admin": "./src/postgres-admin.ts",
-    "./redis-admin": "./src/redis-admin.ts"
+    "./redis-admin": "./src/redis-admin.ts",
+    "./registry": "./src/registry.ts",
+    "./registry-config": "./src/registry-config.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
@@ -22,6 +24,7 @@
   },
   "dependencies": {
     "@gust/contracts": "workspace:*",
+    "bcryptjs": "^3.0.3",
     "better-auth": "1.7.14",
     "drizzle-orm": "0.45.4",
     "pg": "8.23.1",
