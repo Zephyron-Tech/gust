@@ -6,9 +6,24 @@ import { useCallback, useEffect, useState } from 'react';
 import { authClient } from '@/lib/auth-client';
 import { useDemo } from '@/lib/demo';
 import { size } from '@/lib/format';
-import { btn, PageHead, Panel } from './ui';
+import { announceServerChange } from '@/lib/useServerMetrics';
+import { btn, cx, PageHead, Panel } from './ui';
 
 type Usage = { unusedImages: number; unusedImageMb: number; stoppedGustContainers: number };
+
+// The host samples disk once a minute, so the freed space shows after the next sample.
+const SAMPLE_POLL_MS = 5_000;
+const SAMPLE_POLL_TRIES = 16;
+
+/** When the host last sampled, from the metrics the Server page reads. */
+async function sampledAt(): Promise<string | null> {
+  const res = await fetch('/api/server/metrics?range=1h', { cache: 'no-store' }).catch(() => null);
+  if (!res?.ok) return null;
+  const view = (await res.json()) as { snapshot: { at: string } | null };
+  return view.snapshot?.at ?? null;
+}
+
+const clock = (d: Date) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
 /**
  * Removes what the host no longer uses: images no container runs, and stopped
@@ -21,19 +36,44 @@ export function DockerCleanup() {
   const admin = (session?.user as { role?: string } | undefined)?.role === 'admin';
   const [usage, setUsage] = useState<Usage | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [checkedAt, setCheckedAt] = useState<Date | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [armed, setArmed] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Set after a cleanup until the host has sampled disk again.
+  const [settling, setSettling] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch('/api/system/cleanup', { cache: 'no-store' }).catch(() => null);
     if (!res?.ok) return setError('The engine did not answer.');
     setError(null);
     setUsage((await res.json()) as Usage);
+    setCheckedAt(new Date());
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  /** Reloads this panel and the server numbers everywhere else on screen. */
+  async function refresh() {
+    setRefreshing(true);
+    announceServerChange();
+    await load();
+    setRefreshing(false);
+  }
+
+  /** Waits for the host's next disk sample, then refreshes the numbers that show it. */
+  async function waitForSample(before: string | null) {
+    setSettling(true);
+    for (let i = 0; i < SAMPLE_POLL_TRIES; i++) {
+      await new Promise((r) => setTimeout(r, SAMPLE_POLL_MS));
+      const at = await sampledAt();
+      if (at && at !== before) break;
+    }
+    setSettling(false);
+    announceServerChange();
+  }
 
   const nothing = usage && usage.unusedImages === 0 && usage.stoppedGustContainers === 0;
 
@@ -41,6 +81,7 @@ export function DockerCleanup() {
     if (!armed) return setArmed(true);
     setArmed(false);
     setBusy(true);
+    const before = await sampledAt();
     const res = await fetch('/api/system/cleanup', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -60,6 +101,8 @@ export function DockerCleanup() {
       'ok',
     );
     void load();
+    announceServerChange();
+    void waitForSample(before);
   }
 
   return (
@@ -82,11 +125,20 @@ export function DockerCleanup() {
           ) : (
             <p className="text-fg-3">Reading the host…</p>
           )}
+          <p className="text-[13px] text-fg-3 tabular-nums" aria-live="polite">
+            {refreshing
+              ? 'Refreshing…'
+              : settling
+                ? 'Freed space shows after the host’s next sample, within a minute.'
+                : checkedAt
+                  ? `Checked ${clock(checkedAt)}`
+                  : ''}
+          </p>
         </div>
         {admin ? (
           <div className="flex items-center gap-2">
-            <button type="button" className={btn.secondary} onClick={() => void load()} disabled={busy}>
-              <ArrowsClockwise size={16} weight="bold" />
+            <button type="button" className={btn.secondary} onClick={() => void refresh()} disabled={busy || refreshing}>
+              <ArrowsClockwise size={16} weight="bold" className={cx(refreshing && 'animate-spin')} />
               Refresh
             </button>
             <button type="button" className={btn.primary} disabled={busy || !usage || !!nothing} onClick={() => void run()}>

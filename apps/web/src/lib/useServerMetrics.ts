@@ -7,10 +7,25 @@ import type { Range, ServerView } from './server-metrics';
 /** The host samples once a minute; the page asks for fresh numbers at the same pace. */
 const EVERY_MS = 60_000;
 
-/** Loads the Server page data for a range, and again every minute while the tab is visible. */
+const CHANGED = 'gust:server-changed';
+
+/**
+ * Tells every mounted view of the server numbers (the Server page and the sidebar widget)
+ * to load again now. Call it after anything that changes the host, such as a cleanup.
+ */
+export function announceServerChange() {
+  window.dispatchEvent(new Event(CHANGED));
+}
+
+/**
+ * Loads the Server page data for a range, and again every minute while the tab is visible.
+ * Also reloads when another view announces a change, so the sidebar widget and the page agree.
+ */
 export function useServerMetrics(range: Range) {
   const [data, setData] = useState<ServerView | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [checkedAt, setCheckedAt] = useState<Date | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -18,6 +33,7 @@ export function useServerMetrics(range: Range) {
       if (!res.ok) throw new Error(String(res.status));
       setData((await res.json()) as ServerView);
       setError(null);
+      setCheckedAt(new Date());
     } catch {
       setError('Could not read the server metrics');
     }
@@ -28,8 +44,20 @@ export function useServerMetrics(range: Range) {
     const id = window.setInterval(() => {
       if (!document.hidden) void load();
     }, EVERY_MS);
-    return () => window.clearInterval(id);
+    window.addEventListener(CHANGED, load);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener(CHANGED, load);
+    };
   }, [load]);
 
-  return { data, error };
+  /** A manual refresh: shows `loading` until the numbers are in, and announces it to the other views. */
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    await load();
+    setLoading(false);
+    announceServerChange();
+  }, [load]);
+
+  return { data, error, loading, checkedAt, refresh };
 }

@@ -1,10 +1,11 @@
 'use client';
 
+import { ArrowsClockwise } from '@phosphor-icons/react/ssr';
 import { useState } from 'react';
 import { Chart } from '@/components/Chart';
 import { DockerCleanup } from '@/components/DockerCleanup';
 import { Segmented } from '@/components/Segmented';
-import { Code, cx, PageHead, Panel, Table, Td } from '@/components/ui';
+import { btn, Code, cx, PageHead, Panel, Table, Td } from '@/components/ui';
 import { NOT_SET } from '@/lib/integrations';
 import { RANGES, type Range, type ServerView } from '@/lib/server-metrics';
 import { useServerMetrics } from '@/lib/useServerMetrics';
@@ -13,14 +14,29 @@ import { useServerMetrics } from '@/lib/useServerMetrics';
 // `-` means the host has not reported it yet.
 export default function ServerPage() {
   const [range, setRange] = useState<Range>('24h');
-  const { data, error } = useServerMetrics(range);
+  const { data, error, loading, checkedAt, refresh } = useServerMetrics(range);
 
   return (
     <div className="view-in space-y-6">
       <PageHead
         title={data?.domain ?? 'Server'}
         sub={subtitle(data)}
-        actions={<Segmented options={[...RANGES]} value={range} onChange={setRange} label="Time range" />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="text-[13px] text-fg-3 tabular-nums" aria-live="polite">
+              {loading
+                ? 'Refreshing…'
+                : checkedAt
+                  ? `Checked ${checkedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+                  : ''}
+            </span>
+            <button type="button" className={btn.secondary} onClick={() => void refresh()} disabled={loading}>
+              <ArrowsClockwise size={16} weight="bold" className={cx(loading && 'animate-spin')} />
+              Refresh
+            </button>
+            <Segmented options={[...RANGES]} value={range} onChange={setRange} label="Time range" />
+          </div>
+        }
       />
 
       {error && <p className="rounded-xl border border-err/35 bg-err/10 px-5 py-3 text-[14px] text-err">{error}</p>}
