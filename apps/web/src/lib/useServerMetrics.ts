@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
+import { withMinimumSpin } from '@/components/RefreshButton';
 import type { Range, ServerView } from './server-metrics';
 
 /** The host samples once a minute; the page asks for fresh numbers at the same pace. */
@@ -52,7 +53,7 @@ export function useServerMetrics(range: Range) {
   /** A manual refresh: shows `loading` until the numbers are in, and announces it to the other views. */
   const refresh = useCallback(async () => {
     setLoading(true);
-    await load();
+    await withMinimumSpin(load());
     setLoading(false);
     announceServerChange();
   }, [load]);

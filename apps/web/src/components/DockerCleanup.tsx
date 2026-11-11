@@ -6,7 +6,7 @@ import { authClient } from '@/lib/auth-client';
 import { useDemo } from '@/lib/demo';
 import { size } from '@/lib/format';
 import { announceServerChange } from '@/lib/useServerMetrics';
-import { RefreshButton } from './RefreshButton';
+import { RefreshButton, withMinimumSpin } from './RefreshButton';
 import { btn, PageHead, Panel } from './ui';
 
 type Usage = { unusedImages: number; unusedImageMb: number; stoppedGustContainers: number };
@@ -55,7 +55,7 @@ export function DockerCleanup() {
   async function refresh() {
     setRefreshing(true);
     announceServerChange();
-    await load();
+    await withMinimumSpin(load());
     setRefreshing(false);
   }
 

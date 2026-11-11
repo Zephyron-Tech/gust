@@ -21,3 +21,8 @@ export function RefreshButton({
     </button>
   );
 }
+
+/** Runs a refresh and keeps `loading` on for at least a moment, so a fast answer still shows the turn. */
+export async function withMinimumSpin(task: Promise<unknown>, ms = 600) {
+  await Promise.all([task, new Promise((r) => setTimeout(r, ms))]);
+}

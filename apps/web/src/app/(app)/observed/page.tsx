@@ -2,7 +2,7 @@
 
 import type { ObservedStack } from '@gust/contracts';
 import { useCallback, useEffect, useState } from 'react';
-import { RefreshButton } from '@/components/RefreshButton';
+import { RefreshButton, withMinimumSpin } from '@/components/RefreshButton';
 import { btn, Code, cx, PageHead, Panel, Table, Tag, Td } from '@/components/ui';
 import { authClient } from '@/lib/auth-client';
 import { useDemo } from '@/lib/demo';
@@ -36,7 +36,7 @@ export default function ObservedPage() {
 
   async function refresh() {
     setRefreshing(true);
-    await load();
+    await withMinimumSpin(load());
     setRefreshing(false);
   }
 
