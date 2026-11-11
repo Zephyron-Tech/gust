@@ -53,6 +53,11 @@ export async function getProjects(): Promise<UiProject[]> {
       engine: p.engine,
       productionBranch: p.productionBranch,
       previewBranches: p.previewBranches,
+      // Every app service's previews are stopped by hand (only when the project has previews).
+      previewsStopped:
+        p.previewBranches.length > 0 &&
+        mine.some((s) => s.type === 'app') &&
+        mine.filter((s) => s.type === 'app').every((s) => s.previewsStopped),
       // Sample projects have no real deploys yet; they read as live.
       health: p.engine
         ? // Every app stopped by hand reads as a stopped project; otherwise the newest deploys decide.

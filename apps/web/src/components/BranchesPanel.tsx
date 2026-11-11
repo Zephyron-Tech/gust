@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { authClient } from '@/lib/auth-client';
 import { useDemo } from '@/lib/demo';
 import { EnvBadge } from './EnvBadge';
+import { PreviewsPower } from './PowerControls';
 import { btn, Code, Panel } from './ui';
 
 const field =
@@ -23,10 +24,13 @@ export function BranchesPanel({
   previewBranches,
   previewUrls,
   productionDomains,
+  previewsStopped,
 }: {
   slug: string;
   productionBranch: string;
   previewBranches: string[];
+  /** Previews are stopped by hand; production is not affected. */
+  previewsStopped: boolean;
   /** Hosts production is served on. */
   productionDomains: string[];
   /** Public URL of each preview branch, when the server knows the domain. */
@@ -70,11 +74,14 @@ export function BranchesPanel({
           <h2 className="font-display text-[17px] font-semibold tracking-tight">Branches</h2>
           <p className="mt-1 text-[13.5px] text-fg-3">Pushes to these branches deploy by themselves. Each preview gets its own host.</p>
         </div>
-        {admin && !editing && (
-          <button type="button" onClick={() => setEditing(true)} className={btn.secondary}>
-            Edit
-          </button>
-        )}
+        <div className="flex shrink-0 items-center gap-2">
+          {previewBranches.length > 0 && <PreviewsPower project={slug} previewsStopped={previewsStopped} />}
+          {admin && !editing && (
+            <button type="button" onClick={() => setEditing(true)} className={btn.secondary}>
+              Edit
+            </button>
+          )}
+        </div>
       </div>
 
       {!editing ? (
@@ -86,6 +93,7 @@ export function BranchesPanel({
               branch={b}
               env={{ kind: 'preview', branch: b }}
               hosts={previewUrls[b] ? [previewUrls[b].replace(/^https:\/\//, '')] : []}
+              paused={previewsStopped}
             />
           ))}
           {previewBranches.length === 0 && (
@@ -133,12 +141,15 @@ export function BranchesPanel({
 }
 
 /** One branch: its name, the environment it deploys to and where that is served. */
-function BranchRow({ branch, env, hosts }: { branch: string; env: Environment; hosts: string[] }) {
+function BranchRow({ branch, env, hosts, paused = false }: { branch: string; env: Environment; hosts: string[]; paused?: boolean }) {
   const [first, ...rest] = hosts;
   return (
     <li className="grid grid-cols-[minmax(0,140px)_auto_minmax(0,1fr)] items-center gap-4 px-4 py-3">
       <Code className="truncate text-fg">{branch}</Code>
-      <EnvBadge env={env} />
+      <span className="flex items-center gap-2">
+        <EnvBadge env={env} />
+        {paused && <span className="text-[13px] text-fg-3">stopped</span>}
+      </span>
       <span className="min-w-0 truncate text-right text-[14px]">
         {first ? (
           <>

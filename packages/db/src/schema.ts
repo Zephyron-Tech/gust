@@ -74,8 +74,10 @@ export const services = pgTable(
     cpu: real('cpu').notNull().default(1),
     memoryMb: integer('memory_mb').notNull().default(512),
     keepImages: integer('keep_images').notNull().default(5),
-    /** Stopped by hand: its containers are off and the worker does not restore them. */
+    /** Production stopped by hand: its containers are off and the worker does not restore them. */
     stopped: boolean('stopped').notNull().default(false),
+    /** Previews stopped by hand, separately from production: their containers are off and not restored. */
+    previewsStopped: boolean('previews_stopped').notNull().default(false),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex('services_project_name').on(t.projectId, t.name)],

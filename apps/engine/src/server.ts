@@ -66,11 +66,13 @@ app.post('/v1/observed/:project/restart', async (c) => {
   return c.json({ ok: true, containers });
 });
 
-// Stops a service by hand: every running container of it, production and previews.
+// Stops a service by hand: its running containers in the scope (production, previews or all).
 app.post('/v1/services/:project/:service/stop', async (c) => {
   const { project, service } = c.req.param();
   if (!/^[a-z0-9-]+$/.test(project) || !/^[a-z0-9-]+$/.test(service)) return c.json({ error: 'Invalid name' }, 400);
-  return c.json({ ok: true, containers: await stopService(project, service) });
+  const body = (await c.req.json().catch(() => ({}))) as { scope?: string };
+  const scope = body.scope === 'production' || body.scope === 'previews' ? body.scope : 'all';
+  return c.json({ ok: true, containers: await stopService(project, service, scope) });
 });
 
 // The worker calls this after Zot's accounts change; Zot reads its login file only at start.

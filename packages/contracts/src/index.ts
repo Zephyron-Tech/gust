@@ -39,6 +39,8 @@ export const project = z.object({
   engine: z.boolean().optional(),
   productionBranch: z.string().optional(),
   previewBranches: z.array(z.string()).optional(),
+  /** Every app service's previews are stopped by hand; production is separate. */
+  previewsStopped: z.boolean().optional(),
 });
 export type Project = z.infer<typeof project>;
 

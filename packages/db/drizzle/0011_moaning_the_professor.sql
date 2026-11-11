@@ -1,0 +1,1 @@
+ALTER TABLE "services" ADD COLUMN "previews_stopped" boolean DEFAULT false NOT NULL;

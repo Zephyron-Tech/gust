@@ -4,9 +4,9 @@ import { requireUser } from '@/lib/auth';
 import { DeployError } from '@/lib/deploy-runner';
 import { projectServices, startService, stopService } from '@/lib/service-power';
 
-const body = z.object({ action: z.enum(['stop', 'start']) });
+const body = z.object({ action: z.enum(['stop', 'start']), target: z.enum(['production', 'previews']).default('production') });
 
-/** Stops or starts every app service of a project. Admins only. A service that cannot move is reported, the others still do. */
+/** Stops or starts every app service of a project: its production, or its previews. Admins only. A service that cannot move is reported, the others still do. */
 export async function POST(req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const u = await requireUser(req, 'admin');
   if (u instanceof Response) return u;
@@ -19,8 +19,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   const failed: { service: string; error: string }[] = [];
   for (const { name } of list) {
     try {
-      if (parsed.data.action === 'stop') await stopService(slug, name, u.email);
-      else await startService(slug, name, u.email, u.name);
+      if (parsed.data.action === 'stop') await stopService(slug, name, parsed.data.target, u.email);
+      else await startService(slug, name, parsed.data.target, u.email, u.name);
     } catch (e) {
       failed.push({ service: name, error: e instanceof DeployError ? e.message : 'Unexpected error' });
     }

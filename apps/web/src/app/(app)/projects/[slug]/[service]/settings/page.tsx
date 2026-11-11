@@ -64,6 +64,7 @@ export default async function ServiceSettingsPage({ params }: { params: Promise<
           previewBranches={previewBranches}
           previewUrls={previewUrls}
           productionDomains={s.domains ?? []}
+          previewsStopped={project.previewsStopped ?? false}
         />
       )}
       <Panel className="view-in max-w-3xl p-7">

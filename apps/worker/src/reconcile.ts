@@ -5,7 +5,7 @@
 import { RUNNING_STATES } from '@gust/contracts';
 import { auditEvents, db, deployments, projects, services } from '@gust/db';
 import { enqueueDeploy } from '@gust/db/queue';
-import { and, desc, eq, gt, inArray, isNull } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNotNull, isNull, or } from 'drizzle-orm';
 
 import { engineFetch } from './engine';
 
@@ -23,7 +23,17 @@ export async function reconcile(log: (line: string) => void) {
     .from(deployments)
     .innerJoin(services, eq(deployments.serviceId, services.id))
     .innerJoin(projects, eq(services.projectId, projects.id))
-    .where(and(eq(deployments.state, 'live'), eq(projects.engine, true), eq(services.stopped, false)));
+    .where(
+      and(
+        eq(deployments.state, 'live'),
+        eq(projects.engine, true),
+        // Production and previews are stopped separately: a stopped part is not restored.
+        or(
+          and(isNull(deployments.branch), eq(services.stopped, false)),
+          and(isNotNull(deployments.branch), eq(services.previewsStopped, false)),
+        ),
+      ),
+    );
 
   for (const { d, s, p } of live) {
     if (runningDeployments.has(d.id)) continue;
