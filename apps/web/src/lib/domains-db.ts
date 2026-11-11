@@ -14,8 +14,10 @@ export type PreviewDomain = {
   branch: string;
   host: string | null;
   live: boolean;
-  /** Set for a pull request preview (branch pr-<n>): its number and title. */
-  pr?: { number: number; title: string };
+  /** Set for a pull request preview (branch pr-<n>): its number, title and author. */
+  pr?: { number: number; title: string; author: string };
+  /** Set for a branch preview: the commit its live deploy was built from. */
+  commit?: { sha: string | null; message: string | null; author: string } | null;
 };
 
 export type DomainsView = {
@@ -44,18 +46,31 @@ export async function listDomains({ s, p }: ServiceRow): Promise<DomainsView> {
 
   const domain = process.env.GUST_DOMAIN;
   const live = await db
-    .select({ branch: deployments.branch })
+    .select({
+      branch: deployments.branch,
+      commitSha: deployments.commitSha,
+      message: deployments.message,
+      author: deployments.author,
+    })
     .from(deployments)
-    .where(and(eq(deployments.serviceId, s.id), eq(deployments.state, 'live')));
+    .where(and(eq(deployments.serviceId, s.id), eq(deployments.state, 'live')))
+    .orderBy(desc(deployments.createdAt));
   const liveBranches = new Set(live.map((l) => l.branch));
-  const branchPreviews: PreviewDomain[] = p.previewBranches.map((branch) => ({
-    branch,
-    host: domain ? previewHost(branch, p.slug, domain) : null,
-    live: liveBranches.has(branch),
-  }));
+  // Newest live deploy per branch: where its build came from.
+  const latest = new Map<string, (typeof live)[number]>();
+  for (const l of live) if (l.branch && !latest.has(l.branch)) latest.set(l.branch, l);
+  const branchPreviews: PreviewDomain[] = p.previewBranches.map((branch) => {
+    const d = latest.get(branch);
+    return {
+      branch,
+      host: domain ? previewHost(branch, p.slug, domain) : null,
+      live: liveBranches.has(branch),
+      commit: d ? { sha: d.commitSha, message: d.message, author: d.author } : null,
+    };
+  });
   // Open pull requests whose preview runs on this service right now.
   const prs = await db
-    .select({ number: pullRequests.number, title: pullRequests.title })
+    .select({ number: pullRequests.number, title: pullRequests.title, author: pullRequests.author })
     .from(pullRequests)
     .where(and(eq(pullRequests.projectId, p.id), eq(pullRequests.state, 'open')))
     .orderBy(desc(pullRequests.updatedAt));
@@ -65,7 +80,7 @@ export async function listDomains({ s, p }: ServiceRow): Promise<DomainsView> {
       branch: `pr-${pr.number}`,
       host: domain ? previewHost(`pr-${pr.number}`, p.slug, domain) : null,
       live: true,
-      pr: { number: pr.number, title: pr.title },
+      pr: { number: pr.number, title: pr.title, author: pr.author },
     }));
   const previews = [...branchPreviews, ...prPreviews];
 

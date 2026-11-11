@@ -11,7 +11,13 @@ import { useDemo } from '@/lib/demo';
 
 type DomainState = 'pending_dns' | 'applying' | 'live' | 'error';
 type ProductionDomain = { host: string; state: DomainState; error: string | null; checkedAt: string | null };
-type PreviewDomain = { branch: string; host: string | null; live: boolean; pr?: { number: number; title: string } };
+type PreviewDomain = {
+  branch: string;
+  host: string | null;
+  live: boolean;
+  pr?: { number: number; title: string; author: string };
+  commit?: { sha: string | null; message: string | null; author: string } | null;
+};
 type DomainsView = { serverIp: string | null; cnameTarget: string | null; production: ProductionDomain[]; previews: PreviewDomain[] };
 
 const stateTag: Record<DomainState, [string, string]> = {
@@ -235,7 +241,10 @@ export default function DomainsPage({ params }: { params: Promise<{ slug: string
           {data?.previews.map((p, i) => (
             <div
               key={p.branch}
-              className={cx('grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 px-5 py-4', i > 0 && 'border-t border-line')}
+              className={cx(
+                'grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_120px_100px] items-center gap-4 px-5 py-4',
+                i > 0 && 'border-t border-line',
+              )}
             >
               {!p.host ? (
                 <span className="truncate text-[14px] text-fg-3">Host appears once GUST_DOMAIN is set</span>
@@ -251,15 +260,36 @@ export default function DomainsPage({ params }: { params: Promise<{ slug: string
               ) : (
                 <span className="truncate text-[15px] text-fg-2">{p.host}</span>
               )}
-              <span className="flex min-w-0 flex-col items-start gap-1">
-                <EnvBadge env={{ kind: 'preview', branch: p.branch }} />
-                {p.pr && (
-                  <span className="max-w-[260px] truncate text-[13px] text-fg-3">
-                    #{p.pr.number} {p.pr.title}
-                  </span>
+              <div className="min-w-0 text-center text-[13.5px]">
+                {p.pr ? (
+                  <>
+                    <div className="truncate text-fg-2">
+                      PR #{p.pr.number} · {p.pr.title}
+                    </div>
+                    <div className="truncate text-fg-3">
+                      from {p.pr.author} · branch {p.branch}
+                    </div>
+                  </>
+                ) : p.commit ? (
+                  <>
+                    <div className="truncate text-fg-2">
+                      from branch <span className="font-mono text-[13px]">{p.branch}</span>
+                      {p.commit.sha && <span className="font-mono text-[13px] text-fg-3"> · {p.commit.sha.slice(0, 7)}</span>}
+                    </div>
+                    <div className="truncate text-fg-3">
+                      {p.commit.message ?? 'no commit message'} · {p.commit.author}
+                    </div>
+                  </>
+                ) : (
+                  <div className="truncate text-fg-3">from branch {p.branch}</div>
                 )}
+              </div>
+              <div className="flex justify-center">
+                <EnvBadge env={{ kind: 'preview', branch: p.branch }} />
+              </div>
+              <span className={cx('text-right text-[13.5px]', p.live ? 'text-fg-2' : 'text-fg-3')}>
+                {p.live ? 'Deployed' : 'No deploy yet'}
               </span>
-              <span className={cx('text-[13.5px]', p.live ? 'text-fg-2' : 'text-fg-3')}>{p.live ? 'Deployed' : 'No deploy yet'}</span>
             </div>
           ))}
           {data && data.previews.length === 0 && (
