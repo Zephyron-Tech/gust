@@ -1,3 +1,4 @@
+import { previewHost } from '@gust/contracts';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
@@ -30,12 +31,49 @@ export default async function ServiceLayout({
         <span className="text-fg">{project.slug}</span>
       </nav>
       <div className="flex items-start justify-between gap-6">
-        <div className="space-y-1">
+        <div className="space-y-3">
           <h1 className="text-[30px] leading-[1.1]">{project.slug}</h1>
-          <p className="text-[14.5px] text-fg-3">
-            {project.repo} · production {project.productionBranch ?? 'main'} · {project.domain}
-            {project.previewBranches?.length ? ` · previews ${project.previewBranches.join(', ')}` : ''}
-          </p>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-[14.5px]">
+            <dt className="text-fg-3">GitHub</dt>
+            <dd>
+              {project.repo ? (
+                <a href={`https://github.com/${project.repo}`} target="_blank" rel="noreferrer" className="text-accent hover:underline">
+                  {project.repo}
+                </a>
+              ) : (
+                <span className="text-fg-3">not linked</span>
+              )}
+            </dd>
+            <dt className="text-fg-3">Production</dt>
+            <dd className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="text-fg-2">branch {project.productionBranch ?? 'main'}</span>
+              {project.domain && (
+                <a href={`https://${project.domain}`} target="_blank" rel="noreferrer" className="text-accent hover:underline">
+                  {project.domain}
+                </a>
+              )}
+            </dd>
+            <dt className="text-fg-3">Previews</dt>
+            <dd className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              {project.previewBranches?.length ? (
+                project.previewBranches.map((b) => {
+                  const host = process.env.GUST_DOMAIN ? previewHost(b, project.slug, process.env.GUST_DOMAIN) : null;
+                  return host ? (
+                    <a key={b} href={`https://${host}`} target="_blank" rel="noreferrer" className="text-accent hover:underline">
+                      {b}
+                      <span className="ml-1.5 text-fg-3">{host}</span>
+                    </a>
+                  ) : (
+                    <span key={b} className="text-fg-2">
+                      {b}
+                    </span>
+                  );
+                })
+              ) : (
+                <span className="text-fg-3">none</span>
+              )}
+            </dd>
+          </dl>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {/* One app service: the service button already does everything, so no second Stop beside it. */}
