@@ -1,8 +1,8 @@
 'use client';
 
 import type { ObservedStack } from '@gust/contracts';
-import { ArrowsClockwise } from '@phosphor-icons/react/ssr';
 import { useCallback, useEffect, useState } from 'react';
+import { RefreshButton } from '@/components/RefreshButton';
 import { btn, Code, cx, PageHead, Panel, Table, Tag, Td } from '@/components/ui';
 import { authClient } from '@/lib/auth-client';
 import { useDemo } from '@/lib/demo';
@@ -18,6 +18,7 @@ export default function ObservedPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [armed, setArmed] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch('/api/observed', { cache: 'no-store' }).catch(() => null);
@@ -32,6 +33,12 @@ export default function ObservedPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  async function refresh() {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }
 
   async function restart(name: string) {
     if (armed !== name) {
@@ -55,12 +62,7 @@ export default function ObservedPage() {
       <PageHead
         title="Observed stacks"
         sub="Docker Compose projects under /opt/docker. Gust shows them and can restart them, nothing else."
-        actions={
-          <button type="button" className={btn.secondary} onClick={() => void load()}>
-            <ArrowsClockwise size={16} weight="bold" />
-            Refresh
-          </button>
-        }
+        actions={<RefreshButton onClick={() => void refresh()} loading={refreshing} />}
       />
 
       {error ? <p className="rounded-2xl border border-err/30 bg-err/10 px-5 py-3.5 text-[14px] text-err">{error}</p> : null}

@@ -25,7 +25,6 @@ export function useServerMetrics(range: Range) {
   const [data, setData] = useState<ServerView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [checkedAt, setCheckedAt] = useState<Date | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -33,7 +32,6 @@ export function useServerMetrics(range: Range) {
       if (!res.ok) throw new Error(String(res.status));
       setData((await res.json()) as ServerView);
       setError(null);
-      setCheckedAt(new Date());
     } catch {
       setError('Could not read the server metrics');
     }
@@ -59,5 +57,5 @@ export function useServerMetrics(range: Range) {
     announceServerChange();
   }, [load]);
 
-  return { data, error, loading, checkedAt, refresh };
+  return { data, error, loading, refresh };
 }

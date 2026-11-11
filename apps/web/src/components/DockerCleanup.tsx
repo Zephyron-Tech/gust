@@ -1,13 +1,13 @@
 'use client';
 
-import { ArrowsClockwise } from '@phosphor-icons/react/ssr';
 import { useCallback, useEffect, useState } from 'react';
 
 import { authClient } from '@/lib/auth-client';
 import { useDemo } from '@/lib/demo';
 import { size } from '@/lib/format';
 import { announceServerChange } from '@/lib/useServerMetrics';
-import { btn, cx, PageHead, Panel } from './ui';
+import { RefreshButton } from './RefreshButton';
+import { btn, PageHead, Panel } from './ui';
 
 type Usage = { unusedImages: number; unusedImageMb: number; stoppedGustContainers: number };
 
@@ -23,8 +23,6 @@ async function sampledAt(): Promise<string | null> {
   return view.snapshot?.at ?? null;
 }
 
-const clock = (d: Date) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
 /**
  * Removes what the host no longer uses: images no container runs, and stopped
  * containers Gust made. Volumes and the build cache are left alone. Admins act;
@@ -36,7 +34,6 @@ export function DockerCleanup() {
   const admin = (session?.user as { role?: string } | undefined)?.role === 'admin';
   const [usage, setUsage] = useState<Usage | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [checkedAt, setCheckedAt] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [armed, setArmed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -48,7 +45,6 @@ export function DockerCleanup() {
     if (!res?.ok) return setError('The engine did not answer.');
     setError(null);
     setUsage((await res.json()) as Usage);
-    setCheckedAt(new Date());
   }, []);
 
   useEffect(() => {
@@ -125,22 +121,11 @@ export function DockerCleanup() {
           ) : (
             <p className="text-fg-3">Reading the host…</p>
           )}
-          <p className="text-[13px] text-fg-3 tabular-nums" aria-live="polite">
-            {refreshing
-              ? 'Refreshing…'
-              : settling
-                ? 'Freed space shows after the host’s next sample, within a minute.'
-                : checkedAt
-                  ? `Checked ${clock(checkedAt)}`
-                  : ''}
-          </p>
+          {settling && <p className="text-[13px] text-fg-3">Freed space shows after the host’s next sample, within a minute.</p>}
         </div>
         {admin ? (
           <div className="flex items-center gap-2">
-            <button type="button" className={btn.secondary} onClick={() => void refresh()} disabled={busy || refreshing}>
-              <ArrowsClockwise size={16} weight="bold" className={cx(refreshing && 'animate-spin')} />
-              Refresh
-            </button>
+            <RefreshButton onClick={() => void refresh()} loading={refreshing} disabled={busy} />
             <button type="button" className={btn.primary} disabled={busy || !usage || !!nothing} onClick={() => void run()}>
               {busy ? 'Cleaning…' : armed ? 'Really clean up?' : 'Clean up'}
             </button>
