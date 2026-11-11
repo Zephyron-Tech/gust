@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { HOSTNAME, previewHost } from '@gust/contracts';
-import { auditEvents, db, deployments, type projects, serviceDomains, services } from '@gust/db';
+import { auditEvents, db, deployments, type projects, pullRequests, serviceDomains, services } from '@gust/db';
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 
 import { serverIp } from './public-url';
@@ -10,7 +10,13 @@ export type DomainState = 'pending_dns' | 'applying' | 'live' | 'error';
 
 export type ProductionDomain = { host: string; state: DomainState; error: string | null; checkedAt: string | null };
 /** `host` is null while GUST_DOMAIN is not set. */
-export type PreviewDomain = { branch: string; host: string | null; live: boolean };
+export type PreviewDomain = {
+  branch: string;
+  host: string | null;
+  live: boolean;
+  /** Set for a pull request preview (branch pr-<n>): its number and title. */
+  pr?: { number: number; title: string };
+};
 
 export type DomainsView = {
   /** The A record target; null until GUST_SERVER_IP is set. */
@@ -42,11 +48,26 @@ export async function listDomains({ s, p }: ServiceRow): Promise<DomainsView> {
     .from(deployments)
     .where(and(eq(deployments.serviceId, s.id), eq(deployments.state, 'live')));
   const liveBranches = new Set(live.map((l) => l.branch));
-  const previews = p.previewBranches.map((branch) => ({
+  const branchPreviews: PreviewDomain[] = p.previewBranches.map((branch) => ({
     branch,
     host: domain ? previewHost(branch, p.slug, domain) : null,
     live: liveBranches.has(branch),
   }));
+  // Open pull requests whose preview runs on this service right now.
+  const prs = await db
+    .select({ number: pullRequests.number, title: pullRequests.title })
+    .from(pullRequests)
+    .where(and(eq(pullRequests.projectId, p.id), eq(pullRequests.state, 'open')))
+    .orderBy(desc(pullRequests.updatedAt));
+  const prPreviews: PreviewDomain[] = prs
+    .filter((pr) => liveBranches.has(`pr-${pr.number}`))
+    .map((pr) => ({
+      branch: `pr-${pr.number}`,
+      host: domain ? previewHost(`pr-${pr.number}`, p.slug, domain) : null,
+      live: true,
+      pr: { number: pr.number, title: pr.title },
+    }));
+  const previews = [...branchPreviews, ...prPreviews];
 
   return { serverIp: serverIp(), cnameTarget: domain ?? null, production, previews };
 }

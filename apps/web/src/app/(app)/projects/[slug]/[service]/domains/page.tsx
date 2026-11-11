@@ -11,7 +11,7 @@ import { useDemo } from '@/lib/demo';
 
 type DomainState = 'pending_dns' | 'applying' | 'live' | 'error';
 type ProductionDomain = { host: string; state: DomainState; error: string | null; checkedAt: string | null };
-type PreviewDomain = { branch: string; host: string | null; live: boolean };
+type PreviewDomain = { branch: string; host: string | null; live: boolean; pr?: { number: number; title: string } };
 type DomainsView = { serverIp: string | null; cnameTarget: string | null; production: ProductionDomain[]; previews: PreviewDomain[] };
 
 const stateTag: Record<DomainState, [string, string]> = {
@@ -227,7 +227,9 @@ export default function DomainsPage({ params }: { params: Promise<{ slug: string
       <section className="space-y-3">
         <div className="flex items-baseline justify-between gap-4">
           <h2 className="text-[17px] font-medium">Previews</h2>
-          <p className="text-[13.5px] text-fg-3">Each preview branch gets its own host automatically. Branches are set in Settings.</p>
+          <p className="text-[13.5px] text-fg-3">
+            Each preview branch and open pull request gets its own host automatically. Branches are set in Settings.
+          </p>
         </div>
         <Panel className="overflow-hidden">
           {data?.previews.map((p, i) => (
@@ -249,7 +251,14 @@ export default function DomainsPage({ params }: { params: Promise<{ slug: string
               ) : (
                 <span className="truncate text-[15px] text-fg-2">{p.host}</span>
               )}
-              <EnvBadge env={{ kind: 'preview', branch: p.branch }} />
+              <span className="flex min-w-0 flex-col items-start gap-1">
+                <EnvBadge env={{ kind: 'preview', branch: p.branch }} />
+                {p.pr && (
+                  <span className="max-w-[260px] truncate text-[13px] text-fg-3">
+                    #{p.pr.number} {p.pr.title}
+                  </span>
+                )}
+              </span>
               <span className={cx('text-[13.5px]', p.live ? 'text-fg-2' : 'text-fg-3')}>{p.live ? 'Deployed' : 'No deploy yet'}</span>
             </div>
           ))}

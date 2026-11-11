@@ -8,6 +8,7 @@ import { Beacon } from '@/components/Beacon';
 import { ProjectPower } from '@/components/PowerControls';
 import { cx } from '@/components/ui';
 import { getProject } from '@/lib/data';
+import { openPullRequestPreviews } from '@/lib/pull-requests';
 import { EngineNotice, ProjectActions, ServiceTabs } from './nav';
 
 export default async function ServiceLayout({
@@ -19,6 +20,8 @@ export default async function ServiceLayout({
 }) {
   const { slug, service } = await params;
   const project = await getProject(slug);
+  // Open pull requests with a live preview, shown beside the preview branches.
+  const pullRequestPreviews = project ? await openPullRequestPreviews(slug, process.env.GUST_DOMAIN) : [];
   const svc = project?.services.find((s) => s.name === service);
   if (!project || !svc) notFound();
 
@@ -51,11 +54,25 @@ export default async function ServiceLayout({
             </dd>
             <dt className="text-fg-3">Previews</dt>
             <dd className="flex flex-wrap items-center gap-x-4 gap-y-1">
-              {project.previewBranches?.length ? (
-                project.previewBranches.map((b) => {
-                  const host = process.env.GUST_DOMAIN ? previewHost(b, project.slug, process.env.GUST_DOMAIN) : null;
-                  return <BranchHost key={b} branch={b} host={host} />;
-                })
+              {project.previewBranches?.length || pullRequestPreviews.length ? (
+                <>
+                  {project.previewBranches?.map((b) => {
+                    const host = process.env.GUST_DOMAIN ? previewHost(b, project.slug, process.env.GUST_DOMAIN) : null;
+                    return <BranchHost key={b} branch={b} host={host} />;
+                  })}
+                  {pullRequestPreviews.map((pr) => (
+                    <span key={pr.number} className="inline-flex items-center gap-2 text-[14px]">
+                      <span className="text-fg-2" title={pr.title}>
+                        PR #{pr.number}
+                      </span>
+                      {pr.host && (
+                        <a href={`https://${pr.host}`} target="_blank" rel="noreferrer" className="text-accent hover:underline">
+                          {pr.host}
+                        </a>
+                      )}
+                    </span>
+                  ))}
+                </>
               ) : (
                 <span className="text-fg-3">none</span>
               )}
