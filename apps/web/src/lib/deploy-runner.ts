@@ -3,7 +3,7 @@ import 'server-only';
 // Starts a deploy: checks the service, writes the deployment row and an audit
 // event, and puts a job on the queue. apps/worker picks it up, talks to the
 // engine and moves the state along; the UI reads the rows back.
-import { RUNNING_STATES } from '@gust/contracts';
+import { PR_BRANCH, RUNNING_STATES } from '@gust/contracts';
 import { auditEvents, db, deployments, projects, services } from '@gust/db';
 import { enqueueDeploy } from '@gust/db/queue';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
@@ -40,7 +40,10 @@ export async function startDeploy(input: {
   if (!row?.project.engine) throw new DeployError('This service is not deployed through the engine');
   const svc = row.service;
   const branch = input.branch ?? null;
-  if (branch && !row.project.previewBranches.includes(branch))
+  // A pull request preview (pr-<n>) is not listed in previewBranches. Only a GitHub deploy
+  // may name one, and that route has already checked the PR is open in this repository.
+  const pullRequest = input.push && branch && PR_BRANCH.test(branch);
+  if (branch && !pullRequest && !row.project.previewBranches.includes(branch))
     throw new DeployError(`${branch} is not a preview branch of ${input.project}. Add it in Settings → Branches.`);
 
   // A rollback redeploys the image tag stored with the target deployment. The
