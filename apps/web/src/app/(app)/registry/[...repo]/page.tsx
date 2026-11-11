@@ -53,9 +53,15 @@ export default async function RegistryTagsPage({ params }: { params: Promise<{ r
                   ) : (
                     <ul className="space-y-0.5">
                       {(live.get(t.tag) ?? []).map((u) => (
-                        <li key={`${u.project}/${u.service}/${u.branch ?? ''}`} className="text-ok">
-                          {u.project}/{u.service}
-                          {u.branch ? ` · ${u.branch}` : ' · production'}
+                        <li key={`${u.project}/${u.service}/${u.branch ?? ''}`} className="flex flex-wrap items-center gap-x-2 text-ok">
+                          <span>
+                            {u.project}/{u.service} · {u.label}
+                          </span>
+                          {u.url && (
+                            <a href={u.url} target="_blank" rel="noreferrer" className="text-fg-2 hover:text-accent">
+                              {u.url.replace(/^https:\/\//, '')}
+                            </a>
+                          )}
                         </li>
                       ))}
                     </ul>
