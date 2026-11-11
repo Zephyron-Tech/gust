@@ -26,9 +26,10 @@ export async function runDeploy(id: string) {
   const { d, s: svc, p } = row;
   if (d.state !== 'queued') return; // already handled
 
-  // Deploys from GitHub Actions report back to their commit.
+  // Deploys from GitHub Actions report back to their commit: production pushes,
+  // branch previews and pull request previews alike. Only those carry a commitSha.
   const report = (state: CommitState, error?: string | null) =>
-    d.trigger === 'push' && d.commitSha && p.githubRepo
+    d.commitSha && p.githubRepo
       ? setCommitStatus(
           {
             repository: p.githubRepo,
