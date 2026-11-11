@@ -125,14 +125,24 @@ only on Zephyron-Tech) with:
 A project lists its preview branches in the service's **Settings → Branches** (admins),
 or with `gust project set <slug> --preview dev` (comma-separated, empty clears them). A push to one deploys a separate copy of
 the service on `<branch>-<project>.<GUST_DOMAIN>` (branch name cut to one DNS
-label). The wildcard DNS record covers it; Traefik asks Let's Encrypt for a
-certificate for that host (HTTP-01). Preview and production never share a
+label). The wildcard DNS record covers it. When `GUST_WILDCARD_ZONES` lists
+`gust.zephyron.tech`, Traefik gets one `*.gust.zephyron.tech` certificate over
+DNS-01 (WEDOS); otherwise it asks Let's Encrypt for a certificate per host (HTTP-01). Preview and production never share a
 container or route. Env variables are set for **Production + Preview**,
 **Production** or **Preview**; one set for a single environment overrides the
 shared one with the same key. After a change, the Environment tab offers a
 redeploy only for the environments it reaches.
 Each push to a branch replaces that branch's previous preview. Previews are not
 removed when their branch is deleted yet.
+
+## Automatic domains for a new project
+
+A new project's main branch is served on `<slug>.<GUST_TEMP_DOMAIN>` (for example
+`demo.zephyron.tech`) with no DNS step. Zephyron's `*.zephyron.tech` wildcard record
+covers it, and the certificate is the shared `*.zephyron.tech` one. Set
+`GUST_TEMP_DOMAIN` in `/opt/gust/.env`. Previews stay on `*.gust.zephyron.tech`.
+Production domains you add yourself (Domains tab) are separate; a name under a
+wildcard zone uses the wildcard certificate, others use HTTP-01.
 
 ## Custom domains
 

@@ -51,6 +51,16 @@ ask GUST_DOMAIN "Gust domain" "$(existing GUST_DOMAIN | grep . || echo gust.zeph
 ask REGISTRY_DOMAIN "Registry domain" "$(existing REGISTRY_DOMAIN | grep . || echo "registry.$GUST_DOMAIN")"
 ask ACME_EMAIL "E-mail for Let's Encrypt" "$(existing ACME_EMAIL)"
 [ -n "$ACME_EMAIL" ] || die "An e-mail for Let's Encrypt is required."
+ask GUST_TEMP_DOMAIN "Temporary domain for a project's main branch (<slug>.<domain>, empty: none)" "$(existing GUST_TEMP_DOMAIN)"
+GUST_TEMP_DOMAIN="${GUST_TEMP_DOMAIN:-}"
+ask GUST_WILDCARD_ZONES "Zones with a wildcard DNS record, comma-separated (empty: per-host certificates only)" "$(existing GUST_WILDCARD_ZONES)"
+GUST_WILDCARD_ZONES="${GUST_WILDCARD_ZONES:-}"
+if [ -n "$GUST_WILDCARD_ZONES" ]; then
+  ask WEDOS_USERNAME "WEDOS API user (for DNS-01 wildcard certificates)" "$(existing WEDOS_USERNAME)"
+  ask WEDOS_WAPI_PASSWORD "WEDOS WAPI password" "$(existing WEDOS_WAPI_PASSWORD)" secret
+fi
+WEDOS_USERNAME="${WEDOS_USERNAME:-}"
+WEDOS_WAPI_PASSWORD="${WEDOS_WAPI_PASSWORD:-}"
 ask GHCR_USER "GitHub user for pulling the Gust image (empty: already logged in)" ""
 GHCR_TOKEN="${GHCR_TOKEN:-}"
 [ -n "$GHCR_USER" ] && ask GHCR_TOKEN "GitHub token with read:packages" "" secret
@@ -139,6 +149,10 @@ GUST_DOMAIN=$GUST_DOMAIN
 REGISTRY_DOMAIN=$REGISTRY_DOMAIN
 GUST_SERVER_IP=$GUST_SERVER_IP
 ACME_EMAIL=$ACME_EMAIL
+GUST_TEMP_DOMAIN=$GUST_TEMP_DOMAIN
+GUST_WILDCARD_ZONES=$GUST_WILDCARD_ZONES
+WEDOS_USERNAME=$WEDOS_USERNAME
+WEDOS_WAPI_PASSWORD=$WEDOS_WAPI_PASSWORD
 
 POSTGRES_PASSWORD=${pg:-$(randpw 32)}
 BETTER_AUTH_SECRET=${auth:-$(rand 32)}

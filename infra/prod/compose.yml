@@ -27,6 +27,11 @@ services:
       - --certificatesresolvers.le.acme.email=${ACME_EMAIL}
       - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
       - --certificatesresolvers.le.acme.httpchallenge.entrypoint=web
+      # Wildcard certificates (GUST_WILDCARD_ZONES) over DNS-01 through the WEDOS API. Each
+      # resolver needs its own storage file.
+      - --certificatesresolvers.wedos.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.wedos.acme.storage=/letsencrypt/acme-wedos.json
+      - --certificatesresolvers.wedos.acme.dnschallenge.provider=wedos
       - --providers.http.endpoint=http://engine:4100/internal/traefik
       - --providers.http.pollInterval=1s
       - --providers.http.headers.Authorization=Bearer ${ENGINE_TOKEN}
@@ -38,6 +43,8 @@ services:
     environment:
       GUST_DOMAIN: ${GUST_DOMAIN}
       REGISTRY_DOMAIN: ${REGISTRY_DOMAIN}
+      WEDOS_USERNAME: ${WEDOS_USERNAME:-}
+      WEDOS_WAPI_PASSWORD: ${WEDOS_WAPI_PASSWORD:-}
     volumes:
       - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
       - letsencrypt:/letsencrypt
@@ -152,6 +159,9 @@ services:
       HOST: 0.0.0.0
       PORT: 4100
       GUST_TLS_RESOLVER: ${GUST_TLS_RESOLVER-le}
+      # Zones with a wildcard DNS record, e.g. zephyron.tech,gust.zephyron.tech. Empty = HTTP-01 only.
+      GUST_WILDCARD_ZONES: ${GUST_WILDCARD_ZONES:-}
+      GUST_WILDCARD_RESOLVER: wedos
       REGISTRY_HOST: 127.0.0.1:5050
       REGISTRY_USERNAME: gust
       REGISTRY_PASSWORD: ${REGISTRY_PULL_PASSWORD}
@@ -182,6 +192,8 @@ services:
       BREAK_GLASS_PASSWORD: ${BREAK_GLASS_PASSWORD}
       GUST_SERVER_IP: ${GUST_SERVER_IP:-}
       GUST_DOMAIN: ${GUST_DOMAIN}
+      # Automatic host for a project's main branch: <slug>.<GUST_TEMP_DOMAIN>.
+      GUST_TEMP_DOMAIN: ${GUST_TEMP_DOMAIN:-}
       REGISTRY_DOMAIN: ${REGISTRY_DOMAIN}
       # Only whether a Discord webhook is set; the URL itself stays on the host.
       DISCORD_SET: ${DISCORD_WEBHOOK_URL:+yes}

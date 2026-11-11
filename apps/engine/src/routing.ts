@@ -25,9 +25,37 @@ export const routeName = (project: string, service: string, branch?: string | nu
 // Traefik resolver; locally it is unset and routes stay on plain HTTP.
 const tlsResolver = () => process.env.GUST_TLS_RESOLVER || undefined;
 
+// Zones with a wildcard DNS record (GUST_WILDCARD_ZONES, e.g. `zephyron.tech,gust.zephyron.tech`).
+// A host one label under such a zone gets one shared `*.zone` certificate, issued over DNS-01
+// by GUST_WILDCARD_RESOLVER (WEDOS), instead of an HTTP-01 certificate of its own.
+const wildcardZones = () =>
+  (process.env.GUST_WILDCARD_ZONES ?? '')
+    .split(',')
+    .map((z) => z.trim().toLowerCase())
+    .filter(Boolean);
+const wildcardResolver = () => process.env.GUST_WILDCARD_RESOLVER || 'wedos';
+
+/** `*.zone` when `host` is exactly one label under one of `zones`, else null. */
+export function wildcardFor(host: string, zones: string[]): string | null {
+  for (const zone of zones) {
+    const suffix = `.${zone}`;
+    if (!host.endsWith(suffix)) continue;
+    const label = host.slice(0, -suffix.length);
+    if (label && !label.includes('.')) return `*${suffix}`;
+  }
+  return null;
+}
+
+interface Router {
+  rule: string;
+  entryPoints: string[];
+  service: string;
+  tls?: { certResolver: string; domains?: { main: string }[] };
+}
+
 interface TraefikConfig {
   http: {
-    routers: Record<string, { rule: string; entryPoints: string[]; service: string; tls?: { certResolver: string } }>;
+    routers: Record<string, Router>;
     services: Record<string, { loadBalancer: { servers: { url: string }[]; passHostHeader: boolean } }>;
   };
 }
@@ -47,12 +75,24 @@ export async function traefikConfig(): Promise<TraefikConfig | Record<string, ne
     if (!project || !service || !domains.length || !port || !ip) continue;
     const name = routeName(project, service, c.Labels[LABEL.branch]);
     const resolver = tlsResolver();
-    cfg.http.routers[name] = {
-      rule: domains.map((d) => `Host(\`${d}\`)`).join(' || '),
-      entryPoints: [process.env.GUST_ENTRYPOINT ?? (resolver ? 'websecure' : 'web')],
-      service: name,
-      ...(resolver && { tls: { certResolver: resolver } }),
-    };
+    const zones = resolver ? wildcardZones() : [];
+    // Hosts under a wildcard zone share a router with the wildcard certificate; the rest keep HTTP-01.
+    const groups = new Map<string | null, string[]>();
+    for (const d of domains) {
+      const wild = wildcardFor(d, zones);
+      groups.set(wild, [...(groups.get(wild) ?? []), d]);
+    }
+    for (const [wild, hosts] of groups) {
+      const router = wild ? `${name}-wild-${wild.slice(2).replace(/\./g, '-')}` : name;
+      cfg.http.routers[router] = {
+        rule: hosts.map((h) => `Host(\`${h}\`)`).join(' || '),
+        entryPoints: [process.env.GUST_ENTRYPOINT ?? (resolver ? 'websecure' : 'web')],
+        service: name,
+        ...(resolver && {
+          tls: wild ? { certResolver: wildcardResolver(), domains: [{ main: wild }] } : { certResolver: resolver },
+        }),
+      };
+    }
     cfg.http.services[name] ??= { loadBalancer: { servers: [], passHostHeader: true } };
     const svc = cfg.http.services[name];
     svc.loadBalancer.servers.push({ url: `http://${ip}:${port}` });

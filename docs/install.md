@@ -14,6 +14,9 @@ registry, and the Gust image in four roles (migrate, engine, web, worker).
   pointing at the server, set at the domain's DNS provider (WEDOS for
   zephyron.tech). Certificates use the HTTP-01 challenge, so no DNS API
   token is needed; the names only have to resolve to the server.
+  Optional: a wildcard record `*.zephyron.tech` and `*.gust.zephyron.tech` to
+  the server, plus a WEDOS API user and WAPI password (installer asks), gives
+  one wildcard certificate per zone over DNS-01 instead of one per host.
 - **Image access:** a GitHub personal access token (classic) with only
   `read:packages`, from someone in Zephyron-Tech. The image is
   `ghcr.io/zephyron-tech/gust:latest`, published by `.github/workflows/image.yml`

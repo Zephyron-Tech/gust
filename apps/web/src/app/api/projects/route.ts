@@ -60,8 +60,12 @@ export async function POST(req: Request) {
   if (!env.success) errors.env = env.error.issues[0]?.message ?? 'Check the variables';
   if (checked.ok && !ownerAllowed(checked.value.repo)) errors.repo = 'Gust only deploys repositories of its own organisation';
   const gustDomain = process.env.GUST_DOMAIN;
-  if (checked.ok && !checked.value.domain && !gustDomain)
-    errors.domain = 'Enter a domain: GUST_DOMAIN is not set, so there is no automatic host';
+  const tempDomain = process.env.GUST_TEMP_DOMAIN;
+  if (checked.ok && !checked.value.domain && !tempDomain && !gustDomain)
+    errors.domain = 'Enter a domain: GUST_TEMP_DOMAIN is not set, so there is no automatic host';
+  // Previews live under GUST_DOMAIN; a custom domain there would clash with them.
+  if (checked.ok && gustDomain && checked.value.domain?.endsWith(`.${gustDomain}`))
+    errors.domain = `Use a domain outside ${gustDomain}; that zone is for previews`;
   if (!checked.ok || !env.success || Object.keys(errors).length)
     return Response.json({ error: 'Check the highlighted fields', errors }, { status: 400 });
   const v = checked.value;
@@ -72,9 +76,10 @@ export async function POST(req: Request) {
       { status: 400 },
     );
 
-  // The host production is served on now; a custom domain joins it once its DNS is right.
-  const host = gustDomain ? `${v.slug}.${gustDomain}` : (v.domain as string);
-  const custom = gustDomain ? v.domain : null;
+  // The host production is served on now: a temporary <slug>.<GUST_TEMP_DOMAIN> when set, else the
+  // old <slug>.<GUST_DOMAIN>. A custom domain joins it once its DNS is right.
+  const host = tempDomain ? `${v.slug}.${tempDomain}` : gustDomain ? `${v.slug}.${gustDomain}` : (v.domain as string);
+  const custom = tempDomain || gustDomain ? v.domain : null;
 
   const [existing] = await db.select({ id: projects.id }).from(projects).where(eq(projects.slug, v.slug));
   if (existing) return Response.json({ error: `Project ${v.slug} already exists`, errors: { slug: 'Already taken' } }, { status: 409 });

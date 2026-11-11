@@ -37,8 +37,8 @@ the server takes the same 6.4 s.
 
 2. GitHub OIDC token verification (JWKS, `aud`, `repository`, `ref`).
 3. Zot: robot accounts per project, retention and GC while running.
-4. Wildcard certificate for previews over DNS-01. zephyron.tech is on WEDOS
-   DNS, so this means Traefik's WEDOS (WAPI) provider, or one HTTP-01
-   certificate per preview domain without a wildcard.
+4. Done: wildcard certificates over DNS-01 through Traefik's WEDOS (WAPI)
+   provider for the zones in `GUST_WILDCARD_ZONES` (`*.zephyron.tech`,
+   `*.gust.zephyron.tech`). Verify on the server after the first deploy.
 5. Socket proxy: confirm the allowed sections cover pull, create, start,
    logs, events and stats in production (they do in dev).
